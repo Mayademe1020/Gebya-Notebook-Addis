@@ -6,8 +6,10 @@ import { LangProvider, useLang } from './context/LangContext';
 import ProfitCard from './components/ProfitCard';
 import TransactionForm from './components/TransactionForm';
 import EditTransactionSheet from './components/EditTransactionSheet';
-import MerroList from './components/MerroList';
-import CreditDetail from './components/CreditDetail';
+import CustomerList from './components/CustomerList';
+import CustomerDetail from './components/CustomerDetail';
+import CustomerForm from './components/CustomerForm';
+import CustomerTransactionSheet from './components/CustomerTransactionSheet';
 import HistoryView from './components/HistoryView';
 import SettingsPage from './components/SettingsPage';
 import OnboardingScreen from './components/OnboardingScreen';
@@ -21,6 +23,8 @@ import VoiceFixScreen from './components/VoiceFixScreen';
 import { getCurrentEthiopianDate, formatEthiopian } from './utils/ethiopianCalendar';
 import { fmt } from './utils/numformat';
 import { checkAndAwardBadges } from './utils/badges';
+import { buildCustomerSummaries, getCustomerBalance } from './utils/customerLedger';
+import { CUSTOMER_TRANSACTION_TYPES, isValidCustomerTransactionType } from './utils/customerTransactionTypes';
 
 const P = {
   bg: '#FAF8F5',
@@ -115,12 +119,14 @@ function AppInner() {
   const { hidden } = usePrivacy();
   const { lang, toggleLang, t } = useLang();
   const [transactions, setTransactions] = useState([]);
-  const [creditRecords, setCreditRecords] = useState([]);
-  const [creditPaymentLogs, setCreditPaymentLogs] = useState([]);
+  const [ledgerCustomers, setLedgerCustomers] = useState([]);
+  const [ledgerTransactions, setLedgerTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
   const [showForm, setShowForm] = useState(null);
-  const [selectedCredit, setSelectedCredit] = useState(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerTransactionModal, setCustomerTransactionModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
@@ -145,10 +151,10 @@ function AppInner() {
 
   const loadData = useCallback(async () => {
     try {
-      const [txns, credits, payLogs, nameRow, phoneRow, epRow, reRow, telegramRow, introRow] = await Promise.all([
+      const [txns, customerRows, customerTxRows, nameRow, phoneRow, epRow, reRow, telegramRow, introRow] = await Promise.all([
         db.transactions.toArray(),
-        db.credit_records.toArray(),
-        db.credit_payment_logs.toArray(),
+        db.customers.toArray(),
+        db.customer_transactions.toArray(),
         db.settings.get('shop_name'),
         db.settings.get('shop_phone'),
         db.settings.get('enabled_payment_methods'),
@@ -158,8 +164,8 @@ function AppInner() {
       ]);
       txns.sort((a, b) => b.created_at - a.created_at);
       setTransactions(txns);
-      setCreditRecords(credits);
-      setCreditPaymentLogs(payLogs);
+      setLedgerCustomers(customerRows);
+      setLedgerTransactions(customerTxRows);
       const hasName = !!nameRow?.value;
       setShopProfile({
         name: nameRow?.value || null,
@@ -272,30 +278,8 @@ function AppInner() {
       const newTxn = {
         ...transaction,
         ethiopian_date: formatEthiopian(now),
-        customer_name: transaction.type === 'credit' ? transaction.item_name : null,
+        customer_name: null,
       };
-
-      let creditRecordId = null;
-      let newCustomerId = null;
-      if (transaction.type === 'credit') {
-        newCustomerId = await db.customers.add({
-          name: transaction.item_name,
-          phone: transaction.customer_phone || null,
-          total_debt: transaction.amount,
-        });
-        creditRecordId = await db.credit_records.add({
-          customer_id: newCustomerId,
-          customer_name: transaction.item_name,
-          customer_phone: transaction.customer_phone || null,
-          original_amount: transaction.amount,
-          paid_amount: 0,
-          remaining_amount: transaction.amount,
-          due_date: transaction.due_date,
-          status: 'active',
-          created_at: transaction.created_at,
-          direction: transaction.direction || 'owes_me',
-        });
-      }
 
       const id = await db.transactions.add(newTxn);
       const saved = await db.transactions.get(id);
@@ -309,10 +293,6 @@ function AppInner() {
         checkBestDay(todayTotal);
         return updated;
       });
-
-      if (transaction.type === 'credit') {
-        setCreditRecords(await db.credit_records.toArray());
-      }
 
       if (transaction.type === 'sale' || transaction.type === 'expense') {
         const pType = transaction.payment_type || 'cash';
@@ -331,7 +311,7 @@ function AppInner() {
         });
       }
 
-      const fcKey = { sale: 'sales', expense: 'expenses', credit: 'credits' }[transaction.type];
+      const fcKey = { sale: 'sales', expense: 'expenses' }[transaction.type];
       if (fcKey) {
         try {
           const fcRow = await db.analytics.get('feature_counts');
@@ -348,16 +328,11 @@ function AppInner() {
         } catch { /* non-critical */ }
       }
 
-      const toastMsg = { sale: t.saleSaved, expense: t.expenseSaved, credit: t.creditSaved }[transaction.type] || '✓';
+      const toastMsg = { sale: t.saleSaved, expense: t.expenseSaved }[transaction.type] || '✓';
       fireToast(toastMsg, 4000, async () => {
         try {
           await db.transactions.delete(id);
           setTransactions(prev => prev.filter(t2 => t2.id !== id));
-          if (creditRecordId !== null) {
-            await db.credit_records.delete(creditRecordId);
-            if (newCustomerId !== null) await db.customers.delete(newCustomerId);
-            setCreditRecords(await db.credit_records.toArray());
-          }
           fireToast(t.undone, 2000);
         } catch { /* non-critical */ }
       });
@@ -414,28 +389,6 @@ function AppInner() {
       await db.transactions.update(id, { ...updates, updated_at: Date.now() });
       const updated = await db.transactions.get(id);
       setTransactions(prev => prev.map(t2 => t2.id === id ? updated : t2));
-
-      if (updated?.type === 'credit' && updated.customer_name) {
-        const matching = await db.credit_records.where('customer_name').equals(updated.customer_name).first();
-        if (matching) {
-          const creditUpdates = {
-            customer_name: updates.item_name || matching.customer_name,
-            customer_phone: updates.customer_phone ?? matching.customer_phone,
-            due_date: updates.due_date ?? matching.due_date,
-            direction: updates.direction ?? matching.direction,
-          };
-          if (updates.amount !== undefined && updates.amount !== matching.original_amount) {
-            const diff = updates.amount - matching.original_amount;
-            const newOriginal = updates.amount;
-            const newRemaining = Math.max(0, matching.remaining_amount + diff);
-            creditUpdates.original_amount = newOriginal;
-            creditUpdates.remaining_amount = newRemaining;
-            creditUpdates.status = newRemaining <= 0 ? 'paid' : 'active';
-          }
-          await db.credit_records.update(matching.id, creditUpdates);
-          setCreditRecords(await db.credit_records.toArray());
-        }
-      }
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to update:', err);
       alert('Could not update. Please try again.');
@@ -453,99 +406,85 @@ function AppInner() {
     }
   };
 
-  const handlePartialPayment = async (creditId, amount, paymentMethod = null) => {
-    try {
-      const record = await db.credit_records.get(creditId);
-      if (!record) return;
-      const newPaid = (record.paid_amount || 0) + amount;
-      const newRemaining = record.original_amount - newPaid;
-      const newStatus = newRemaining <= 0 ? 'paid' : 'active';
-      await db.credit_records.update(creditId, {
-        paid_amount: newPaid,
-        remaining_amount: Math.max(0, newRemaining),
-        status: newStatus,
-      });
-      await db.credit_payment_logs.add({
-        credit_record_id: creditId,
-        amount,
-        payment_method: paymentMethod || null,
-        paid_at: Date.now(),
-      });
-      const [credits, payLogs] = await Promise.all([
-        db.credit_records.toArray(),
-        db.credit_payment_logs.toArray(),
-      ]);
-      setCreditRecords(credits);
-      setCreditPaymentLogs(payLogs);
-      if (selectedCredit?.id === creditId) {
-        const updated = credits.find(c => c.id === creditId);
-        setSelectedCredit(newStatus === 'paid' ? null : (updated || null));
-      }
-
-      if (newStatus === 'paid') {
-        try {
-          const crRow = await db.analytics.get('credits_repaid');
-          const newCount = (crRow?.value || 0) + 1;
-          await db.analytics.put({ key: 'credits_repaid', value: newCount });
-          setUsageStats(prev => {
-            if (!prev) return prev;
-            const updated2 = { ...prev, creditsRepaid: newCount };
-            checkAndAwardBadges(updated2, lang).then(setEarnedBadges);
-            return updated2;
-          });
-        } catch { /* non-critical */ }
-      }
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to record payment:', err);
-    }
-  };
-
-  const handleFullPayment = async (creditId, paymentMethod = null) => {
-    try {
-      const record = await db.credit_records.get(creditId);
-      if (!record) return;
-      if (record.status === 'paid' || record.remaining_amount <= 0) return;
-      const amountPaid = record.remaining_amount;
-      await db.credit_records.update(creditId, {
-        paid_amount: record.original_amount,
-        remaining_amount: 0,
-        status: 'paid',
-      });
-      await db.credit_payment_logs.add({
-        credit_record_id: creditId,
-        amount: amountPaid,
-        payment_method: paymentMethod || null,
-        paid_at: Date.now(),
-      });
-      const [credits, payLogs] = await Promise.all([
-        db.credit_records.toArray(),
-        db.credit_payment_logs.toArray(),
-      ]);
-      setCreditRecords(credits);
-      setCreditPaymentLogs(payLogs);
-      setSelectedCredit(null);
-
-      try {
-        const crRow = await db.analytics.get('credits_repaid');
-        const newCount = (crRow?.value || 0) + 1;
-        await db.analytics.put({ key: 'credits_repaid', value: newCount });
-        setUsageStats(prev => {
-          if (!prev) return prev;
-          const updated = { ...prev, creditsRepaid: newCount };
-          checkAndAwardBadges(updated, lang).then(setEarnedBadges);
-          return updated;
-        });
-      } catch { /* non-critical */ }
-    } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to mark paid:', err);
-    }
-  };
-
   const handleProfileSave = async (name, phone, telegram) => {
     await db.settings.put({ key: 'shop_name', value: name });
     await db.settings.put({ key: 'shop_phone', value: phone });
     await db.settings.put({ key: 'shop_telegram', value: telegram || '' });
     setShopProfile({ name, phone, telegram: telegram || '' });
+  };
+
+  const customerSummaries = useMemo(
+    () => buildCustomerSummaries(ledgerCustomers, ledgerTransactions),
+    [ledgerCustomers, ledgerTransactions]
+  );
+
+  const selectedCustomer = useMemo(
+    () => customerSummaries.find(c => c.id === selectedCustomerId) || null,
+    [customerSummaries, selectedCustomerId]
+  );
+
+  const handleAddCustomer = async (payload) => {
+    const now = Date.now();
+    const id = await db.customers.add({
+      display_name: payload.display_name,
+      note: payload.note || null,
+      phone_number: payload.phone_number || null,
+      telegram_username: payload.telegram_username || null,
+      telegram_chat_id: null,
+      created_at: now,
+      updated_at: now,
+    });
+    const saved = await db.customers.get(id);
+    setLedgerCustomers(prev => [...prev, saved]);
+    setShowCustomerForm(false);
+    setSelectedCustomerId(id);
+    setActiveTab('merro');
+    fireToast('Customer saved', 1800);
+  };
+
+  const handleSaveCustomerTransaction = async (payload) => {
+    if (!isValidCustomerTransactionType(payload.type)) return;
+    const now = Date.now();
+    const entry = {
+      customer_id: payload.customer_id,
+      type: payload.type,
+      amount: payload.amount,
+      item_note: payload.item_note || null,
+      due_date: payload.due_date || null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const id = await db.customer_transactions.add(entry);
+    const saved = await db.customer_transactions.get(id);
+
+    setLedgerTransactions(prev => [saved, ...prev]);
+    await db.customers.update(payload.customer_id, { updated_at: now });
+    setLedgerCustomers(prev => prev.map(c => c.id === payload.customer_id ? { ...c, updated_at: now } : c));
+    setCustomerTransactionModal(null);
+
+    if (payload.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) {
+      try {
+        const fcRow = await db.analytics.get('feature_counts');
+        let fc = { sales: 0, expenses: 0, credits: 0 };
+        try { fc = fcRow ? JSON.parse(fcRow.value) : fc; } catch { /* keep default */ }
+        fc.credits = (fc.credits || 0) + 1;
+        await db.analytics.put({ key: 'feature_counts', value: JSON.stringify(fc) });
+        setUsageStats(prev => prev ? { ...prev, featureCounts: fc } : prev);
+      } catch { /* non-critical */ }
+    }
+
+    const customer = ledgerCustomers.find(c => c.id === payload.customer_id);
+    if (customer?.telegram_username) {
+      const nextCustomerTx = [saved, ...ledgerTransactions].filter(tx => tx.customer_id === payload.customer_id);
+      const nextBalance = getCustomerBalance(nextCustomerTx);
+      const txText = payload.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'Payment' : 'Credit';
+      const message = `${txText}: ${fmt(payload.amount)} birr\nBalance: ${fmt(nextBalance)} birr`;
+      if (window.confirm('Notify customer on Telegram?')) {
+        const handle = customer.telegram_username.startsWith('@') ? customer.telegram_username.slice(1) : customer.telegram_username;
+        window.open(`https://t.me/${handle}?text=${encodeURIComponent(message)}`, '_blank');
+      }
+    }
   };
 
   const todayDateStr = new Date().toDateString();
@@ -789,7 +728,14 @@ function AppInner() {
             return (
               <button
                 key={b.type}
-                onClick={() => setShowForm(b.type)}
+                onClick={() => {
+                  if (b.type === 'credit') {
+                    setActiveTab('merro');
+                    setShowCustomerForm(true);
+                    return;
+                  }
+                  setShowForm(b.type);
+                }}
                 onPointerDown={() => setPressedBtn(b.type)}
                 onPointerUp={() => setPressedBtn(null)}
                 onPointerLeave={() => setPressedBtn(null)}
@@ -902,18 +848,24 @@ function AppInner() {
         )}
 
         {activeTab === 'merro' && (
-          selectedCredit ? (
-            <CreditDetail
-              record={selectedCredit}
-              onBack={() => setSelectedCredit(null)}
-              onPartialPayment={handlePartialPayment}
-              onFullPayment={handleFullPayment}
-              paymentLogs={creditPaymentLogs.filter(l => l.credit_record_id === selectedCredit.id)}
+          selectedCustomer ? (
+            <CustomerDetail
+              customer={selectedCustomer}
+              onBack={() => setSelectedCustomerId(null)}
+              onAddCredit={() => setCustomerTransactionModal({
+                mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+                customer: selectedCustomer,
+              })}
+              onRecordPayment={() => setCustomerTransactionModal({
+                mode: CUSTOMER_TRANSACTION_TYPES.PAYMENT,
+                customer: selectedCustomer,
+              })}
             />
           ) : (
-            <MerroList
-              creditRecords={creditRecords}
-              onSelectCredit={setSelectedCredit}
+            <CustomerList
+              customers={customerSummaries}
+              onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
+              onAddCustomer={() => setShowCustomerForm(true)}
             />
           )
         )}
@@ -929,7 +881,7 @@ function AppInner() {
           <SettingsPage
             transactions={transactions}
             todayTransactions={todayTransactions}
-            creditRecords={creditRecords}
+            customerSummaries={customerSummaries}
             shopProfile={shopProfile}
             onProfileSave={handleProfileSave}
             enabledProviders={enabledProviders}
@@ -952,7 +904,10 @@ function AppInner() {
             return (
               <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setSelectedCredit(null); }}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setSelectedCustomerId(null);
+                }}
                 className="flex-1 flex flex-col items-center gap-0.5 py-2 min-h-[60px] transition-colors press-scale"
                 style={{
                   background: isActive ? 'rgba(27,67,50,0.07)' : 'transparent',
@@ -983,6 +938,22 @@ function AppInner() {
             bank:   lastPayment[showForm]?.bankProvider   || '',
             wallet: lastPayment[showForm]?.walletProvider || '',
           } : undefined}
+        />
+      )}
+
+      {showCustomerForm && (
+        <CustomerForm
+          onSave={handleAddCustomer}
+          onDone={() => setShowCustomerForm(false)}
+        />
+      )}
+
+      {customerTransactionModal && (
+        <CustomerTransactionSheet
+          customer={customerTransactionModal.customer}
+          mode={customerTransactionModal.mode}
+          onSave={handleSaveCustomerTransaction}
+          onDone={() => setCustomerTransactionModal(null)}
         />
       )}
 

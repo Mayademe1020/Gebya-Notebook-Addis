@@ -15,7 +15,7 @@ const FREQ_LABELS_AM = { daily: 'ዕለታዊ', weekly: 'ሳምንታዊ', month
 function SettingsPage({
   transactions,
   todayTransactions,
-  creditRecords,
+  customerSummaries,
   shopProfile,
   onProfileSave,
   enabledProviders,
@@ -115,8 +115,8 @@ function SettingsPage({
   const clearAllData = async () => {
     await Promise.all([
       db.transactions.clear(),
-      db.credit_records.clear(),
       db.customers.clear(),
+      db.customer_transactions.clear(),
     ]);
     setCleared(true);
     setShowClearConfirm(false);
@@ -225,7 +225,7 @@ function SettingsPage({
   };
 
   const totalEntries = transactions.length;
-  const totalCredits = creditRecords.length;
+  const totalCredits = customerSummaries.length;
   const currentFullPhone = '+251' + editPhoneDigits;
   const profileChanged = (
     editName.trim() !== (shopProfile?.name || '') ||
