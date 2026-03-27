@@ -37,6 +37,24 @@ const P = {
   borderLight: '#f0ede8',
 };
 
+function buildTelegramMessageUrl(value, message) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+
+  if (/^https?:\/\/t\.me\//i.test(trimmed)) {
+    const separator = trimmed.includes('?') ? '&' : '?';
+    return `${trimmed}${separator}text=${encodeURIComponent(message)}`;
+  }
+
+  if (/^t\.me\//i.test(trimmed)) {
+    return `https://${trimmed}?text=${encodeURIComponent(message)}`;
+  }
+
+  const handle = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+  if (!handle) return null;
+  return `https://t.me/${handle}?text=${encodeURIComponent(message)}`;
+}
+
 function ShareModal({ summary, telegram, onClose, t }) {
   const isUsername = telegram?.startsWith('@') && telegram.length > 1;
   const handle = isUsername ? telegram.slice(1) : null;
@@ -444,11 +462,28 @@ function AppInner() {
 
   const handleSaveCustomerTransaction = async (payload) => {
     if (!isValidCustomerTransactionType(payload.type)) return;
+    const customer = customerSummaries.find(c => c.id === payload.customer_id);
+    if (!customer) {
+      fireToast('Customer not found', 2200);
+      return;
+    }
+
+    const amount = Number(payload.amount) || 0;
+    if (amount <= 0) {
+      fireToast('Enter a valid amount', 2200);
+      return;
+    }
+
+    if (payload.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT && amount > Math.max(customer.balance || 0, 0)) {
+      fireToast('Payment is more than the current balance', 2600);
+      return;
+    }
+
     const now = Date.now();
     const entry = {
       customer_id: payload.customer_id,
       type: payload.type,
-      amount: payload.amount,
+      amount,
       item_note: payload.item_note || null,
       due_date: payload.due_date || null,
       created_at: now,
@@ -474,15 +509,14 @@ function AppInner() {
       } catch { /* non-critical */ }
     }
 
-    const customer = ledgerCustomers.find(c => c.id === payload.customer_id);
     if (customer?.telegram_username) {
       const nextCustomerTx = [saved, ...ledgerTransactions].filter(tx => tx.customer_id === payload.customer_id);
       const nextBalance = getCustomerBalance(nextCustomerTx);
       const txText = payload.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'Payment' : 'Credit';
-      const message = `${txText}: ${fmt(payload.amount)} birr\nBalance: ${fmt(nextBalance)} birr`;
-      if (window.confirm('Notify customer on Telegram?')) {
-        const handle = customer.telegram_username.startsWith('@') ? customer.telegram_username.slice(1) : customer.telegram_username;
-        window.open(`https://t.me/${handle}?text=${encodeURIComponent(message)}`, '_blank');
+      const message = `${txText}: ${fmt(amount)} birr\nBalance: ${fmt(nextBalance)} birr`;
+      const telegramUrl = buildTelegramMessageUrl(customer.telegram_username, message);
+      if (telegramUrl && window.confirm('Notify customer on Telegram?')) {
+        window.open(telegramUrl, '_blank');
       }
     }
   };

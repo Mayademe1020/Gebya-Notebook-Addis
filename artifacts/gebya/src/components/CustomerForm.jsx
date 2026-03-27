@@ -5,7 +5,8 @@ function normalizeTelegram(value) {
   const trimmed = value.trim();
   if (!trimmed) return '';
   if (trimmed.startsWith('@')) return trimmed;
-  if (trimmed.startsWith('https://t.me/')) return trimmed;
+  if (/^https?:\/\/t\.me\//i.test(trimmed)) return trimmed;
+  if (/^t\.me\//i.test(trimmed)) return `https://${trimmed}`;
   return `@${trimmed.replace(/^@+/, '')}`;
 }
 

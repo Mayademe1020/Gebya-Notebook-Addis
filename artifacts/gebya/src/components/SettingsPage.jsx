@@ -225,7 +225,7 @@ function SettingsPage({
   };
 
   const totalEntries = transactions.length;
-  const totalCredits = customerSummaries.length;
+  const totalCustomersWithLedger = customerSummaries.length;
   const currentFullPhone = '+251' + editPhoneDigits;
   const profileChanged = (
     editName.trim() !== (shopProfile?.name || '') ||
@@ -713,7 +713,7 @@ function SettingsPage({
             </div>
             <div className="flex-1">
               <div className="font-bold text-gray-800">{t.storedOnDevice}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{totalEntries} entries · {totalCredits} credit records</div>
+              <div className="text-xs text-gray-500 mt-0.5">{totalEntries} entries · {totalCustomersWithLedger} customers in credit ledger</div>
             </div>
           </div>
 
@@ -774,7 +774,7 @@ function SettingsPage({
             <div className="text-4xl text-center mb-3">⚠️</div>
             <h3 className="text-xl font-bold text-gray-900 text-center mb-2">{t.clearConfirm}</h3>
             <p className="text-sm text-gray-500 text-center mb-6">
-              {t.clearConfirmMsg.replace('{count}', totalEntries).replace('{credits}', totalCredits)}
+              {t.clearConfirmMsg.replace('{count}', totalEntries).replace('{credits}', totalCustomersWithLedger)}
             </p>
             <div className="space-y-2">
               <button onClick={clearAllData} className="w-full p-4 bg-red-500 text-white rounded-2xl font-bold min-h-[52px]">
