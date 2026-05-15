@@ -1,10 +1,43 @@
-import { useState } from 'react';
-import { X, ChevronDown, ChevronUp, Save, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, ChevronDown, ChevronUp, Save, AlertTriangle, CheckCircle2, Plus, Camera } from 'lucide-react';
 import { useLang } from '../context/LangContext';
+import StepIndicator from './StepIndicator';
 import PaymentTypeChips from './PaymentTypeChips';
+import InlineVoiceRecorder from './InlineVoiceRecorder';
+import { fireToast } from './Toast';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
-import { db } from '../db';
+import db from '../db';
+
+const DRAFT_KEY = 'gebya_sale_draft';
+const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function loadDraft() {
+  try {
+    const stored = localStorage.getItem(DRAFT_KEY);
+    if (!stored) return null;
+    const draft = JSON.parse(stored);
+    if (draft.savedAt && Date.now() - draft.savedAt > DRAFT_EXPIRY_MS) {
+      localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(data) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, savedAt: Date.now() }));
+  } catch { /* ignore */ }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch { /* ignore */ }
+}
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -13,30 +46,36 @@ function handleNumericInput(e, setter) {
   setter(raw);
 }
 
-function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntries = [], recurringExpenses, onRecurringChange, initialPaymentType, initialPaymentProvider, lastPaymentHistory, customerSuggestions = [] }) {
-  const { t } = useLang();
+const ACCENT = {
+  green: { btn: '#2d6a4f', shadow: '#1B4332' },
+  red:   { btn: '#D4654A', shadow: '#a84c37' },
+  amber: { btn: '#C4883A', shadow: '#96662b' },
+};
 
-  const configs = {
-    sale:    { title: t.iSoldSomething,  itemLabel: t.whatDidYouSell,    itemPlaceholder: t.sellPlaceholder,       amountLabel: t.howMuchTotal,  buttonText: t.saveSale,    color: 'green',  addAnother: t.addAnotherSale },
-    expense: { title: t.iSpentSomething, itemLabel: t.whatDidYouSpendOn, itemPlaceholder: t.spendPlaceholder,      amountLabel: t.howMuchTotal,  buttonText: t.saveExpense, color: 'red',    addAnother: t.addAnotherExpense },
-    credit:  { title: t.recordCredit,    itemLabel: t.creditNameLabel,   itemPlaceholder: t.creditNamePlaceholder, amountLabel: t.amount,        buttonText: t.saveCredit,  color: 'amber',  addAnother: '' },
-  };
+function TransactionForm({
+  type, onSave, onDone, enabledProviders, catalogEntries = [], recurringExpenses,
+  onRecurringChange, initialPaymentType, initialPaymentProvider, customerSuggestions = [],
+  onVoiceResult, hasUnsavedChanges, onKeepDraft, onDiscardDraft,
+}) {
+  const { t, lang } = useLang();
 
-  const config = configs[type] || configs.sale;
-  const isCredit = type === 'credit';
+  const isCredit  = type === 'credit';
   const isExpense = type === 'expense';
-  const accent = {
-    green: { btn: '#2d6a4f', shadow: '#1B4332' },
-    red:   { btn: '#D4654A', shadow: '#a84c37' },
-    amber: { btn: '#C4883A', shadow: '#96662b' },
-  }[config.color];
+  const isSale    = type === 'sale';
+  const accent = ACCENT[type === 'credit' ? 'amber' : type === 'expense' ? 'red' : 'green'];
+
+  const config = {
+    sale:    { title: t.iSoldSomething, amountLabel: t.howMuchTotal, itemLabel: t.whatDidYouSell, itemPlaceholder: t.sellPlaceholder, buttonText: t.saveSale },
+    expense: { title: t.iSpentSomething, amountLabel: t.howMuchTotal, itemLabel: t.whatDidYouSpendOn, itemPlaceholder: t.spendPlaceholder, buttonText: t.saveExpense },
+    credit:  { title: t.recordCredit,    amountLabel: t.amount,        itemLabel: t.creditNameLabel,   itemPlaceholder: t.creditNamePlaceholder, buttonText: t.saveCredit },
+  }[type] || {};
 
   const [item, setItem] = useState('');
   const [catalogEntryId, setCatalogEntryId] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [amount, setAmount] = useState('');
   const [costPrice, setCostPrice] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [phoneDigits, setPhoneDigits] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [selectedDue, setSelectedDue] = useState(null);
@@ -50,20 +89,73 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
   const [creditDirection, setCreditDirection] = useState('owes_me');
   const [saveState, setSaveState] = useState('idle');
   const [lastSaved, setLastSaved] = useState(null);
-
   const [showAddRecurring, setShowAddRecurring] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [photo, setPhoto] = useState(null);
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [addRecurringHint, setAddRecurringHint] = useState(false);
   const [popupName, setPopupName] = useState('');
   const [popupAmount, setPopupAmount] = useState('');
   const [popupFreq, setPopupFreq] = useState('monthly');
-  const [addRecurringHint, setAddRecurringHint] = useState(false);
-
+  const selectedCatalogEntry = catalogEntries.find(e => String(e.id) === String(catalogEntryId));
   const dueDateOptions = getDueDateOptions();
-  const selectedCatalogEntry = catalogEntries.find(entry => String(entry.id) === String(catalogEntryId)) || null;
+
+  const [currentStep, setCurrentStep] = useState('details');
+  const [step1Error, setStep1Error] = useState('');
+  const [step2Error, setStep2Error] = useState('');
+
+  useEffect(() => {
+    if (!isSale) return;
+    const draft = loadDraft();
+    if (draft) {
+      setItem(draft.item || '');
+      setAmount(draft.amount || '');
+      setPaymentType(draft.paymentType || initialPaymentType || 'cash');
+      setPaymentProvider(draft.paymentProvider || initialPaymentProvider || '');
+      setSaleSettlementMode(draft.saleSettlementMode || 'paid_now');
+      setSaleCustomerName(draft.saleCustomerName || '');
+      setPaidAmount(draft.paidAmount || '');
+      setSaleDueDate(draft.saleDueDate || '');
+      setQuantity(draft.quantity || '1');
+      setCostPrice(draft.costPrice || '');
+      setShowMoreDetails(draft.showMoreDetails || false);
+      if (draft.photo) setPhoto(draft.photo);
+
+      const rawStep = draft.currentStep || 'details';
+      let safeStep = rawStep;
+      const draftSettlement = draft.saleSettlementMode || 'paid_now';
+      if (rawStep === 'review') {
+        if (draftSettlement === 'pay_later' && !draft.saleCustomerName?.trim()) safeStep = 'payment';
+        if (draftSettlement === 'paid_partly' && !(draft.paidAmount > 0) && !draft.saleCustomerName?.trim()) safeStep = 'payment';
+        if (!draft.amount || !draft.item?.trim()) safeStep = 'details';
+      }
+      if (rawStep === 'payment' && (!draft.amount || !draft.item?.trim())) safeStep = 'details';
+      setCurrentStep(safeStep);
+      setDraftRestored(true);
+      setTimeout(() => setDraftRestored(false), 3000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isSale || saveState === 'success') return;
+    const timer = setTimeout(() => {
+      saveDraft({
+        item, amount, paymentType, paymentProvider, saleSettlementMode,
+        saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
+        photo, currentStep,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [item, amount, paymentType, paymentProvider, saleSettlementMode, saleCustomerName,
+      paidAmount, saleDueDate, quantity, costPrice, showMoreDetails, photo, currentStep,
+      isSale, saveState]);
+
+  const autoAdvanceTimer = useRef(null);
+
   const sellingPrice = parseFloat(parseInput(amount)) || 0;
   const cost = parseFloat(parseInput(costPrice)) || 0;
   const qty = Math.max(1, parseInt(quantity) || 1);
-  const belowCost = !isCredit && cost > 0 && sellingPrice < cost * qty;
-  const isSale = type === 'sale';
   const parsedPaidAmount = parseFloat(parseInput(paidAmount)) || 0;
   const requiresCustomerBalance = isSale && saleSettlementMode !== 'paid_now';
   const remainingAmount = !isSale
@@ -80,40 +172,95 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
       : saleSettlementMode === 'pay_later'
         ? 0
         : parsedPaidAmount;
+  const belowCost = !isCredit && cost > 0 && sellingPrice < cost * qty;
   const normalizedCustomerQuery = saleCustomerName.trim().toLowerCase();
   const matchedCustomers = requiresCustomerBalance && normalizedCustomerQuery
-    ? customerSuggestions
-      .filter((customer) => {
-        const name = String(customer.display_name || '').toLowerCase();
-        const note = String(customer.note || '').toLowerCase();
+    ? customerSuggestions.filter(c => {
+        const name = String(c.display_name || '').toLowerCase();
+        const note = String(c.note || '').toLowerCase();
         return name.includes(normalizedCustomerQuery) || note.includes(normalizedCustomerQuery);
-      })
-      .slice(0, 5)
+      }).slice(0, 5)
     : [];
   const selectedExistingCustomer = requiresCustomerBalance
-    ? customerSuggestions.find((customer) => String(customer.display_name || '').trim().toLowerCase() === normalizedCustomerQuery) || null
+    ? customerSuggestions.find(c => String(c.display_name || '').trim().toLowerCase() === normalizedCustomerQuery) || null
     : null;
-  const currentCustomerBalance = Math.max(Number(selectedExistingCustomer?.balance || 0), 0);
-  const nextCustomerBalance = currentCustomerBalance + remainingAmount;
+  const nextCustomerBalance = Math.max(Number(selectedExistingCustomer?.balance || 0), 0) + remainingAmount;
 
-  const phoneValid = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
+  useEffect(() => {
+    if (!isSale || saveState === 'success') return;
+    if (currentStep === 'details') {
+      const step1Valid = sellingPrice > 0 && item.trim().length > 0;
+      if (step1Valid) {
+        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = setTimeout(() => {
+          if (currentStep === 'details') setCurrentStep('payment');
+        }, 800);
+      } else {
+        if (autoAdvanceTimer.current) { clearTimeout(autoAdvanceTimer.current); autoAdvanceTimer.current = null; }
+      }
+    } else if (currentStep === 'payment') {
+      let step2Valid = false;
+      if (saleSettlementMode === 'paid_now') step2Valid = true;
+      else if (saleSettlementMode === 'paid_partly') step2Valid = parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice && saleCustomerName.trim().length > 0;
+      else if (saleSettlementMode === 'pay_later') step2Valid = saleCustomerName.trim().length > 0;
+      if (step2Valid) {
+        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+        autoAdvanceTimer.current = setTimeout(() => {
+          if (currentStep === 'payment') setCurrentStep('review');
+        }, 800);
+      } else {
+        if (autoAdvanceTimer.current) { clearTimeout(autoAdvanceTimer.current); autoAdvanceTimer.current = null; }
+      }
+    }
+    return () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); };
+  }, [isSale, saveState, currentStep, sellingPrice, item, saleSettlementMode, parsedPaidAmount, saleCustomerName]);
+
+  const phoneValid  = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
   const phoneEntered = phoneDigits.length > 0;
-
   const hasDueDate = isCredit
     ? (selectedDue !== null && selectedDue !== undefined && selectedDue !== 'custom') || (selectedDue === 'custom' && customDue)
     : true;
   const saleCustomerValid = !requiresCustomerBalance || saleCustomerName.trim().length > 0;
   const partialAmountValid = !isSale || saleSettlementMode !== 'paid_partly' || (parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice);
-  const canSave = item.trim()
-    && sellingPrice > 0
-    && hasDueDate
-    && (!phoneEntered || phoneValid)
-    && saleCustomerValid
-    && partialAmountValid;
+
+  const canSave = item.trim() && sellingPrice > 0 && hasDueDate && (!phoneEntered || phoneValid) && saleCustomerValid && partialAmountValid;
 
   const getEffectiveDueDate = () => {
     if (selectedDue === 'custom' && customDue) return new Date(customDue).getTime();
     return selectedDue;
+  };
+
+  const handleStep1Next = () => {
+    if (!amount || parseFloat(parseInput(amount)) <= 0) {
+      setStep1Error(lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount');
+      return;
+    }
+    if (!item.trim()) {
+      setStep1Error(lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name');
+      return;
+    }
+    setStep1Error('');
+    setCurrentStep('payment');
+  };
+
+  const handleStep2Next = () => {
+    if (saleSettlementMode === 'pay_later') {
+      if (!saleCustomerName.trim()) {
+        setStep2Error(lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter customer name');
+        return;
+      }
+    } else if (saleSettlementMode === 'paid_partly') {
+      if (!parsedPaidAmount || parsedPaidAmount <= 0 || parsedPaidAmount >= sellingPrice) {
+        setStep2Error(lang === 'am' ? 'ትክክለኛ የተከፈለ መጠን ያስገቡ' : 'Enter a valid paid amount');
+        return;
+      }
+      if (!saleCustomerName.trim()) {
+        setStep2Error(lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter customer name');
+        return;
+      }
+    }
+    setStep2Error('');
+    setCurrentStep('review');
   };
 
   const handleSave = async () => {
@@ -139,32 +286,27 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
       paid_amount: isSale ? settledAmount : null,
       remaining_amount: isSale ? remainingAmount : null,
       settlement_due_date: isSale && remainingAmount > 0 && saleDueDate ? new Date(saleDueDate).getTime() : null,
+      photo: photo || null,
       created_at: Date.now(),
     };
     try {
       await onSave(data);
-      if (isCredit) {
-        onDone();
-      } else {
-        setLastSaved({ item: data.item_name, amount: data.amount, type });
-        setSaveState('success');
-      }
+      setLastSaved({ item: data.item_name, amount: data.amount, type });
+      setSaveState('success');
+      clearDraft();
     } catch (err) {
-      // error handled in App.jsx
+      setSaveState('idle');
+      fireToast(t.saveFailed || 'Could not save. Please try again.', 3000);
     }
   };
 
   const handleSelectCatalogEntry = (value) => {
     setCatalogEntryId(value);
-    const entry = catalogEntries.find(item2 => String(item2.id) === String(value));
+    const entry = catalogEntries.find(e => String(e.id) === String(value));
     if (!entry) return;
     setItem(entry.name || '');
-    if (!amount && entry.default_price != null) {
-      setAmount(String(entry.default_price));
-    }
-    if (!costPrice && entry.default_cost != null) {
-      setCostPrice(String(entry.default_cost));
-    }
+    if (!amount && entry.default_price != null) setAmount(String(entry.default_price));
+    if (!costPrice && entry.default_cost != null) setCostPrice(String(entry.default_cost));
   };
 
   const openAddRecurring = (demoName = '') => {
@@ -178,8 +320,7 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
     const amt = parseFloat(parseInput(popupAmount));
     if (!popupName.trim() || !amt) return;
     const newItem = { id: Date.now(), name: popupName.trim(), amount: amt, freq: popupFreq };
-    const current = recurringExpenses || [];
-    const updated = [...current, newItem];
+    const updated = [...(recurringExpenses || []), newItem];
     await db.settings.put({ key: 'recurring_expenses', value: JSON.stringify(updated) });
     onRecurringChange?.(updated);
     setShowAddRecurring(false);
@@ -189,28 +330,65 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
     setTimeout(() => setAddRecurringHint(false), 4000);
   };
 
-  const handleAddAnother = () => {
-    const keptType = paymentType;
-    const keptProvider = paymentProvider;
-    const keptCatalog = catalogEntryId;
-    setItem('');
-    setQuantity('1');
-    setAmount('');
-    setCostPrice('');
-    setShowAdvanced(false);
-    setPhoneDigits('');
-    setPhoneTouched(false);
-    setSelectedDue(null);
-    setCustomDue('');
-    setPaymentType(keptType);
-    setPaymentProvider(keptProvider);
-    setSaleSettlementMode('paid_now');
-    setSaleCustomerName('');
-    setPaidAmount('');
-    setSaleDueDate('');
-    setCatalogEntryId(keptCatalog);
-    setSaveState('idle');
-    setLastSaved(null);
+  const handleVoiceSave = () => {
+    saveDraft({
+      item, amount, paymentType, paymentProvider, saleSettlementMode,
+      saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
+      photo, currentStep,
+    });
+    onVoiceClick?.();
+  };
+
+const handlePhotoCapture = () => {
+     const input = document.createElement('input');
+     input.type = 'file';
+     input.accept = 'image/*';
+     input.capture = 'environment';
+     input.onchange = (e) => {
+       const file = e.target.files?.[0];
+       if (!file) return;
+       // Limit photo size to 2MB to prevent DoS (F010)
+       if (file.size > 2 * 1024 * 1024) {
+         fireToast('Photo too large — max 2 MB', 2500);
+         return;
+       }
+       const reader = new FileReader();
+       reader.onload = () => {
+         // Resize image before storing to limit IndexedDB usage
+         const img = new Image();
+         img.onload = () => {
+           const canvas = document.createElement('canvas');
+           const MAX_DIM = 1024;
+           let w = img.width, h = img.height;
+           if (w > MAX_DIM || h > MAX_DIM) {
+             const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+             w = Math.round(w * ratio);
+             h = Math.round(h * ratio);
+           }
+           canvas.width = w;
+           canvas.height = h;
+           const ctx = canvas.getContext('2d');
+           ctx?.drawImage(img, 0, 0, w, h);
+           canvas.toBlob((blob) => {
+             if (!blob) return;
+             const resizedReader = new FileReader();
+             resizedReader.onload = () => setPhoto(resizedReader.result);
+             resizedReader.readAsDataURL(blob);
+           }, 'image/jpeg', 0.7);
+         };
+         img.src = reader.result;
+       };
+       reader.readAsDataURL(file);
+     };
+     input.click();
+   };
+
+  const handleClose = () => {
+    if (isSale && (item.trim() || amount || photo)) {
+      setShowDraftPrompt(true);
+    } else {
+      onDone();
+    }
   };
 
   if (saveState === 'success') {
@@ -222,22 +400,14 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
             <p className="font-black text-gray-900 text-xl font-sans">{lastSaved?.item}</p>
             <p className="text-gray-500 mt-1 text-base font-sans">{fmt(lastSaved?.amount)} {t.birrSaved}</p>
             <p className="text-sm mt-3 font-medium font-sans" style={{ color: '#6b7280' }}>
-              {t.trustReopenHint || 'Close and reopen anytime — your records stay here.'}
+              {t.trustReopenHint}
             </p>
           </div>
           <div className="space-y-3">
             <button
-              onClick={handleAddAnother}
+              onClick={onDone}
               className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] active:scale-95 transition-all press-scale font-sans"
               style={{ background: accent.btn, borderRadius: 'var(--radius-md)', boxShadow: `0 4px 0 ${accent.shadow}` }}
-            >
-              <Plus className="w-5 h-5" />
-              {config.addAnother}
-            </button>
-            <button
-              onClick={onDone}
-              className="w-full p-4 font-bold text-gray-700 text-base min-h-[52px] active:scale-95 transition-all press-scale font-sans"
-              style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}
             >
               {t.done}
             </button>
@@ -251,18 +421,41 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 animate-fade">
       <div className="bg-white w-full max-w-md max-h-[92vh] overflow-y-auto animate-slide-up" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}>
 
-        <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', borderColor: 'var(--color-border-light)' }}>
+        {/* Header */}
+        <div className="sticky top-0 bg-white z-10 px-4 pt-3 pb-2 border-b" style={{ borderColor: 'var(--color-border-light)', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0' }}>
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black text-gray-900 font-sans">{config.title}</h2>
-            <button onClick={onDone} aria-label={t.close}
+            <h2 className="text-lg font-black text-gray-900 font-sans">{config.title}</h2>
+            <button onClick={handleClose} aria-label={t.close}
               className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center press-scale">
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-4 h-4 text-gray-500" />
             </button>
           </div>
+          {draftRestored && (
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-amber-600 font-sans">
+              <CheckCircle2 className="w-3 h-3" />
+              {t.draftSaved || 'Draft restored'}
+            </div>
+          )}
         </div>
 
-        <div className="px-6 py-4 space-y-4">
+        {/* Stepper — only for sales */}
+        {isSale && (
+          <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
+            <StepIndicator
+              currentStep={currentStep}
+              onStepClick={(stepId) => {
+                const stepOrder = ['details', 'payment', 'review'];
+                const currentIdx = stepOrder.indexOf(currentStep);
+                const targetIdx = stepOrder.indexOf(stepId);
+                if (targetIdx < currentIdx) setCurrentStep(stepId);
+              }}
+            />
+          </div>
+        )}
 
+        <div className="px-5 py-3 space-y-3">
+
+          {/* Credit direction */}
           {isCredit && (
             <div>
               <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.direction}</label>
@@ -272,33 +465,32 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
                   { id: 'i_owe',   label: t.iOweLabel, sub: t.iOweThem },
                 ].map(d => (
                   <button key={d.id} type="button" onClick={() => setCreditDirection(d.id)}
-                    className="p-3 border-2 text-center transition-all min-h-[56px] press-scale"
+                    className="p-3 border-2 text-center transition-all min-h-[56px] press-scale font-sans"
                     style={{
                       borderRadius: 'var(--radius-sm)',
                       borderColor: creditDirection === d.id ? '#1B4332' : '#e8e2d8',
                       background: creditDirection === d.id ? 'rgba(27,67,50,0.07)' : '#fff',
                       color: creditDirection === d.id ? '#1B4332' : '#4b5563',
                     }}>
-                    <div className="font-bold text-sm font-sans">{d.label}</div>
-                    <div className="text-xs opacity-70 mt-0.5 font-sans">{d.sub}</div>
+                    <div className="font-bold text-sm">{d.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{d.sub}</div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Expense recurring */}
           {isExpense && recurringExpenses && recurringExpenses.length > 0 && (
             <div>
               <label className="block text-gray-600 text-xs font-bold mb-2 uppercase tracking-wide font-sans">{t.quickFill}</label>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {recurringExpenses.map(re => (
                   <button
-                    key={re.id}
-                    type="button"
+                    key={re.id} type="button"
                     onClick={() => { setItem(re.name); setAmount(String(re.amount)); }}
-                    className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale"
-                    style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: 'var(--color-bg)', color: '#1B4332' }}
-                  >
+                    className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale font-sans"
+                    style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: 'var(--color-bg)', color: '#1B4332' }}>
                     <div>{re.name}</div>
                     <div className="font-normal mt-0.5" style={{ color: '#C4883A' }}>{fmt(re.amount)} {t.birr}</div>
                   </button>
@@ -311,483 +503,772 @@ function TransactionForm({ type, onSave, onDone, enabledProviders, catalogEntrie
             <div>
               <label className="block text-gray-600 text-xs font-bold mb-2 uppercase tracking-wide font-sans">{t.demoCardSectionLabel}</label>
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {['Rent', 'እቁብ'].map(demoName => (
-                  <button
-                    key={demoName}
-                    type="button"
-                    onClick={() => openAddRecurring(demoName)}
-                    className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale"
-                    style={{
-                      borderRadius: 'var(--radius-sm)',
-                      borderColor: '#c9bfa8',
-                      borderStyle: 'dashed',
-                      background: '#faf9f7',
-                      color: '#9ca3af',
-                    }}
-                  >
+                {[t.recurringExampleRent, t.recurringExampleEqub].map(demoName => (
+                  <button key={demoName} type="button" onClick={() => openAddRecurring(demoName)}
+                    className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale font-sans"
+                    style={{ borderRadius: 'var(--radius-sm)', borderColor: '#c9bfa8', borderStyle: 'dashed', background: '#faf9f7', color: '#9ca3af' }}>
                     <div>{demoName}</div>
                     <div className="font-normal mt-0.5 text-xs" style={{ color: '#c4b89a' }}>— {t.birr}</div>
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => openAddRecurring('')}
-                  className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale flex flex-col items-center justify-center min-w-[52px]"
-                  style={{
-                    borderRadius: 'var(--radius-sm)',
-                    borderColor: '#c9bfa8',
-                    borderStyle: 'dashed',
-                    background: '#faf9f7',
-                    color: '#9ca3af',
-                  }}
-                >
+                <button type="button" onClick={() => openAddRecurring('')}
+                  className="flex-shrink-0 px-3 py-2 border-2 text-xs font-bold transition-all press-scale flex flex-col items-center justify-center min-w-[52px] font-sans"
+                  style={{ borderRadius: 'var(--radius-sm)', borderColor: '#c9bfa8', borderStyle: 'dashed', background: '#faf9f7', color: '#9ca3af' }}>
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              {addRecurringHint && (
-                <p className="text-xs mt-1.5 font-medium font-sans" style={{ color: '#C4883A' }}>{t.addRecurringHint}</p>
-              )}
+              {addRecurringHint && <p className="text-xs mt-1.5 font-medium font-sans" style={{ color: '#C4883A' }}>{t.addRecurringHint}</p>}
             </div>
           )}
 
-          {isExpense && recurringExpenses && recurringExpenses.length > 0 && addRecurringHint && (
-            <p className="text-xs font-medium font-sans -mt-2" style={{ color: '#C4883A' }}>{t.addRecurringHint}</p>
-          )}
-
-          <div>
-            {catalogEntries.length > 0 && (
-              <div className="mb-3">
-                <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">Saved item / service</label>
-                <select
-                  value={catalogEntryId}
-                  onChange={e => handleSelectCatalogEntry(e.target.value)}
-                  className="w-full p-3 border-2 focus:outline-none text-sm font-sans bg-white"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                >
-                  <option value="">Type manually</option>
-                  {catalogEntries.map(entry => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.name} {entry.kind === 'service' ? '• Service' : '• Item'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.itemLabel}</label>
-            <input
-              type="text"
-              value={item}
-              onChange={e => setItem(e.target.value)}
-              placeholder={config.itemPlaceholder}
-              className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-              style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-            />
-          </div>
-
-          {!isCredit && (
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.howMany}</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={quantity}
-                onChange={e => {
-                  const raw = e.target.value;
-                  if (raw === '') { setQuantity(''); return; }
-                  const v = parseInt(raw);
-                  if (!isNaN(v) && v >= 1) setQuantity(String(v));
-                }}
-                onBlur={e => {
-                  const v = parseInt(e.target.value);
-                  setQuantity(isNaN(v) || v < 1 ? '1' : String(v));
-                }}
-                min="1"
-                className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.amountLabel}</label>
-            <div className="relative">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={fmtInput(amount)}
-                onChange={e => handleNumericInput(e, setAmount)}
-                placeholder="0"
-                className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
-            </div>
-          </div>
-
-          {isSale && (
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.saleSettlementLabel}</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'paid_now', label: t.saleSettlementPaidNow, sub: t.saleSettlementPaidNowHint },
-                  { id: 'paid_partly', label: t.saleSettlementPaidPartly, sub: t.saleSettlementPaidPartlyHint },
-                  { id: 'pay_later', label: t.saleSettlementPayLater, sub: t.saleSettlementPayLaterHint },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setSaleSettlementMode(option.id)}
-                    className="p-3 border-2 text-center transition-all min-h-[68px] press-scale"
-                    style={{
-                      borderRadius: 'var(--radius-sm)',
-                      borderColor: saleSettlementMode === option.id ? '#1B4332' : '#e8e2d8',
-                      background: saleSettlementMode === option.id ? 'rgba(27,67,50,0.07)' : '#fff',
-                      color: saleSettlementMode === option.id ? '#1B4332' : '#4b5563',
-                    }}
-                  >
-                    <div className="font-bold text-sm font-sans">{option.label}</div>
-                    <div className="text-[11px] opacity-70 mt-1 font-sans">{option.sub}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isSale && saleSettlementMode === 'paid_partly' && (
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.salePaidAmountLabel}</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={fmtInput(paidAmount)}
-                  onChange={e => handleNumericInput(e, setPaidAmount)}
-                  placeholder="0"
-                  className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: partialAmountValid || !paidAmount ? '#e8e2d8' : '#dc2626' }}
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
-              </div>
-              {!partialAmountValid && (
-                <p className="text-xs mt-2 font-medium text-red-600 font-sans">{t.salePaidAmountHint}</p>
-              )}
-            </div>
-          )}
-
-          {isSale && requiresCustomerBalance && (
+          {/* ==========================================
+              STEP 1 — DETAILS
+              ========================================== */}
+          {isSale && currentStep === 'details' && (
             <>
+              {/* Amount */}
               <div>
-                <label className="block text-gray-700 font-semibold mb-2 font-sans">
-                  {t.customerIdentifier} <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={saleCustomerName}
-                  onChange={e => setSaleCustomerName(e.target.value)}
-                  placeholder={t.customerIdentifierPlaceholder}
-                  className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: saleCustomerValid ? '#e8e2d8' : '#dc2626' }}
-                />
-                {!saleCustomerValid && (
-                  <p className="text-xs mt-2 font-medium text-red-600 font-sans">{t.saleCustomerRequiredHint}</p>
-                )}
-                {matchedCustomers.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {matchedCustomers.map((customer) => (
-                      <button
-                        key={customer.id}
-                        type="button"
-                        onClick={() => setSaleCustomerName(customer.display_name || '')}
-                        className="w-full p-3 border text-left press-scale"
-                        style={{ background: '#fff', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-bold text-sm text-gray-900 truncate font-sans">{customer.display_name}</p>
-                            {customer.note && (
-                              <p className="text-xs mt-1 truncate font-sans" style={{ color: '#6b7280' }}>{customer.note}</p>
-                            )}
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-[11px] font-bold uppercase tracking-wide font-sans" style={{ color: '#9ca3af' }}>{t.currentBalance}</p>
-                            <p className="text-sm font-black font-sans" style={{ color: '#92400e' }}>{fmt(customer.balance || 0)} {t.birr}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.dueDateOptional}</label>
-                <input
-                  type="date"
-                  value={saleDueDate}
-                  onChange={e => setSaleDueDate(e.target.value)}
-                  className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                />
-              </div>
-
-              <div className="p-4 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)' }}>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm font-sans">
-                    <span className="font-semibold text-gray-700">{t.saleRemainingBalanceLabel}</span>
-                    <span className="font-black" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
-                  </div>
-                  {selectedExistingCustomer && (
-                    <>
-                      <div className="flex items-center justify-between gap-3 text-sm font-sans">
-                        <span className="font-semibold text-gray-700">{t.currentBalance}</span>
-                        <span className="font-black text-gray-900">{fmt(currentCustomerBalance)} {t.birr}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 text-sm font-sans">
-                        <span className="font-semibold text-gray-700">{t.updatedBalance}</span>
-                        <span className="font-black" style={{ color: '#92400e' }}>{fmt(nextCustomerBalance)} {t.birr}</span>
-                      </div>
-                    </>
-                  )}
+                <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.amountLabel}</label>
+                <div className="relative">
+                  <input
+                    type="text" inputMode="decimal"
+                    value={fmtInput(amount)}
+                    onChange={e => handleNumericInput(e, setAmount)}
+                    placeholder="0" autoFocus
+                    className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                 </div>
-                <p className="text-xs mt-2 font-medium font-sans" style={{ color: '#6b7280' }}>
-                  {t.saleRemainingBalanceHint}
-                </p>
               </div>
+
+              {/* Catalog + Item + Photo + Voice */}
+              <div>
+                {catalogEntries.length > 0 && (
+                  <div className="mb-3">
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.savedCatalogLabel}</label>
+                    <select
+                      value={catalogEntryId}
+                      onChange={e => handleSelectCatalogEntry(e.target.value)}
+                      className="w-full p-3 border-2 focus:outline-none text-sm font-sans bg-white"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}>
+                      <option value="">{t.typeManually}</option>
+                      {catalogEntries.map(entry => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} — {entry.kind === 'service' ? t.serviceLabel : t.itemLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-end gap-1.5">
+                  <div className="flex-1">
+                    <label className="block text-gray-700 font-semibold mb-2 font-sans">
+                      {config.itemLabel} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={e => setItem(e.target.value)}
+                      placeholder={config.itemPlaceholder}
+                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 pb-0.5">
+                    <button
+                      type="button"
+                      onClick={handlePhotoCapture}
+                      className="p-2 rounded-full border-2 press-scale min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      style={{ borderColor: '#e8e2d8', background: '#fff' }}
+                      title="Take photo">
+                      <Camera className="w-4 h-4" style={{ color: '#6b7280' }} />
+                    </button>
+                  </div>
+                </div>
+
+                {photo && (
+                  <div className="flex items-center gap-2 p-2 mt-2 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#f9fafb' }}>
+                    <img src={photo} alt="Sale photo" className="w-12 h-12 object-cover rounded" style={{ borderRadius: '6px' }} />
+                    <span className="text-xs flex-1 font-sans" style={{ color: '#9ca3af' }}>{t.photoAttached}</span>
+                    <button type="button" onClick={() => setPhoto(null)} className="text-xs font-medium px-2 py-1 font-sans" style={{ color: '#dc2626' }}>Remove</button>
+                  </div>
+                )}
+
+                {onVoiceResult && (
+                  <div className="mt-3">
+                    <InlineVoiceRecorder onResult={handleVoiceResult} />
+                  </div>
+                )}
+              </div>
+
+              {step1Error && (
+                <div className="flex items-center gap-2 text-xs text-red-600 font-medium font-sans">
+                  <AlertTriangle className="w-3 h-3" />
+                  {step1Error}
+                </div>
+              )}
+
+              {/* Auto-advance indicator */}
+              {sellingPrice > 0 && item.trim().length > 0 && (
+                <div className="text-center py-2">
+                  <span className="text-xs font-medium font-sans flex items-center justify-center gap-1" style={{ color: '#6b7280' }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    {lang === 'am' ? 'በራሱ ይቀጥላል' : 'Auto-advancing...'}
+                  </span>
+                </div>
+              )}
             </>
           )}
 
-          {isCredit && (
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2 font-sans">
-                {t.phoneOptional} <span className="text-gray-400 font-normal text-sm">{t.phoneOptionalHint}</span>
-              </label>
-              <div className="flex gap-0">
-                <div
-                  className="flex items-center justify-center px-3 py-3 border-2 border-r-0 text-sm font-bold flex-shrink-0 font-sans"
-                  style={{ background: 'rgba(27,67,50,0.06)', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : '#e8e2d8', color: '#1B4332', minWidth: '64px', borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
-                >
-                  +251
-                </div>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  value={phoneDigits}
-                  onChange={e => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    if (raw.length <= 9) setPhoneDigits(raw);
-                  }}
-                  onBlur={() => setPhoneTouched(true)}
-                  placeholder="9XXXXXXXX"
-                  maxLength={9}
-                  className="flex-1 p-4 border-2 text-base focus:outline-none min-h-[52px] font-sans"
-                  style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : (phoneEntered && phoneValid ? '#1B4332' : '#e8e2d8') }}
-                />
-              </div>
-              {phoneTouched && phoneEntered && !phoneValid && (
-                <p className="text-xs text-red-500 mt-1 font-medium font-sans">{t.creditPhoneHint}</p>
-              )}
-              {!phoneTouched && (
-                <p className="text-xs text-gray-400 mt-1 font-sans">{t.creditPhoneHint}</p>
-              )}
-            </div>
-          )}
-
-          {isCredit && (
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.whenDue} <span className="text-red-500">*</span></label>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {dueDateOptions.map(opt => (
-                  <button key={opt.value} type="button" onClick={() => setSelectedDue(opt.value)}
-                    className="p-3 border-2 text-sm font-medium transition-colors min-h-[52px] press-scale font-sans"
-                    style={{
-                      borderRadius: 'var(--radius-sm)',
-                      borderColor: selectedDue === opt.value ? '#1B4332' : '#e8e2d8',
-                      background: selectedDue === opt.value ? 'rgba(27,67,50,0.07)' : '#fff',
-                      color: selectedDue === opt.value ? '#1B4332' : '#4b5563',
-                    }}>
-                    <div className="font-bold">{opt.label.split(' ')[0]}</div>
-                    <div className="text-xs opacity-70">{opt.display}</div>
-                  </button>
-                ))}
-              </div>
-              <button type="button" onClick={() => setSelectedDue('custom')}
-                className="w-full p-3 border-2 text-sm font-semibold transition-colors min-h-[52px] press-scale font-sans"
-                style={{
-                  borderRadius: 'var(--radius-sm)',
-                  borderColor: selectedDue === 'custom' ? '#1B4332' : '#e8e2d8',
-                  background: selectedDue === 'custom' ? 'rgba(27,67,50,0.07)' : '#fff',
-                  color: selectedDue === 'custom' ? '#1B4332' : '#4b5563',
-                }}>
-                {t.pickDate}
-              </button>
-              {!hasDueDate && (
-                <p className="text-xs mt-1.5 font-medium font-sans" style={{ color: '#C4883A' }}>{t.selectDueDate}</p>
-              )}
-              {selectedDue === 'custom' && (
-                <input type="date" value={customDue} onChange={e => setCustomDue(e.target.value)}
-                  className="w-full mt-2 p-4 border-2 focus:outline-none text-base font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
-              )}
-            </div>
-          )}
-
-          {!isCredit && (!isSale || saleSettlementMode !== 'pay_later') && (
-            <PaymentTypeChips
-              paymentType={paymentType}
-              provider={paymentProvider}
-              onTypeChange={setPaymentType}
-              onProviderChange={setPaymentProvider}
-              enabledProviders={enabledProviders}
-              lastProviderByType={lastPaymentHistory}
-            />
-          )}
-
-          {!isCredit && (
-            <div>
-              <button type="button" onClick={() => setShowAdvanced(v => !v)}
-                className="flex items-center gap-1 text-sm font-semibold py-1 min-h-[44px] font-sans"
-                style={{ color: '#C4883A' }}>
-                {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                {t.advancedOptional}
-              </button>
-
-              {showAdvanced && (
-                <div className="mt-2 p-4 border animate-slide-up" style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                  <label className="block text-gray-600 text-sm font-semibold mb-2 font-sans">
-                    {t.whatDidYouPay} <span style={{ color: '#9ca3af' }}>{t.perUnit}</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={fmtInput(costPrice)}
-                      onChange={e => handleNumericInput(e, setCostPrice)}
-                      placeholder="0"
-                      className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
-                  </div>
-                  <p className="text-xs mt-2 font-sans" style={{ color: '#9ca3af' }}>{t.helpsSeeProfit}</p>
-
-                  {belowCost && (
-                    <div className="mt-3 flex items-start gap-2 p-3" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)' }}>
-                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
-                      <p className="text-xs font-sans" style={{ color: '#92400e' }}>{t.sellingBelowCost}</p>
-                    </div>
-                  )}
-                  {cost > 0 && !belowCost && sellingPrice > 0 && (
-                    <div className="mt-3 p-3 border" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 'var(--radius-sm)' }}>
-                      <p className="text-xs text-green-700 font-semibold font-sans">
-                        {t.profitOnSale} {fmt(sellingPrice - cost * qty)} {t.birr}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 pb-8 pt-2">
-          <button onClick={handleSave} disabled={!canSave}
-            className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 transition-all min-h-[56px] active:scale-95 press-scale font-sans"
-            style={{
-              background: canSave ? accent.btn : '#e5e7eb',
-              color: canSave ? '#fff' : '#9ca3af',
-              cursor: canSave ? 'pointer' : 'not-allowed',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: canSave ? `0 4px 0 ${accent.shadow}, var(--shadow-sm)` : 'none',
-            }}>
-            <Save className="w-5 h-5" />
-            {config.buttonText}
-          </button>
-        </div>
-      </div>
-
-      {showAddRecurring && (
-        <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 60, background: 'rgba(0,0,0,0.4)' }}>
-          <div className="bg-white w-full max-w-md p-6 animate-slide-up" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-black text-gray-900 font-sans">{t.addRecurring}</h3>
-              <button onClick={() => setShowAddRecurring(false)} aria-label={t.close}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center press-scale">
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 mb-4 font-sans">{t.addRecurringPopupGuide}</p>
-
-            <div className="space-y-3">
+          {/* ==========================================
+              STEP 2 — PAYMENT
+              ========================================== */}
+          {isSale && currentStep === 'payment' && (
+            <>
               <div>
-                <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.whatDidYouSpendOn}</label>
-                <input
-                  type="text"
-                  value={popupName}
-                  onChange={e => setPopupName(e.target.value)}
-                  placeholder={t.spendPlaceholder}
-                  className="w-full p-3 border-2 focus:outline-none text-sm font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.howMuchTotal}</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={fmtInput(popupAmount)}
-                    onChange={e => handleNumericInput(e, setPopupAmount)}
-                    placeholder="0"
-                    className="w-full p-3 pr-14 border-2 focus:outline-none text-sm font-sans"
-                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium font-sans">{t.birr}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.frequency}</label>
-                <div className="flex gap-2">
+                <div className="text-xs font-bold uppercase tracking-wide mb-2 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
+                <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: 'daily',   label: t.daily },
-                    { id: 'weekly',  label: t.weekly },
-                    { id: 'monthly', label: t.monthly },
-                  ].map(f => (
-                    <button key={f.id} type="button"
-                      onClick={() => setPopupFreq(f.id)}
-                      className="flex-1 py-2 text-xs font-bold border-2 transition-all press-scale font-sans"
+                    { id: 'paid_now',    label: t.saleSettlementPaidNow    },
+                    { id: 'paid_partly', label: t.saleSettlementPaidPartly },
+                    { id: 'pay_later',   label: t.saleSettlementPayLater   },
+                  ].map(option => (
+                    <button
+                      key={option.id} type="button"
+                      onClick={() => { setSaleSettlementMode(option.id); setStep2Error(''); }}
+                      className="py-2.5 px-1 border-2 text-center text-xs font-bold transition-all press-scale font-sans"
                       style={{
                         borderRadius: 'var(--radius-sm)',
-                        borderColor: popupFreq === f.id ? '#D4654A' : '#e8e2d8',
-                        background: popupFreq === f.id ? 'rgba(212,101,74,0.08)' : '#fff',
-                        color: popupFreq === f.id ? '#D4654A' : '#6b7280',
+                        borderColor: saleSettlementMode === option.id ? '#1B4332' : '#e8e2d8',
+                        background: saleSettlementMode === option.id ? 'rgba(27,67,50,0.07)' : '#fff',
+                        color: saleSettlementMode === option.id ? '#1B4332' : '#6b7280',
                       }}>
-                      {f.label}
+                      {option.label}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={handleAddAndUse}
-              disabled={!popupName.trim() || !parseFloat(parseInput(popupAmount))}
-              className="w-full mt-5 p-4 font-black text-base flex items-center justify-center gap-2 transition-all min-h-[52px] press-scale font-sans"
-              style={{
-                borderRadius: 'var(--radius-md)',
-                background: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '#D4654A' : '#e5e7eb',
-                color: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '#fff' : '#9ca3af',
-                cursor: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? 'pointer' : 'not-allowed',
-                boxShadow: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '0 4px 0 #a84c37' : 'none',
-              }}>
-              <Plus className="w-5 h-5" />
-              {t.addAndUse}
-            </button>
-          </div>
+              {/* Paid partly — paid amount */}
+              {saleSettlementMode === 'paid_partly' && (
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.salePaidAmountLabel}</label>
+                  <div className="relative">
+                    <input
+                      type="text" inputMode="decimal"
+                      value={fmtInput(paidAmount)}
+                      onChange={e => handleNumericInput(e, setPaidAmount)}
+                      placeholder="0"
+                      className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: partialAmountValid || !paidAmount ? '#e8e2d8' : '#dc2626' }}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
+                  </div>
+                  {!partialAmountValid && (
+                    <p className="text-xs mt-2 font-medium text-red-600 font-sans">{t.salePaidAmountHint}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Paid now / partly — provider chips */}
+              {saleSettlementMode !== 'pay_later' && (
+                <div className="mt-1">
+                  <PaymentTypeChips
+                    paymentType={paymentType}
+                    provider={paymentProvider}
+                    onTypeChange={setPaymentType}
+                    onProviderChange={setPaymentProvider}
+                    enabledProviders={enabledProviders}
+                  />
+                </div>
+              )}
+
+              {/* Pay later info */}
+              {saleSettlementMode === 'pay_later' && (
+                <div className="flex items-start gap-3 p-3" style={{ background: '#fffbeb', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4883A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <p className="text-xs font-medium font-sans" style={{ color: '#92400e' }}>{t.noPaymentCollected}</p>
+                </div>
+              )}
+
+              {/* Customer + return date for partly/later */}
+              {saleSettlementMode !== 'paid_now' && (
+                <>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 font-sans">
+                      {lang === 'am' ? 'ደንበኛ ስም ወይም ምልክት *' : 'Customer name or clue *'}
+                    </label>
+                    <input
+                      type="text"
+                      value={saleCustomerName}
+                      onChange={e => { setSaleCustomerName(e.target.value); setStep2Error(''); }}
+                      placeholder={t.customerIdentifierPlaceholder}
+                      className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: saleCustomerValid ? '#e8e2d8' : '#dc2626' }}
+                    />
+                    {matchedCustomers.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {matchedCustomers.map(c => (
+                          <button
+                            key={c.id} type="button"
+                            onClick={() => setSaleCustomerName(c.display_name || '')}
+                            className="w-full p-3 border text-left press-scale font-sans"
+                            style={{ background: '#fff', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-gray-900 truncate">{c.display_name}</p>
+                                {c.note && <p className="text-xs mt-1 truncate" style={{ color: '#6b7280' }}>{c.note}</p>}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-[11px] font-bold uppercase tracking-wide font-sans" style={{ color: '#9ca3af' }}>{t.currentBalance}</p>
+                                <p className="text-sm font-black font-sans" style={{ color: '#92400e' }}>{fmt(c.balance || 0)} {t.birr}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.dueDateOptional}</label>
+                    <input
+                      type="date"
+                      value={saleDueDate}
+                      onChange={e => setSaleDueDate(e.target.value)}
+                      className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                    />
+                  </div>
+
+                  {/* Remaining balance preview */}
+                  {remainingAmount > 0 && (
+                    <div className="p-3 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)' }}>
+                      <div className="flex items-center justify-between gap-3 text-sm font-sans mb-1.5">
+                        <span className="font-semibold text-gray-700">{t.saleRemainingBalanceLabel}</span>
+                        <span className="font-black" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
+                      </div>
+                      <p className="text-[11px] font-medium font-sans" style={{ color: '#92400e' }}>
+                        Will be added to this customer.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step2Error && (
+                <div className="flex items-center gap-2 text-xs text-red-600 font-medium font-sans">
+                  <AlertTriangle className="w-3 h-3" />
+                  {step2Error}
+                </div>
+              )}
+
+              {/* Step 2 navigation */}
+              <div className="flex gap-3 pt-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() => { setCurrentStep('details'); setStep2Error(''); }}
+                  className="flex-1 p-4 font-bold text-gray-700 text-base flex items-center justify-center gap-2 min-h-[52px] active:scale-95 transition-all press-scale font-sans"
+                  style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                  {t.back}
+                </button>
+                <div className="flex-1 flex items-center justify-center">
+                  {(() => {
+                    let step2Valid = false;
+                    if (saleSettlementMode === 'paid_now') step2Valid = true;
+                    else if (saleSettlementMode === 'paid_partly') step2Valid = parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice && saleCustomerName.trim().length > 0;
+                    else if (saleSettlementMode === 'pay_later') step2Valid = saleCustomerName.trim().length > 0;
+                    return step2Valid ? (
+                      <span className="text-xs font-medium font-sans flex items-center gap-1" style={{ color: '#6b7280' }}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        {lang === 'am' ? 'በራሱ ይቀጥላል' : 'Auto-advancing...'}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium font-sans" style={{ color: '#9ca3af' }}>
+                        {lang === 'am' ? 'የሚፈልጉትን ይሙሉ' : 'Fill required fields to continue'}
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ==========================================
+              STEP 3 — REVIEW
+              ========================================== */}
+          {isSale && currentStep === 'review' && (
+            <>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide mb-3 font-sans" style={{ color: '#6b7280' }}>{t.reviewSale}</p>
+
+                {/* Compact review for paid_now */}
+                {saleSettlementMode === 'paid_now' ? (
+                  <div className="space-y-1.5 p-4 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)', background: '#fafaf8' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewTotal}</span>
+                      <span className="font-black text-base text-gray-900 font-sans">{fmt(sellingPrice)} {t.birr}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewItem}</span>
+                      <span className="font-bold text-sm text-gray-900 font-sans">{item}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewSettlement}</span>
+                      <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.settlementPaidNow}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewProvider}</span>
+                      <span className="font-bold text-sm text-gray-900 font-sans">{paymentType === 'cash' ? t.cash : (paymentProvider || paymentType)}</span>
+                    </div>
+                    {photo && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 font-sans">{t.photoAttached}</span>
+                        <div className="flex items-center gap-1">
+                          <Camera className="w-3 h-3" style={{ color: '#2d6a4f' }} />
+                          <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.photoAttached}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Full review for paid_partly / pay_later */
+                  <div className="space-y-1.5 p-4 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)', background: '#fafaf8' }}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewTotal}</span>
+                      <span className="font-black text-base text-gray-900 font-sans">{fmt(sellingPrice)} {t.birr}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewItem}</span>
+                      <span className="font-bold text-sm text-gray-900 font-sans">{item}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewSettlement}</span>
+                      <span className="font-bold text-sm font-sans" style={{ color: saleSettlementMode === 'pay_later' ? '#C4883A' : '#2d6a4f' }}>
+                        {saleSettlementMode === 'paid_partly' ? t.settlementPaidPartly : t.settlementPayLater}
+                      </span>
+                    </div>
+                    {saleSettlementMode === 'paid_partly' && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 font-sans">{t.reviewPaidAmount}</span>
+                          <span className="font-bold text-sm text-gray-900 font-sans">{fmt(parsedPaidAmount)} {t.birr}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 font-sans">{t.reviewProvider}</span>
+                          <span className="font-bold text-sm text-gray-900 font-sans">{paymentType === 'cash' ? t.cash : (paymentProvider || paymentType)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 font-sans">{t.reviewRemaining}</span>
+                      <span className="font-black text-sm font-sans" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
+                    </div>
+                    {saleCustomerName && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 font-sans">{t.reviewCustomer}</span>
+                        <span className="font-bold text-sm text-gray-900 font-sans">{saleCustomerName}</span>
+                      </div>
+                    )}
+                    {saleDueDate && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 font-sans">{t.reviewReturnDate}</span>
+                        <span className="font-bold text-sm text-gray-900 font-sans">{saleDueDate}</span>
+                      </div>
+                    )}
+                    {photo && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 font-sans">{t.photoAttached}</span>
+                        <div className="flex items-center gap-1">
+                          <Camera className="w-3 h-3" style={{ color: '#2d6a4f' }} />
+                          <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.photoAttached}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Edit shortcuts */}
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep('details')}
+                    className="flex-1 py-2.5 px-3 font-semibold text-xs border-2 transition-all press-scale font-sans"
+                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8', color: '#6b7280', background: '#fff' }}>
+                    {t.editDetails}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep('payment')}
+                    className="flex-1 py-2.5 px-3 font-semibold text-xs border-2 transition-all press-scale font-sans"
+                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8', color: '#6b7280', background: '#fff' }}>
+                    {t.editPayment}
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 3 navigation */}
+              <div className="flex gap-3 pt-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep('payment')}
+                  className="flex-1 p-4 font-bold text-gray-700 text-base flex items-center justify-center gap-2 min-h-[52px] active:scale-95 transition-all press-scale font-sans"
+                  style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                  {t.back}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  className="flex-1 p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] active:scale-95 transition-all press-scale font-sans"
+                  style={{
+                    background: canSave ? accent.btn : '#e5e7eb',
+                    color: canSave ? '#fff' : '#9ca3af',
+                    cursor: canSave ? 'pointer' : 'not-allowed',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: canSave ? `0 4px 0 ${accent.shadow}` : 'none',
+                  }}
+                >
+                  <Save className="w-5 h-5" />
+                  {t.saveSale}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ==========================================
+              NON-SALE: Expense / Credit (unchanged)
+              ========================================== */}
+          {!isSale && (
+            <>
+              {isExpense && (
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.amountLabel}</label>
+                  <div className="relative">
+                    <input
+                      type="text" inputMode="decimal"
+                      value={fmtInput(amount)}
+                      onChange={e => handleNumericInput(e, setAmount)}
+                      placeholder="0" autoFocus
+                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                {catalogEntries.length > 0 && (
+                  <div className="mb-3">
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.savedCatalogLabel}</label>
+                    <select
+                      value={catalogEntryId}
+                      onChange={e => handleSelectCatalogEntry(e.target.value)}
+                      className="w-full p-3 border-2 focus:outline-none text-sm font-sans bg-white"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}>
+                      <option value="">{t.typeManually}</option>
+                      {catalogEntries.map(entry => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} — {entry.kind === 'service' ? t.serviceLabel : t.itemLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.itemLabel}</label>
+                <input
+                  type="text"
+                  value={item}
+                  onChange={e => setItem(e.target.value)}
+                  placeholder={config.itemPlaceholder}
+                  className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                />
+              </div>
+
+              {isCredit && (
+                <>
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.amountLabel}</label>
+                    <div className="relative">
+                      <input
+                        type="text" inputMode="decimal"
+                        value={fmtInput(amount)}
+                        onChange={e => handleNumericInput(e, setAmount)}
+                        placeholder="0"
+                        className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 font-sans">
+                      {t.phoneOptional} <span className="text-gray-400 font-normal text-sm">{t.phoneOptionalHint}</span>
+                    </label>
+                    <div className="flex gap-0">
+                      <div className="flex items-center justify-center px-3 py-3 border-2 border-r-0 text-sm font-bold flex-shrink-0 font-sans"
+                        style={{ background: 'rgba(27,67,50,0.06)', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : '#e8e2d8', color: '#1B4332', minWidth: '64px', borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}>
+                        +251
+                      </div>
+                      <input
+                        type="tel" inputMode="numeric"
+                        value={phoneDigits}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          if (raw.length <= 9) setPhoneDigits(raw);
+                        }}
+                        onBlur={() => setPhoneTouched(true)}
+                        placeholder="9XXXXXXXX" maxLength={9}
+                        className="flex-1 p-4 border-2 text-base focus:outline-none min-h-[52px] font-sans"
+                        style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : (phoneEntered && phoneValid ? '#1B4332' : '#e8e2d8') }}
+                      />
+                    </div>
+                    {phoneTouched && phoneEntered && !phoneValid && (
+                      <p className="text-xs text-red-500 mt-1 font-medium font-sans">{t.creditPhoneHint}</p>
+                    )}
+                    {!phoneTouched && <p className="text-xs text-gray-400 mt-1 font-sans">{t.creditPhoneHint}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.whenDue} <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {dueDateOptions.map(opt => (
+                        <button key={opt.value} type="button" onClick={() => setSelectedDue(opt.value)}
+                          className="p-3 border-2 text-sm font-medium transition-colors min-h-[52px] press-scale font-sans"
+                          style={{
+                            borderRadius: 'var(--radius-sm)',
+                            borderColor: selectedDue === opt.value ? '#1B4332' : '#e8e2d8',
+                            background: selectedDue === opt.value ? 'rgba(27,67,50,0.07)' : '#fff',
+                            color: selectedDue === opt.value ? '#1B4332' : '#4b5563',
+                          }}>
+                          <div className="font-bold">{opt.label.split(' ')[0]}</div>
+                          <div className="text-xs opacity-70">{opt.display}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => setSelectedDue('custom')}
+                      className="w-full p-3 border-2 text-sm font-semibold transition-colors min-h-[52px] press-scale font-sans"
+                      style={{
+                        borderRadius: 'var(--radius-sm)',
+                        borderColor: selectedDue === 'custom' ? '#1B4332' : '#e8e2d8',
+                        background: selectedDue === 'custom' ? 'rgba(27,67,50,0.07)' : '#fff',
+                        color: selectedDue === 'custom' ? '#1B4332' : '#4b5563',
+                      }}>
+                      {t.pickDate}
+                    </button>
+                    {!hasDueDate && <p className="text-xs mt-1.5 font-medium font-sans" style={{ color: '#C4883A' }}>{t.selectDueDate}</p>}
+                    {selectedDue === 'custom' && (
+                      <input type="date" value={customDue} onChange={e => setCustomDue(e.target.value)}
+                        className="w-full mt-2 p-4 border-2 focus:outline-none text-base font-sans"
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
+                    )}
+                  </div>
+                </>
+              )}
+
+              {!isCredit && (
+                <div className="mt-1">
+                  <PaymentTypeChips
+                    paymentType={paymentType}
+                    provider={paymentProvider}
+                    onTypeChange={setPaymentType}
+                    onProviderChange={setPaymentProvider}
+                    enabledProviders={enabledProviders}
+                  />
+                </div>
+              )}
+
+              {/* Optional details for non-sale */}
+              {isSale && (
+                <div>
+                  <div className="h-px" style={{ background: '#e8e2d8' }}></div>
+                  <button type="button" onClick={() => setShowMoreDetails(v => !v)}
+                    className="flex items-center gap-1 text-sm font-semibold py-1 min-h-[44px] font-sans"
+                    style={{ color: '#C4883A' }}>
+                    {showMoreDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {lang === 'am' ? 'አማራጭ ዝርዝሮች' : 'Optional details'}
+                  </button>
+                  {showMoreDetails && (
+                    <div className="mt-2 p-4 border animate-slide-up" style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                      {isSale && (
+                        <div className="mb-4">
+                          <label className="block text-gray-600 text-sm font-semibold mb-2 font-sans">{t.howMany}</label>
+                          <input
+                            type="number" inputMode="numeric"
+                            value={quantity}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              if (raw === '') { setQuantity(''); return; }
+                              const v = parseInt(raw);
+                              if (!isNaN(v) && v >= 1) setQuantity(String(v));
+                            }}
+                            onBlur={e => {
+                              const v = parseInt(e.target.value);
+                              setQuantity(isNaN(v) || v < 1 ? '1' : String(v));
+                            }}
+                            min="1"
+                            className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                            style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                          />
+                        </div>
+                      )}
+                      <label className="block text-gray-600 text-sm font-semibold mb-2 font-sans">
+                        {lang === 'am' ? 'የግዢ ዋጋ' : 'Buying cost'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text" inputMode="decimal"
+                          value={fmtInput(costPrice)}
+                          onChange={e => handleNumericInput(e, setCostPrice)}
+                          placeholder="0"
+                          className="w-full p-3 pr-14 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                          style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
+                      </div>
+                      <p className="text-xs mt-2 font-sans" style={{ color: '#9ca3af' }}>
+                        {lang === 'am' ? 'ይህ ዕቃ ምን ያስከፈለው?' : 'How much did this item cost you?'}
+                      </p>
+                      {belowCost && (
+                        <div className="mt-3 flex items-start gap-2 p-3" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)' }}>
+                          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
+                          <p className="text-xs font-sans" style={{ color: '#92400e' }}>{t.sellingBelowCost}</p>
+                        </div>
+                      )}
+                      {cost > 0 && !belowCost && sellingPrice > 0 && (
+                        <div className="mt-3 p-3 border" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 'var(--radius-sm)' }}>
+                          <p className="text-xs text-green-700 font-semibold font-sans">{t.profitOnSale} {fmt(sellingPrice - cost * qty)} {t.birr}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Save button for non-sale */}
+          {!isSale && (
+            <div className="px-6 pb-8 pt-2">
+              <button onClick={handleSave} disabled={!canSave}
+                className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 transition-all min-h-[56px] active:scale-95 press-scale font-sans"
+                style={{
+                  background: canSave ? accent.btn : '#e5e7eb',
+                  color: canSave ? '#fff' : '#9ca3af',
+                  cursor: canSave ? 'pointer' : 'not-allowed',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: canSave ? `0 4px 0 ${accent.shadow}` : 'none',
+                }}>
+                <Save className="w-5 h-5" />
+                {config.buttonText}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Draft prompt */}
+        {showDraftPrompt && (
+          <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[60] animate-fade" onClick={e => { if (e.target === e.currentTarget) setShowDraftPrompt(false); }}>
+            <div className="bg-white w-full max-w-sm p-6 pb-8 animate-elastic" style={{ borderRadius: '24px 24px 0 0', boxShadow: 'var(--shadow-lg)' }}>
+              <h3 className="text-lg font-black text-gray-900 text-center mb-2 font-sans">{t.keepDraft}</h3>
+              <p className="text-sm text-gray-500 text-center mb-5 font-sans">Your unfinished sale is saved. Continue later.</p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => { setShowDraftPrompt(false); onDone(); }}
+                  className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] press-scale font-sans"
+                  style={{ background: '#2d6a4f', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #1B4332' }}>
+                  {t.keepDraft}
+                </button>
+                <button
+                  onClick={() => { clearDraft(); setShowDraftPrompt(false); onDone(); }}
+                  className="w-full p-4 font-bold text-gray-600 text-base min-h-[52px] press-scale font-sans"
+                  style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}>
+                  {t.discardDraft}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recurring expense popup */}
+        {showAddRecurring && (
+          <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 60, background: 'rgba(0,0,0,0.4)' }}>
+            <div className="bg-white w-full max-w-md p-6 animate-slide-up" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-base font-black text-gray-900 font-sans">{t.addRecurring}</h3>
+                <button onClick={() => setShowAddRecurring(false)} aria-label={t.close}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center press-scale">
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-4 font-sans">{t.addRecurringPopupGuide}</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.whatDidYouSpendOn}</label>
+                  <input type="text" value={popupName} onChange={e => setPopupName(e.target.value)}
+                    placeholder={t.spendPlaceholder}
+                    className="w-full p-3 border-2 focus:outline-none text-sm font-sans"
+                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.howMuchTotal}</label>
+                  <div className="relative">
+                    <input type="text" inputMode="decimal" value={fmtInput(popupAmount)}
+                      onChange={e => handleNumericInput(e, setPopupAmount)}
+                      placeholder="0"
+                      className="w-full p-3 pr-14 border-2 focus:outline-none text-sm font-sans"
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium font-sans">{t.birr}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">{t.frequency}</label>
+                  <div className="flex gap-2">
+                    {[{ id: 'daily', label: t.daily }, { id: 'weekly', label: t.weekly }, { id: 'monthly', label: t.monthly }].map(f => (
+                      <button key={f.id} type="button"
+                        onClick={() => setPopupFreq(f.id)}
+                        className="flex-1 py-2 text-xs font-bold border-2 transition-all press-scale font-sans"
+                        style={{
+                          borderRadius: 'var(--radius-sm)',
+                          borderColor: popupFreq === f.id ? '#D4654A' : '#e8e2d8',
+                          background: popupFreq === f.id ? 'rgba(212,101,74,0.08)' : '#fff',
+                          color: popupFreq === f.id ? '#D4654A' : '#6b7280',
+                        }}>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleAddAndUse}
+                disabled={!popupName.trim() || !parseFloat(parseInput(popupAmount))}
+                className="w-full mt-5 p-4 font-black text-base flex items-center justify-center gap-2 transition-all min-h-[52px] press-scale font-sans"
+                style={{
+                  borderRadius: 'var(--radius-md)',
+                  background: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '#D4654A' : '#e5e7eb',
+                  color: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '#fff' : '#9ca3af',
+                  cursor: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? 'pointer' : 'not-allowed',
+                  boxShadow: (popupName.trim() && parseFloat(parseInput(popupAmount))) ? '0 4px 0 #a84c37' : 'none',
+                }}>
+                <Plus className="w-5 h-5" />
+                {t.addAndUse}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

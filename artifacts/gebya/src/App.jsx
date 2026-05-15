@@ -99,7 +99,7 @@ function ShareModal({ summary, telegram, onClose, t }) {
   };
 
   const handleTelegram = () => {
-    window.open(`https://t.me/${handle}?text=${encoded}`, '_blank');
+    window.open(`https://t.me/${handle}?text=${encoded}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleCopy = async () => {
@@ -240,7 +240,8 @@ function AppInner() {
       try { setEnabledProviders(epRow ? JSON.parse(epRow.value) : DEFAULT_PROVIDERS); } catch { setEnabledProviders(DEFAULT_PROVIDERS); }
       try { setRecurringExpenses(reRow ? JSON.parse(reRow.value) : []); } catch { setRecurringExpenses([]); }
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to load data:', err);
+      const safeErr = err instanceof Error ? err.message : String(err);
+       if (import.meta.env.DEV) console.error('Failed to load data:', safeErr);
     } finally {
       setLoading(false);
     }
@@ -306,7 +307,8 @@ function AppInner() {
       const badges = await checkAndAwardBadges(stats, lang);
       setEarnedBadges(badges);
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Analytics tracking failed:', err);
+      const safeErr = err instanceof Error ? err.message : String(err);
+       if (import.meta.env.DEV) console.error('Analytics tracking failed:', safeErr);
     }
   }, [lang]);
 
@@ -472,8 +474,8 @@ function AppInner() {
         } catch { /* non-critical */ }
       });
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to save:', err);
-      alert('Could not save. Please try again.');
+      const safeErr = err instanceof Error ? err.message : String(err);
+      if (import.meta.env.DEV) console.error('Failed to save:', safeErr);
       throw err;
     }
   };
@@ -671,8 +673,9 @@ function AppInner() {
         )));
       }
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to update:', err);
-      alert('Could not update. Please try again.');
+const safeErr = err instanceof Error ? err.message : String(err);
+       if (import.meta.env.DEV) console.error('Failed to update:', safeErr);
+       alert('Could not update. Please try again.');
       throw err;
     }
   };
@@ -712,7 +715,10 @@ function AppInner() {
         setDeleteTarget(null);
       }
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to delete:', err);
+      if (import.meta.env.DEV) {
+         const safeErr = err instanceof Error ? err.message : String(err);
+         console.error('Failed to delete:', safeErr);
+       }
     }
   };
 
@@ -822,7 +828,10 @@ function AppInner() {
       fireToast(t.customerSaved, 1800);
       return true;
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Failed to save customer:', err);
+      if (import.meta.env.DEV) {
+         const safeErr = err instanceof Error ? err.message : String(err);
+         console.error('Failed to save customer:', safeErr);
+       }
       fireToast(t.customerSaveFailed || 'Could not save customer. Please try again.', 2400);
       return false;
     }
