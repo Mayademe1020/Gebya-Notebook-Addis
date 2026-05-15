@@ -613,10 +613,7 @@ const handlePhotoCapture = () => {
               {/* Auto-advance indicator */}
               {sellingPrice > 0 && item.trim().length > 0 && (
                 <div className="text-center py-2">
-                  <span className="text-xs font-medium font-sans flex items-center justify-center gap-1" style={{ color: '#6b7280' }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                    {lang === 'am' ? 'በራሱ ይቀጥላል' : 'Auto-advancing...'}
-                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
                 </div>
               )}
             </>
@@ -785,10 +782,7 @@ const handlePhotoCapture = () => {
                     else if (saleSettlementMode === 'paid_partly') step2Valid = parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice && saleCustomerName.trim().length > 0;
                     else if (saleSettlementMode === 'pay_later') step2Valid = saleCustomerName.trim().length > 0;
                     return step2Valid ? (
-                      <span className="text-xs font-medium font-sans flex items-center gap-1" style={{ color: '#6b7280' }}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                        {lang === 'am' ? 'በራሱ ይቀጥላል' : 'Auto-advancing...'}
-                      </span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
                     ) : (
                       <span className="text-xs font-medium font-sans" style={{ color: '#9ca3af' }}>
                         {lang === 'am' ? 'የሚፈልጉትን ይሙሉ' : 'Fill required fields to continue'}
