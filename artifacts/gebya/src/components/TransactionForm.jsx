@@ -92,6 +92,7 @@ function TransactionForm({
   const [photo, setPhoto] = useState(null);
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
   const [addRecurringHint, setAddRecurringHint] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
   const [popupName, setPopupName] = useState('');
   const [popupAmount, setPopupAmount] = useState('');
   const [popupFreq, setPopupFreq] = useState('monthly');
@@ -192,7 +193,12 @@ function TransactionForm({
   };
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave) {
+      setShowValidation(true);
+      if (!sellingPrice || sellingPrice <= 0) fireToast(lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount', 2500);
+      else if (!item.trim()) fireToast(lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name', 2500);
+      return;
+    }
     setSaveState('saving');
     const fullPhone = phoneEntered && phoneValid ? '+251' + phoneDigits : null;
     const data = {
@@ -427,13 +433,16 @@ function TransactionForm({
                   <input
                     type="text" inputMode="decimal"
                     value={fmtInput(amount)}
-                    onChange={e => handleNumericInput(e, setAmount)}
+                    onChange={e => { handleNumericInput(e, setAmount); setShowValidation(false); }}
                     placeholder="0" autoFocus
                     className="w-full p-3 pr-16 border-2 focus:outline-none text-base min-h-[48px] font-sans"
-                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                    style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && (!sellingPrice || sellingPrice <= 0) ? '#dc2626' : '#e8e2d8' }}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                 </div>
+                {showValidation && (!sellingPrice || sellingPrice <= 0) && (
+                  <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount'}</p>
+                )}
               </div>
 
               {/* Catalog + Item + Photo */}
@@ -464,12 +473,15 @@ function TransactionForm({
                     <input
                       type="text"
                       value={item}
-                      onChange={e => setItem(e.target.value)}
+                      onChange={e => { setItem(e.target.value); setShowValidation(false); }}
                       placeholder={config.itemPlaceholder}
                       className="w-full p-3 border-2 focus:outline-none text-base min-h-[44px] font-sans"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && !item.trim() ? '#dc2626' : '#e8e2d8' }}
                     />
                   </div>
+                  {showValidation && !item.trim() && (
+                    <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name'}</p>
+                  )}
                   <button
                     type="button"
                     onClick={handlePhotoCapture}
@@ -731,13 +743,16 @@ function TransactionForm({
                     <input
                       type="text" inputMode="decimal"
                       value={fmtInput(amount)}
-                      onChange={e => handleNumericInput(e, setAmount)}
+                      onChange={e => { handleNumericInput(e, setAmount); setShowValidation(false); }}
                       placeholder="0" autoFocus
                       className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                      style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && (!sellingPrice || sellingPrice <= 0) ? '#dc2626' : '#e8e2d8' }}
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                   </div>
+                  {showValidation && (!sellingPrice || sellingPrice <= 0) && (
+                    <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount'}</p>
+                  )}
                 </div>
               )}
 
@@ -763,11 +778,14 @@ function TransactionForm({
                 <input
                   type="text"
                   value={item}
-                  onChange={e => setItem(e.target.value)}
+                  onChange={e => { setItem(e.target.value); setShowValidation(false); }}
                   placeholder={config.itemPlaceholder}
                   className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
-                  style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                  style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && !item.trim() ? '#dc2626' : '#e8e2d8' }}
                 />
+                {showValidation && !item.trim() && (
+                  <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name'}</p>
+                )}
               </div>
 
               {isCredit && (
@@ -778,13 +796,16 @@ function TransactionForm({
                       <input
                         type="text" inputMode="decimal"
                         value={fmtInput(amount)}
-                        onChange={e => handleNumericInput(e, setAmount)}
+                        onChange={e => { handleNumericInput(e, setAmount); setShowValidation(false); }}
                         placeholder="0"
                         className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
-                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && (!sellingPrice || sellingPrice <= 0) ? '#dc2626' : '#e8e2d8' }}
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                     </div>
+                    {showValidation && (!sellingPrice || sellingPrice <= 0) && (
+                      <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount'}</p>
+                    )}
                   </div>
 
                   <div>

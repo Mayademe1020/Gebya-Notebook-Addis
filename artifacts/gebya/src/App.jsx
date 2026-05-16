@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useMemo } from 'react';
-import { BookOpen, Users, Calendar, Store, Trash2, Pencil, Share2, X } from 'lucide-react';
+import { BookOpen, Users, Calendar, Store, Trash2, Pencil, Share2, X, MoreVertical } from 'lucide-react';
 import db from './db';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { LangProvider, useLang } from './context/LangContext';
@@ -200,6 +200,7 @@ function AppInner() {
   const [earnedBadges, setEarnedBadges] = useState([]);
   const [bestDayTotal, setBestDayTotal] = useState(0);
   const [pressedBtn, setPressedBtn] = useState(null);
+  const [openKebabId, setOpenKebabId] = useState(null);
   const [voiceStep, setVoiceStep] = useState(null);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [voiceDetectedTotal, setVoiceDetectedTotal] = useState(null);
@@ -562,11 +563,14 @@ function AppInner() {
           if (linkedTransaction) {
             const settlementMode = existing.sale_settlement_mode || 'pay_later';
             const nextAmount = Math.max(Number(next.amount) || 0, 0);
+            
+            // Slice C: Use updated paid_amount if provided, otherwise fall back to existing
             const nextPaidAmount = settlementMode === 'pay_later'
               ? 0
               : settlementMode === 'paid_partly'
-                ? Math.min(Number(existing.paid_amount || 0), nextAmount)
+                ? Math.max(Number(next.paid_amount ?? existing.paid_amount) || 0, 0)
                 : nextAmount;
+            
             const nextRemainingAmount = settlementMode === 'paid_now'
               ? 0
               : Math.max(nextAmount - nextPaidAmount, 0);
@@ -576,10 +580,12 @@ function AppInner() {
             next.is_credit = nextRemainingAmount > 0;
 
             if (nextRemainingAmount > 0) {
+              // Slice C: Use updated settlement_due_date if provided
+              const nextDueDate = next.settlement_due_date !== undefined ? next.settlement_due_date : existing.settlement_due_date;
               await db.customer_transactions.update(existing.linked_customer_transaction_id, {
                 amount: nextRemainingAmount,
                 item_note: buildLinkedSaleItemNote(next.item_name, nextPaidAmount, t),
-                due_date: existing.settlement_due_date || null,
+                due_date: nextDueDate || null,
                 updated_at: now,
               });
               linkedCustomerTransaction = await db.customer_transactions.get(existing.linked_customer_transaction_id);
@@ -596,11 +602,14 @@ function AppInner() {
         } else if (existing.type === 'sale' && existing.sale_settlement_mode && existing.sale_settlement_mode !== 'paid_now') {
           const settlementMode = existing.sale_settlement_mode;
           const nextAmount = Math.max(Number(next.amount) || 0, 0);
+          
+          // Slice C: Use updated paid_amount if provided
           const nextPaidAmount = settlementMode === 'pay_later'
             ? 0
             : settlementMode === 'paid_partly'
-              ? Math.min(Number(existing.paid_amount || 0), nextAmount)
+              ? Math.max(Number(next.paid_amount ?? existing.paid_amount) || 0, 0)
               : nextAmount;
+          
           const nextRemainingAmount = settlementMode === 'paid_now'
             ? 0
             : Math.max(nextAmount - nextPaidAmount, 0);
@@ -619,12 +628,14 @@ function AppInner() {
             }
 
             if (linkedCustomerId) {
+              // Slice C: Use updated settlement_due_date if provided
+              const nextDueDate = next.settlement_due_date !== undefined ? next.settlement_due_date : existing.settlement_due_date;
               const linkedEntry = {
                 customer_id: linkedCustomerId,
                 type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
                 amount: nextRemainingAmount,
                 item_note: buildLinkedSaleItemNote(next.item_name, nextPaidAmount, t),
-                due_date: existing.settlement_due_date || null,
+                due_date: nextDueDate || null,
                 reference_code: null,
                 telegram_delivery_state: null,
                 telegram_delivery_error: null,
@@ -1693,9 +1704,7 @@ const safeErr = err instanceof Error ? err.message : String(err);
                   transform: pressed ? 'translateY(3px)' : 'none',
                 }}
               >
-                <div className="text-base font-black leading-none text-white">+</div>
-                <div className="px-1 text-sm font-black leading-snug text-white font-sans">{b.label}</div>
-                <div className="px-1 text-[10px] text-white opacity-70">{b.sub}</div>
+                <div className="px-1 text-sm font-black leading-snug text-white font-sans">{b.sub}</div>
               </button>
             );
           })}
@@ -1708,30 +1717,24 @@ const safeErr = err instanceof Error ? err.message : String(err);
         {activeTab === 'today' && (
           <div>
 
-            {(todayTransactions.length > 0 || todayLedgerTransactions.length > 0) && (
-              <button
-                onClick={handleShareReport}
-                className="w-full mb-2 py-2.5 flex items-center justify-center gap-2 text-sm font-bold transition-all press-scale"
-                style={{
-                  background: '#1B4332',
-                  color: '#fff',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                <Share2 className="w-4 h-4" />
-                {t.shareReport}
-              </button>
-            )}
-
             <div className="overflow-hidden animate-elastic stagger-3" style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)' }}>
-              <div className="px-3 py-2 border-b" style={{ borderColor: P.borderLight }}>
+              <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: P.borderLight }}>
                 <h3 className="font-bold text-gray-700 text-sm font-sans">
                   {t.todaysEntries}
                   <span className="ml-1.5 text-[10px] px-1.5 py-0.5" style={{ background: 'rgba(27,67,50,0.08)', color: P.header, borderRadius: '6px' }}>
                     {todayTransactions.length}
                   </span>
                 </h3>
+                {(todayTransactions.length > 0 || todayLedgerTransactions.length > 0) && (
+                  <button
+                    onClick={handleShareReport}
+                    className="p-1.5 rounded-full press-scale"
+                    style={{ background: 'rgba(27,67,50,0.08)' }}
+                    aria-label={t.shareReport}
+                  >
+                    <Share2 className="w-4 h-4" style={{ color: P.header }} />
+                  </button>
+                )}
               </div>
 
               {todayTransactions.length === 0 ? (
@@ -1743,58 +1746,92 @@ const safeErr = err instanceof Error ? err.message : String(err);
                   </p>
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: P.borderLight }}>
-                  {todayTransactions.map(tx => (
-                    <div key={tx.id}
-                      className="px-3 py-2 flex items-center border-l-3"
-                      style={{ borderLeftColor: typeBorderColor[tx.type] }}>
-                      <span className="text-lg mr-2 flex-shrink-0">{typeEmoji[tx.type]}</span>
-                      <button
-                        className="flex-1 min-w-0 text-left"
-                        onClick={() => setEditTarget(tx)}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="font-semibold text-gray-800 text-sm truncate">{tx.item_name}</span>
-                          {tx.updated_at && <span className="text-[10px]" style={{ color: P.amber }}>{t.edited}</span>}
-                        </div>
-                        {(tx.quantity > 1 || (tx.payment_type && tx.payment_type !== 'cash')) && (
-                          <span className="text-[10px] text-gray-400">
-                            {tx.quantity > 1 ? `×${tx.quantity}` : ''}
-                            {tx.payment_type && tx.payment_type !== 'cash' ? ` · ${[tx.payment_type, tx.payment_provider].filter(Boolean).join(' · ')}` : ''}
-                          </span>
-                        )}
-                      </button>
-                      <div className="text-right mr-1.5 flex-shrink-0">
-                        <div className="font-bold text-sm" style={{ color: typeColor[tx.type] }}>
-                          {tx.type === 'expense' ? '-' : (tx.type === 'sale' ? '+' : '')}{fmt(tx.amount || 0)}
-                        </div>
-                        {tx.profit !== null && tx.profit !== undefined && (
-                          <div className={`text-[10px] ${tx.profit >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-                            {tx.profit >= 0 ? '+' : ''}{fmt(tx.profit)}
+                <>
+                  <div className="divide-y" style={{ borderColor: P.borderLight }}>
+                    {todayTransactions.map(tx => {
+                      const timeStr = new Date(tx.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+                      return (
+                        <div key={tx.id}
+                          className="px-3 py-2 flex items-center border-l-3 relative"
+                          style={{ borderLeftColor: typeBorderColor[tx.type] }}>
+                          <span className="text-lg mr-2 flex-shrink-0">{typeEmoji[tx.type]}</span>
+                          <button
+                            className="flex-1 min-w-0 text-left"
+                            onClick={() => setEditTarget(tx)}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span className="font-semibold text-gray-800 text-sm truncate">{tx.item_name}</span>
+                              {tx.updated_at && <span className="text-[10px]" style={{ color: P.amber }}>{t.edited}</span>}
+                            </div>
+                            <span className="text-[10px] text-gray-400">
+                              {timeStr}
+                              {tx.quantity > 1 ? ` · ×${tx.quantity}` : ''}
+                              {tx.payment_type && tx.payment_type !== 'cash' ? ` · ${[tx.payment_type, tx.payment_provider].filter(Boolean).join(' · ')}` : ''}
+                            </span>
+                          </button>
+                          <div className="text-right mr-1 flex-shrink-0">
+                            <div className="font-bold text-sm" style={{ color: typeColor[tx.type] }}>
+                              {tx.type === 'expense' ? '-' : (tx.type === 'sale' ? '+' : '')}{fmt(tx.amount || 0)}
+                            </div>
+                            {tx.profit !== null && tx.profit !== undefined && (
+                              <div className={`text-[10px] ${tx.profit >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                                {tx.profit >= 0 ? '+' : ''}{fmt(tx.profit)}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex gap-0.5 flex-shrink-0">
-                        <button
-                          onClick={() => setEditTarget(tx)}
-                          className="p-1.5 flex items-center justify-center press-scale"
-                          style={{ background: 'rgba(196,136,58,0.1)', minWidth: '32px', minHeight: '32px', borderRadius: '8px' }}
-                          aria-label={t.editEntry}
-                        >
-                          <Pencil className="w-3 h-3" style={{ color: P.amber }} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(tx)}
-                          className="p-1.5 flex items-center justify-center press-scale"
-                          style={{ background: '#fff1f2', minWidth: '32px', minHeight: '32px', borderRadius: '8px' }}
-                          aria-label={t.deleteEntryLabel}
-                        >
-                          <Trash2 className="w-3 h-3 text-red-400" />
-                        </button>
-                      </div>
+                          <div className="flex-shrink-0 relative">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOpenKebabId(openKebabId === tx.id ? null : tx.id); }}
+                              className="p-1.5 flex items-center justify-center press-scale"
+                              style={{ minWidth: '32px', minHeight: '32px', borderRadius: '8px' }}
+                              aria-label="Options"
+                            >
+                              <MoreVertical className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                            </button>
+                            {openKebabId === tx.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenKebabId(null)} />
+                                <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-lg shadow-lg border overflow-hidden" style={{ borderColor: P.border, minWidth: '120px' }}>
+                                  <button
+                                    onClick={() => { setEditTarget(tx); setOpenKebabId(null); }}
+                                    className="w-full px-4 py-2.5 text-left text-sm font-medium flex items-center gap-2 hover:bg-gray-50 press-scale"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" style={{ color: P.amber }} />
+                                    {t.editEntry}
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeleteTarget(tx); setOpenKebabId(null); }}
+                                    className="w-full px-4 py-2.5 text-left text-sm font-medium flex items-center gap-2 hover:bg-gray-50 press-scale text-red-600"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    {t.deleteEntryLabel}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-4 py-3 border-t" style={{ borderColor: P.borderLight }}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">{t.totalSales}</span>
+                      <span className="text-sm font-medium text-gray-800">{fmt(todaySalesTotal)} {t.birr}</span>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-500">{t.totalExpenses}</span>
+                      <span className="text-sm font-medium text-red-500">-{fmt(todayExpensesTotal)} {t.birr}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t" style={{ borderColor: P.borderLight }}>
+                      <span className="text-xs font-bold text-gray-600">{t.netReceived || 'Net Received'}</span>
+                      <span className={`text-lg font-black ${(todaySalesTotal + (todayLedgerTransactions || []).filter(x => x.type === 'payment').reduce((s, x) => s + (x.amount || 0), 0) - todayExpensesTotal) >= 0 ? 'text-green-700' : 'text-red-500'}`}>
+                        {fmt(todaySalesTotal + (todayLedgerTransactions || []).filter(x => x.type === 'payment').reduce((s, x) => s + (x.amount || 0), 0) - todayExpensesTotal)} {t.birr}
+                      </span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
