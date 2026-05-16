@@ -466,13 +466,7 @@ function AppInner() {
       const toastMsg = transaction.type === 'sale' && linkedCustomerTransaction
         ? (t.saleSavedWithBalance || 'Sale saved. Remaining balance added to customer.')
         : ({ sale: t.saleSaved, expense: t.expenseSaved }[transaction.type] || '✓');
-      fireToast(toastMsg, 4000, async () => {
-        try {
-          if (!saved?.id) return;
-          await handleDeleteTransaction(saved.id, { silentClose: true });
-          fireToast(t.undone, 2000);
-        } catch { /* non-critical */ }
-      });
+      fireToast(toastMsg, 1500);
     } catch (err) {
       const safeErr = err instanceof Error ? err.message : String(err);
       if (import.meta.env.DEV) console.error('Failed to save:', safeErr);
@@ -1662,25 +1656,6 @@ const safeErr = err instanceof Error ? err.message : String(err);
           </div>
         </div>
 
-        {activeTab === 'today' && (
-          <div className="flex gap-2">
-            {[
-              { label: t.sales, val: todaySalesTotal, color: 'rgba(255,255,255,0.15)', text: '#fff' },
-              { label: t.spent, val: todayExpensesTotal, color: 'rgba(212,101,74,0.35)', text: '#fff' },
-            ].map(s => (
-              <div key={s.label} className="min-w-0 flex-1 px-2 py-1.5 text-center animate-elastic sm:px-2" style={{ background: s.color, borderRadius: 'var(--radius-sm)' }}>
-                <div className="truncate text-[10px] font-semibold sm:text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{s.label}</div>
-                <div className="truncate text-sm font-black text-white">{hid(s.val)} {t.birr}</div>
-              </div>
-            ))}
-            {estimatedProfit !== null && (
-              <div key="profit" className="min-w-0 flex-1 px-2 py-1.5 text-center animate-elastic sm:px-2" style={{ background: 'rgba(196,136,58,0.3)', borderRadius: 'var(--radius-sm)' }}>
-                <div className="truncate text-[10px] font-semibold sm:text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.estimatedProfit || 'Est. profit'}</div>
-                <div className="truncate text-sm font-black text-white">{hid(estimatedProfit)} {t.birr}</div>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
 
@@ -1892,6 +1867,22 @@ const safeErr = err instanceof Error ? err.message : String(err);
 
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 border-t"
         style={{ background: '#fff', borderColor: P.border }}>
+        {activeTab === 'today' && (
+          <div className="flex items-center justify-between px-4 py-1.5 border-b" style={{ borderColor: P.border, background: 'rgba(27,67,50,0.03)' }}>
+            <div className="text-center flex-1">
+              <div className="text-[10px] font-semibold" style={{ color: '#6b7280' }}>{t.sales}</div>
+              <div className="font-black text-sm" style={{ color: '#2d6a4f' }}>{fmt(todaySalesTotal)} {t.birr}</div>
+            </div>
+            <div className="text-center flex-1 border-x mx-2" style={{ borderColor: P.border }}>
+              <div className="text-[10px] font-semibold" style={{ color: '#6b7280' }}>{t.spent}</div>
+              <div className="font-black text-sm" style={{ color: '#D4654A' }}>{fmt(todayExpensesTotal)} {t.birr}</div>
+            </div>
+            <div className="text-center flex-1">
+              <div className="text-[10px] font-semibold" style={{ color: '#6b7280' }}>{t.netReceived || 'Net'}</div>
+              <div className="font-black text-sm" style={{ color: todaySalesTotal - todayExpensesTotal >= 0 ? '#2d6a4f' : '#D4654A' }}>{fmt(todaySalesTotal - todayExpensesTotal)} {t.birr}</div>
+            </div>
+          </div>
+        )}
         <div className="flex">
           {tabs.map(tab => {
             const Icon = tab.icon;

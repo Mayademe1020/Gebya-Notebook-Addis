@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronUp, Save, AlertTriangle, CheckCircle2, Plus, Camera } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import StepIndicator from './StepIndicator';
 import PaymentTypeChips from './PaymentTypeChips';
-import InlineVoiceRecorder from './InlineVoiceRecorder';
 import { fireToast } from './Toast';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
@@ -100,10 +98,6 @@ function TransactionForm({
   const selectedCatalogEntry = catalogEntries.find(e => String(e.id) === String(catalogEntryId));
   const dueDateOptions = getDueDateOptions();
 
-  const [currentStep, setCurrentStep] = useState('details');
-  const [step1Error, setStep1Error] = useState('');
-  const [step2Error, setStep2Error] = useState('');
-
   useEffect(() => {
     if (!isSale) return;
     const draft = loadDraft();
@@ -120,17 +114,6 @@ function TransactionForm({
       setCostPrice(draft.costPrice || '');
       setShowMoreDetails(draft.showMoreDetails || false);
       if (draft.photo) setPhoto(draft.photo);
-
-      const rawStep = draft.currentStep || 'details';
-      let safeStep = rawStep;
-      const draftSettlement = draft.saleSettlementMode || 'paid_now';
-      if (rawStep === 'review') {
-        if (draftSettlement === 'pay_later' && !draft.saleCustomerName?.trim()) safeStep = 'payment';
-        if (draftSettlement === 'paid_partly' && !(draft.paidAmount > 0) && !draft.saleCustomerName?.trim()) safeStep = 'payment';
-        if (!draft.amount || !draft.item?.trim()) safeStep = 'details';
-      }
-      if (rawStep === 'payment' && (!draft.amount || !draft.item?.trim())) safeStep = 'details';
-      setCurrentStep(safeStep);
       setDraftRestored(true);
       setTimeout(() => setDraftRestored(false), 3000);
     }
@@ -138,20 +121,27 @@ function TransactionForm({
   }, []);
 
   useEffect(() => {
+    if (saveState !== 'success') return;
+    const timer = setTimeout(() => {
+      onDone();
+    }, 1200);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveState]);
+
+  useEffect(() => {
     if (!isSale || saveState === 'success') return;
     const timer = setTimeout(() => {
       saveDraft({
         item, amount, paymentType, paymentProvider, saleSettlementMode,
         saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
-        photo, currentStep,
+        photo,
       });
     }, 500);
     return () => clearTimeout(timer);
   }, [item, amount, paymentType, paymentProvider, saleSettlementMode, saleCustomerName,
-      paidAmount, saleDueDate, quantity, costPrice, showMoreDetails, photo, currentStep,
+      paidAmount, saleDueDate, quantity, costPrice, showMoreDetails, photo,
       isSale, saveState]);
-
-  const autoAdvanceTimer = useRef(null);
 
   const sellingPrice = parseFloat(parseInput(amount)) || 0;
   const cost = parseFloat(parseInput(costPrice)) || 0;
@@ -186,35 +176,6 @@ function TransactionForm({
     : null;
   const nextCustomerBalance = Math.max(Number(selectedExistingCustomer?.balance || 0), 0) + remainingAmount;
 
-  useEffect(() => {
-    if (!isSale || saveState === 'success') return;
-    if (currentStep === 'details') {
-      const step1Valid = sellingPrice > 0 && item.trim().length > 0;
-      if (step1Valid) {
-        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-        autoAdvanceTimer.current = setTimeout(() => {
-          if (currentStep === 'details') setCurrentStep('payment');
-        }, 800);
-      } else {
-        if (autoAdvanceTimer.current) { clearTimeout(autoAdvanceTimer.current); autoAdvanceTimer.current = null; }
-      }
-    } else if (currentStep === 'payment') {
-      let step2Valid = false;
-      if (saleSettlementMode === 'paid_now') step2Valid = true;
-      else if (saleSettlementMode === 'paid_partly') step2Valid = parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice && saleCustomerName.trim().length > 0;
-      else if (saleSettlementMode === 'pay_later') step2Valid = saleCustomerName.trim().length > 0;
-      if (step2Valid) {
-        if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-        autoAdvanceTimer.current = setTimeout(() => {
-          if (currentStep === 'payment') setCurrentStep('review');
-        }, 800);
-      } else {
-        if (autoAdvanceTimer.current) { clearTimeout(autoAdvanceTimer.current); autoAdvanceTimer.current = null; }
-      }
-    }
-    return () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); };
-  }, [isSale, saveState, currentStep, sellingPrice, item, saleSettlementMode, parsedPaidAmount, saleCustomerName]);
-
   const phoneValid  = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
   const phoneEntered = phoneDigits.length > 0;
   const hasDueDate = isCredit
@@ -230,41 +191,9 @@ function TransactionForm({
     return selectedDue;
   };
 
-  const handleStep1Next = () => {
-    if (!amount || parseFloat(parseInput(amount)) <= 0) {
-      setStep1Error(lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount');
-      return;
-    }
-    if (!item.trim()) {
-      setStep1Error(lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name');
-      return;
-    }
-    setStep1Error('');
-    setCurrentStep('payment');
-  };
-
-  const handleStep2Next = () => {
-    if (saleSettlementMode === 'pay_later') {
-      if (!saleCustomerName.trim()) {
-        setStep2Error(lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter customer name');
-        return;
-      }
-    } else if (saleSettlementMode === 'paid_partly') {
-      if (!parsedPaidAmount || parsedPaidAmount <= 0 || parsedPaidAmount >= sellingPrice) {
-        setStep2Error(lang === 'am' ? 'ትክክለኛ የተከፈለ መጠን ያስገቡ' : 'Enter a valid paid amount');
-        return;
-      }
-      if (!saleCustomerName.trim()) {
-        setStep2Error(lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter customer name');
-        return;
-      }
-    }
-    setStep2Error('');
-    setCurrentStep('review');
-  };
-
   const handleSave = async () => {
     if (!canSave) return;
+    setSaveState('saving');
     const fullPhone = phoneEntered && phoneValid ? '+251' + phoneDigits : null;
     const data = {
       type,
@@ -330,20 +259,12 @@ function TransactionForm({
     setTimeout(() => setAddRecurringHint(false), 4000);
   };
 
-  const handleVoiceSave = () => {
-    saveDraft({
-      item, amount, paymentType, paymentProvider, saleSettlementMode,
-      saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
-      photo, currentStep,
-    });
-    onVoiceClick?.();
-  };
-
-const handlePhotoCapture = () => {
+  const handlePhotoCapture = () => {
      const input = document.createElement('input');
      input.type = 'file';
      input.accept = 'image/*';
      input.capture = 'environment';
+     input.setAttribute('capture', 'camera');
      input.onchange = (e) => {
        const file = e.target.files?.[0];
        if (!file) return;
@@ -399,18 +320,6 @@ const handlePhotoCapture = () => {
             <CheckCircle2 className="w-14 h-14 mx-auto mb-3 text-green-500" />
             <p className="font-black text-gray-900 text-xl font-sans">{lastSaved?.item}</p>
             <p className="text-gray-500 mt-1 text-base font-sans">{fmt(lastSaved?.amount)} {t.birrSaved}</p>
-            <p className="text-sm mt-3 font-medium font-sans" style={{ color: '#6b7280' }}>
-              {t.trustReopenHint}
-            </p>
-          </div>
-          <div className="space-y-3">
-            <button
-              onClick={onDone}
-              className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] active:scale-95 transition-all press-scale font-sans"
-              style={{ background: accent.btn, borderRadius: 'var(--radius-md)', boxShadow: `0 4px 0 ${accent.shadow}` }}
-            >
-              {t.done}
-            </button>
           </div>
         </div>
       </div>
@@ -438,22 +347,7 @@ const handlePhotoCapture = () => {
           )}
         </div>
 
-        {/* Stepper — only for sales */}
-        {isSale && (
-          <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
-            <StepIndicator
-              currentStep={currentStep}
-              onStepClick={(stepId) => {
-                const stepOrder = ['details', 'payment', 'review'];
-                const currentIdx = stepOrder.indexOf(currentStep);
-                const targetIdx = stepOrder.indexOf(stepId);
-                if (targetIdx < currentIdx) setCurrentStep(stepId);
-              }}
-            />
-          </div>
-        )}
-
-        <div className="px-5 py-3 space-y-3">
+        <div className="px-4 py-2 space-y-2">
 
           {/* Credit direction */}
           {isCredit && (
@@ -522,35 +416,35 @@ const handlePhotoCapture = () => {
           )}
 
           {/* ==========================================
-              STEP 1 — DETAILS
+              SALE — Single-screen composer
               ========================================== */}
-          {isSale && currentStep === 'details' && (
+          {isSale && (
             <>
               {/* Amount */}
               <div>
-                <label className="block text-gray-700 font-semibold mb-2 font-sans">{config.amountLabel}</label>
+                <label className="block text-gray-700 font-semibold mb-1.5 text-sm font-sans">{config.amountLabel}</label>
                 <div className="relative">
                   <input
                     type="text" inputMode="decimal"
                     value={fmtInput(amount)}
                     onChange={e => handleNumericInput(e, setAmount)}
                     placeholder="0" autoFocus
-                    className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                    className="w-full p-3 pr-16 border-2 focus:outline-none text-base min-h-[48px] font-sans"
                     style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                 </div>
               </div>
 
-              {/* Catalog + Item + Photo + Voice */}
+              {/* Catalog + Item + Photo */}
               <div>
                 {catalogEntries.length > 0 && (
-                  <div className="mb-3">
-                    <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.savedCatalogLabel}</label>
+                  <div className="mb-2">
+                    <label className="block text-gray-700 font-semibold mb-1.5 text-xs font-sans">{t.savedCatalogLabel}</label>
                     <select
                       value={catalogEntryId}
                       onChange={e => handleSelectCatalogEntry(e.target.value)}
-                      className="w-full p-3 border-2 focus:outline-none text-sm font-sans bg-white"
+                      className="w-full p-2.5 border-2 focus:outline-none text-sm font-sans bg-white"
                       style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}>
                       <option value="">{t.typeManually}</option>
                       {catalogEntries.map(entry => (
@@ -564,7 +458,7 @@ const handlePhotoCapture = () => {
 
                 <div className="flex items-end gap-1.5">
                   <div className="flex-1">
-                    <label className="block text-gray-700 font-semibold mb-2 font-sans">
+                    <label className="block text-gray-700 font-semibold mb-1.5 text-sm font-sans">
                       {config.itemLabel} <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -572,60 +466,32 @@ const handlePhotoCapture = () => {
                       value={item}
                       onChange={e => setItem(e.target.value)}
                       placeholder={config.itemPlaceholder}
-                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[44px] font-sans"
                       style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                     />
                   </div>
-                  <div className="flex flex-col gap-1 pb-0.5">
-                    <button
-                      type="button"
-                      onClick={handlePhotoCapture}
-                      className="p-2 rounded-full border-2 press-scale min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      style={{ borderColor: '#e8e2d8', background: '#fff' }}
-                      title="Take photo">
-                      <Camera className="w-4 h-4" style={{ color: '#6b7280' }} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePhotoCapture}
+                    className="p-2.5 rounded-full border-2 press-scale min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0"
+                    style={{ borderColor: '#e8e2d8', background: '#fff' }}
+                    title="Take photo">
+                    <Camera className="w-4 h-4" style={{ color: '#6b7280' }} />
+                  </button>
                 </div>
 
                 {photo && (
                   <div className="flex items-center gap-2 p-2 mt-2 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#f9fafb' }}>
-                    <img src={photo} alt="Sale photo" className="w-12 h-12 object-cover rounded" style={{ borderRadius: '6px' }} />
+                    <img src={photo} alt="Sale photo" className="w-10 h-10 object-cover rounded" style={{ borderRadius: '6px' }} />
                     <span className="text-xs flex-1 font-sans" style={{ color: '#9ca3af' }}>{t.photoAttached}</span>
                     <button type="button" onClick={() => setPhoto(null)} className="text-xs font-medium px-2 py-1 font-sans" style={{ color: '#dc2626' }}>Remove</button>
                   </div>
                 )}
-
-                {onVoiceResult && (
-                  <div className="mt-3">
-                    <InlineVoiceRecorder onResult={handleVoiceResult} />
-                  </div>
-                )}
               </div>
 
-              {step1Error && (
-                <div className="flex items-center gap-2 text-xs text-red-600 font-medium font-sans">
-                  <AlertTriangle className="w-3 h-3" />
-                  {step1Error}
-                </div>
-              )}
-
-              {/* Auto-advance indicator */}
-              {sellingPrice > 0 && item.trim().length > 0 && (
-                <div className="text-center py-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ==========================================
-              STEP 2 — PAYMENT
-              ========================================== */}
-          {isSale && currentStep === 'payment' && (
-            <>
+              {/* Settlement mode */}
               <div>
-                <div className="text-xs font-bold uppercase tracking-wide mb-2 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
+                <div className="text-xs font-bold uppercase tracking-wide mb-1.5 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
                     { id: 'paid_now',    label: t.saleSettlementPaidNow    },
@@ -634,8 +500,8 @@ const handlePhotoCapture = () => {
                   ].map(option => (
                     <button
                       key={option.id} type="button"
-                      onClick={() => { setSaleSettlementMode(option.id); setStep2Error(''); }}
-                      className="py-2.5 px-1 border-2 text-center text-xs font-bold transition-all press-scale font-sans"
+                      onClick={() => setSaleSettlementMode(option.id)}
+                      className="py-2 px-1 border-2 text-center text-xs font-bold transition-all press-scale font-sans"
                       style={{
                         borderRadius: 'var(--radius-sm)',
                         borderColor: saleSettlementMode === option.id ? '#1B4332' : '#e8e2d8',
@@ -651,78 +517,55 @@ const handlePhotoCapture = () => {
               {/* Paid partly — paid amount */}
               {saleSettlementMode === 'paid_partly' && (
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2 font-sans">{t.salePaidAmountLabel}</label>
+                  <label className="block text-gray-700 font-semibold mb-1.5 text-sm font-sans">{t.salePaidAmountLabel}</label>
                   <div className="relative">
                     <input
                       type="text" inputMode="decimal"
                       value={fmtInput(paidAmount)}
                       onChange={e => handleNumericInput(e, setPaidAmount)}
                       placeholder="0"
-                      className="w-full p-4 pr-16 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                      className="w-full p-3 pr-16 border-2 focus:outline-none text-base min-h-[44px] font-sans"
                       style={{ borderRadius: 'var(--radius-md)', borderColor: partialAmountValid || !paidAmount ? '#e8e2d8' : '#dc2626' }}
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
                   </div>
-                  {!partialAmountValid && (
-                    <p className="text-xs mt-2 font-medium text-red-600 font-sans">{t.salePaidAmountHint}</p>
+                  {!partialAmountValid && paidAmount && (
+                    <p className="text-xs mt-1 font-medium text-red-600 font-sans">{t.salePaidAmountHint}</p>
                   )}
                 </div>
               )}
 
-              {/* Paid now / partly — provider chips */}
-              {saleSettlementMode !== 'pay_later' && (
-                <div className="mt-1">
-                  <PaymentTypeChips
-                    paymentType={paymentType}
-                    provider={paymentProvider}
-                    onTypeChange={setPaymentType}
-                    onProviderChange={setPaymentProvider}
-                    enabledProviders={enabledProviders}
-                  />
-                </div>
-              )}
-
-              {/* Pay later info */}
-              {saleSettlementMode === 'pay_later' && (
-                <div className="flex items-start gap-3 p-3" style={{ background: '#fffbeb', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4883A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  <p className="text-xs font-medium font-sans" style={{ color: '#92400e' }}>{t.noPaymentCollected}</p>
-                </div>
-              )}
-
-              {/* Customer + return date for partly/later */}
+              {/* Customer + due date for partly/later */}
               {saleSettlementMode !== 'paid_now' && (
                 <>
                   <div>
-                    <label className="block text-gray-700 font-semibold mb-2 font-sans">
+                    <label className="block text-gray-700 font-semibold mb-1.5 text-sm font-sans">
                       {lang === 'am' ? 'ደንበኛ ስም ወይም ምልክት *' : 'Customer name or clue *'}
                     </label>
                     <input
                       type="text"
                       value={saleCustomerName}
-                      onChange={e => { setSaleCustomerName(e.target.value); setStep2Error(''); }}
+                      onChange={e => setSaleCustomerName(e.target.value)}
                       placeholder={t.customerIdentifierPlaceholder}
-                      className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
+                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[44px] font-sans"
                       style={{ borderRadius: 'var(--radius-md)', borderColor: saleCustomerValid ? '#e8e2d8' : '#dc2626' }}
                     />
                     {matchedCustomers.length > 0 && (
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-1.5 space-y-1.5">
                         {matchedCustomers.map(c => (
                           <button
                             key={c.id} type="button"
                             onClick={() => setSaleCustomerName(c.display_name || '')}
-                            className="w-full p-3 border text-left press-scale font-sans"
+                            className="w-full p-2.5 border text-left press-scale font-sans"
                             style={{ background: '#fff', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}>
-                            <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="font-bold text-sm text-gray-900 truncate">{c.display_name}</p>
-                                {c.note && <p className="text-xs mt-1 truncate" style={{ color: '#6b7280' }}>{c.note}</p>}
+                                <p className="font-bold text-xs text-gray-900 truncate">{c.display_name}</p>
+                                {c.note && <p className="text-[10px] mt-0.5 truncate" style={{ color: '#6b7280' }}>{c.note}</p>}
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="text-[11px] font-bold uppercase tracking-wide font-sans" style={{ color: '#9ca3af' }}>{t.currentBalance}</p>
-                                <p className="text-sm font-black font-sans" style={{ color: '#92400e' }}>{fmt(c.balance || 0)} {t.birr}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wide font-sans" style={{ color: '#9ca3af' }}>{t.currentBalance}</p>
+                                <p className="text-xs font-black font-sans" style={{ color: '#92400e' }}>{fmt(c.balance || 0)} {t.birr}</p>
                               </div>
                             </div>
                           </button>
@@ -731,208 +574,146 @@ const handlePhotoCapture = () => {
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.dueDateOptional}</label>
-                    <input
-                      type="date"
-                      value={saleDueDate}
-                      onChange={e => setSaleDueDate(e.target.value)}
-                      className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                    />
-                  </div>
+                  {saleSettlementMode === 'pay_later' && (
+                    <div>
+                      <label className="block text-gray-700 font-semibold mb-1.5 text-xs font-sans">{t.dueDateOptional}</label>
+                      <input
+                        type="date"
+                        value={saleDueDate}
+                        onChange={e => setSaleDueDate(e.target.value)}
+                        className="w-full p-3 border-2 focus:outline-none text-sm min-h-[44px] font-sans"
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                      />
+                    </div>
+                  )}
 
-                  {/* Remaining balance preview */}
+                  {/* Remaining balance */}
                   {remainingAmount > 0 && (
-                    <div className="p-3 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)' }}>
-                      <div className="flex items-center justify-between gap-3 text-sm font-sans mb-1.5">
+                    <div className="p-2.5 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)' }}>
+                      <div className="flex items-center justify-between gap-2 text-xs font-sans">
                         <span className="font-semibold text-gray-700">{t.saleRemainingBalanceLabel}</span>
                         <span className="font-black" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
                       </div>
-                      <p className="text-[11px] font-medium font-sans" style={{ color: '#92400e' }}>
-                        Will be added to this customer.
-                      </p>
                     </div>
                   )}
                 </>
               )}
 
-              {step2Error && (
-                <div className="flex items-center gap-2 text-xs text-red-600 font-medium font-sans">
-                  <AlertTriangle className="w-3 h-3" />
-                  {step2Error}
+              {/* Pay later info */}
+              {saleSettlementMode === 'pay_later' && (
+                <div className="flex items-start gap-2 p-2" style={{ background: '#fffbeb', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C4883A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  <p className="text-xs font-medium font-sans" style={{ color: '#92400e' }}>{t.noPaymentCollected}</p>
                 </div>
               )}
 
-              {/* Step 2 navigation */}
-              <div className="flex gap-3 pt-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => { setCurrentStep('details'); setStep2Error(''); }}
-                  className="flex-1 p-4 font-bold text-gray-700 text-base flex items-center justify-center gap-2 min-h-[52px] active:scale-95 transition-all press-scale font-sans"
-                  style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-                  {t.back}
-                </button>
-                <div className="flex-1 flex items-center justify-center">
-                  {(() => {
-                    let step2Valid = false;
-                    if (saleSettlementMode === 'paid_now') step2Valid = true;
-                    else if (saleSettlementMode === 'paid_partly') step2Valid = parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice && saleCustomerName.trim().length > 0;
-                    else if (saleSettlementMode === 'pay_later') step2Valid = saleCustomerName.trim().length > 0;
-                    return step2Valid ? (
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
-                    ) : (
-                      <span className="text-xs font-medium font-sans" style={{ color: '#9ca3af' }}>
-                        {lang === 'am' ? 'የሚፈልጉትን ይሙሉ' : 'Fill required fields to continue'}
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-            </>
-          )}
+              {/* Payment provider chips — hidden for pay_later */}
+              {saleSettlementMode !== 'pay_later' && (
+                <PaymentTypeChips
+                  paymentType={paymentType}
+                  provider={paymentProvider}
+                  onTypeChange={setPaymentType}
+                  onProviderChange={setPaymentProvider}
+                  enabledProviders={enabledProviders}
+                />
+              )}
 
-          {/* ==========================================
-              STEP 3 — REVIEW
-              ========================================== */}
-          {isSale && currentStep === 'review' && (
-            <>
+              {/* Optional details */}
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide mb-3 font-sans" style={{ color: '#6b7280' }}>{t.reviewSale}</p>
-
-                {/* Compact review for paid_now */}
-                {saleSettlementMode === 'paid_now' ? (
-                  <div className="space-y-1.5 p-4 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)', background: '#fafaf8' }}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewTotal}</span>
-                      <span className="font-black text-base text-gray-900 font-sans">{fmt(sellingPrice)} {t.birr}</span>
+                <div className="h-px" style={{ background: '#e8e2d8' }}></div>
+                <button type="button" onClick={() => setShowMoreDetails(v => !v)}
+                  className="flex items-center gap-1 text-xs font-semibold py-1.5 min-h-[40px] font-sans"
+                  style={{ color: '#C4883A' }}>
+                  {showMoreDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {lang === 'am' ? 'አማራጭ ዝርዝሮች' : 'Optional details'}
+                </button>
+                {showMoreDetails && (
+                  <div className="mt-1 p-3 border space-y-2" style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                    <div>
+                      <label className="block text-gray-600 text-xs font-semibold mb-1 font-sans">{t.howMany}</label>
+                      <input
+                        type="number" inputMode="numeric"
+                        value={quantity}
+                        onChange={e => {
+                          const raw = e.target.value;
+                          if (raw === '') { setQuantity(''); return; }
+                          const v = parseInt(raw);
+                          if (!isNaN(v) && v >= 1) setQuantity(String(v));
+                        }}
+                        onBlur={e => {
+                          const v = parseInt(e.target.value);
+                          setQuantity(isNaN(v) || v < 1 ? '1' : String(v));
+                        }}
+                        min="1"
+                        className="w-full p-2.5 border-2 focus:outline-none text-sm min-h-[40px] font-sans"
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                      />
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewItem}</span>
-                      <span className="font-bold text-sm text-gray-900 font-sans">{item}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewSettlement}</span>
-                      <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.settlementPaidNow}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewProvider}</span>
-                      <span className="font-bold text-sm text-gray-900 font-sans">{paymentType === 'cash' ? t.cash : (paymentProvider || paymentType)}</span>
-                    </div>
-                    {photo && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 font-sans">{t.photoAttached}</span>
-                        <div className="flex items-center gap-1">
-                          <Camera className="w-3 h-3" style={{ color: '#2d6a4f' }} />
-                          <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.photoAttached}</span>
-                        </div>
+                    <div>
+                      <label className="block text-gray-600 text-xs font-semibold mb-1 font-sans">
+                        {lang === 'am' ? 'የግዢ ዋጋ' : 'Buying cost'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text" inputMode="decimal"
+                          value={fmtInput(costPrice)}
+                          onChange={e => handleNumericInput(e, setCostPrice)}
+                          placeholder="0"
+                          className="w-full p-2.5 pr-14 border-2 focus:outline-none text-sm min-h-[40px] font-sans"
+                          style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium font-sans">{t.birr}</span>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Full review for paid_partly / pay_later */
-                  <div className="space-y-1.5 p-4 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)', background: '#fafaf8' }}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewTotal}</span>
-                      <span className="font-black text-base text-gray-900 font-sans">{fmt(sellingPrice)} {t.birr}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewItem}</span>
-                      <span className="font-bold text-sm text-gray-900 font-sans">{item}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewSettlement}</span>
-                      <span className="font-bold text-sm font-sans" style={{ color: saleSettlementMode === 'pay_later' ? '#C4883A' : '#2d6a4f' }}>
-                        {saleSettlementMode === 'paid_partly' ? t.settlementPaidPartly : t.settlementPayLater}
-                      </span>
-                    </div>
-                    {saleSettlementMode === 'paid_partly' && (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 font-sans">{t.reviewPaidAmount}</span>
-                          <span className="font-bold text-sm text-gray-900 font-sans">{fmt(parsedPaidAmount)} {t.birr}</span>
+                      <p className="text-[10px] mt-1 font-sans" style={{ color: '#9ca3af' }}>
+                        {lang === 'am' ? 'ይህ ዕቃ ምን ያስከፈለው?' : 'How much did this item cost you?'}
+                      </p>
+                      {belowCost && (
+                        <div className="mt-2 flex items-start gap-1.5 p-2" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)' }}>
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
+                          <p className="text-[10px] font-sans" style={{ color: '#92400e' }}>{t.sellingBelowCost}</p>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 font-sans">{t.reviewProvider}</span>
-                          <span className="font-bold text-sm text-gray-900 font-sans">{paymentType === 'cash' ? t.cash : (paymentProvider || paymentType)}</span>
+                      )}
+                      {cost > 0 && !belowCost && sellingPrice > 0 && (
+                        <div className="mt-2 p-2 border" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 'var(--radius-sm)' }}>
+                          <p className="text-[10px] text-green-700 font-semibold font-sans">{t.profitOnSale} {fmt(sellingPrice - cost * qty)} {t.birr}</p>
                         </div>
-                      </>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 font-sans">{t.reviewRemaining}</span>
-                      <span className="font-black text-sm font-sans" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
+                      )}
                     </div>
-                    {saleCustomerName && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 font-sans">{t.reviewCustomer}</span>
-                        <span className="font-bold text-sm text-gray-900 font-sans">{saleCustomerName}</span>
-                      </div>
-                    )}
-                    {saleDueDate && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 font-sans">{t.reviewReturnDate}</span>
-                        <span className="font-bold text-sm text-gray-900 font-sans">{saleDueDate}</span>
-                      </div>
-                    )}
-                    {photo && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 font-sans">{t.photoAttached}</span>
-                        <div className="flex items-center gap-1">
-                          <Camera className="w-3 h-3" style={{ color: '#2d6a4f' }} />
-                          <span className="font-bold text-sm font-sans" style={{ color: '#2d6a4f' }}>{t.photoAttached}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
-
-                {/* Edit shortcuts */}
-                <div className="flex gap-2 mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep('details')}
-                    className="flex-1 py-2.5 px-3 font-semibold text-xs border-2 transition-all press-scale font-sans"
-                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8', color: '#6b7280', background: '#fff' }}>
-                    {t.editDetails}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep('payment')}
-                    className="flex-1 py-2.5 px-3 font-semibold text-xs border-2 transition-all press-scale font-sans"
-                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8', color: '#6b7280', background: '#fff' }}>
-                    {t.editPayment}
-                  </button>
-                </div>
               </div>
 
-              {/* Step 3 navigation */}
-              <div className="flex gap-3 pt-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep('payment')}
-                  className="flex-1 p-4 font-bold text-gray-700 text-base flex items-center justify-center gap-2 min-h-[52px] active:scale-95 transition-all press-scale font-sans"
-                  style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-                  {t.back}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!canSave}
-                  className="flex-1 p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] active:scale-95 transition-all press-scale font-sans"
+              {/* Inline save guidance */}
+              {!canSave && (
+                <div className="flex items-center gap-1.5 text-xs font-medium font-sans px-1" style={{ color: '#9ca3af' }}>
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0" style={{ color: '#d1d5db' }} />
+                  {(() => {
+                    if (!sellingPrice) return lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount';
+                    if (!item.trim()) return lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter what you sold';
+                    if (saleSettlementMode === 'pay_later' && !saleCustomerName.trim()) return lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter a customer name';
+                    if (saleSettlementMode === 'paid_partly' && !saleCustomerName.trim()) return lang === 'am' ? 'ደንበኛ ስም ያስገቡ' : 'Enter a customer name';
+                    if (saleSettlementMode === 'paid_partly' && !(parsedPaidAmount > 0)) return lang === 'am' ? 'የተከፈለ መጠን ያስገቡ' : 'Enter paid amount';
+                    if (saleSettlementMode === 'paid_partly' && parsedPaidAmount >= sellingPrice) return lang === 'am' ? 'ከጠቅላላ ያነሰ ይሁን' : 'Must be less than total';
+                    return '';
+                  })()}
+                </div>
+              )}
+
+              {/* Save button for Sale */}
+              <div className="sticky bottom-0 bg-white pt-2 pb-4 px-1 -mx-1 border-t" style={{ borderColor: '#e8e2d8' }}>
+                <button onClick={handleSave} disabled={!canSave || saveState === 'saving'}
+                  className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 transition-all min-h-[56px] active:scale-95 press-scale font-sans"
                   style={{
                     background: canSave ? accent.btn : '#e5e7eb',
                     color: canSave ? '#fff' : '#9ca3af',
                     cursor: canSave ? 'pointer' : 'not-allowed',
                     borderRadius: 'var(--radius-md)',
                     boxShadow: canSave ? `0 4px 0 ${accent.shadow}` : 'none',
-                  }}
-                >
+                  }}>
                   <Save className="w-5 h-5" />
-                  {t.saveSale}
+                  {config.buttonText}
                 </button>
               </div>
             </>
