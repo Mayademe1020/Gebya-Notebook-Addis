@@ -50,18 +50,19 @@ export function buildCustomerConnectMessage({ shopName, customerName, token }) {
 }
 
 export function buildCustomerConnectLink({ botUsername, shopTelegram, shopName, customerName, token }) {
-  if (botUsername) {
-    return `https://t.me/${botUsername}?start=${encodeURIComponent(token)}`;
-  }
+   const safeToken = encodeURIComponent(token || '');
+   if (botUsername) {
+     return `https://t.me/${encodeURIComponent(botUsername)}?start=${safeToken}`;
+   }
 
-  const connectMessage = buildCustomerConnectMessage({ shopName, customerName, token });
-  if (shopTelegram) {
-    const directTelegramUrl = buildTelegramMessageUrl(shopTelegram, connectMessage);
-    if (directTelegramUrl) return directTelegramUrl;
-  }
+   const connectMessage = buildCustomerConnectMessage({ shopName, customerName, token });
+   if (shopTelegram) {
+     const directTelegramUrl = buildTelegramMessageUrl(shopTelegram, connectMessage);
+     if (directTelegramUrl) return directTelegramUrl;
+   }
 
-  return `https://t.me/share/url?url=${encodeURIComponent('https://gebya.app')}&text=${encodeURIComponent(connectMessage)}`;
-}
+   return `https://t.me/share/url?url=${encodeURIComponent('https://gebya.app')}&text=${encodeURIComponent(connectMessage)}`;
+ }
 
 export function buildCustomerLedgerTelegramMessage({
   shopName,

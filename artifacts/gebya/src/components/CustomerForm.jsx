@@ -19,10 +19,14 @@ function CustomerForm({ onSave, onDone }) {
   const { t } = useLang();
   const [displayName, setDisplayName] = useState('');
   const [note, setNote] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [telegramUsername, setTelegramUsername] = useState('');
   const [contactsSupported, setContactsSupported] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const phoneValid = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
+  const phoneEntered = phoneDigits.length > 0;
 
   useEffect(() => {
     const canPickContacts = typeof navigator !== 'undefined'
@@ -34,7 +38,6 @@ function CustomerForm({ onSave, onDone }) {
   const normalizedTelegram = normalizeTelegram(telegramUsername);
   const telegramValid = !telegramUsername.trim() || !!normalizedTelegram;
   const canSave = displayName.trim().length > 0 && telegramValid;
-  const showPhoneReminderHint = !phoneNumber.trim();
 
   const handlePickContact = useCallback(async () => {
     if (!contactsSupported || !navigator.contacts?.select) return;
@@ -47,7 +50,14 @@ function CustomerForm({ onSave, onDone }) {
       const pickedPhone = readContactPhone(contact).trim();
 
       if (pickedName && !displayName.trim()) setDisplayName(pickedName);
-      if (pickedPhone) setPhoneNumber(pickedPhone);
+      if (pickedPhone) {
+        const cleaned = pickedPhone.replace(/\D/g, '');
+        if (cleaned.length === 9) {
+          setPhoneDigits(cleaned);
+        } else if (cleaned.length === 10 && (cleaned.startsWith('0'))) {
+          setPhoneDigits(cleaned.slice(1));
+        }
+      }
     } catch {
     }
   }, [contactsSupported, displayName]);
@@ -56,10 +66,11 @@ function CustomerForm({ onSave, onDone }) {
     if (!canSave || saving) return;
     setSaving(true);
     try {
+      const fullPhone = phoneEntered && phoneValid ? '+251' + phoneDigits : null;
       const didSave = await onSave?.({
         display_name: displayName.trim(),
         note: note.trim() || null,
-        phone_number: phoneNumber.trim() || null,
+        phone_number: fullPhone,
         telegram_username: normalizedTelegram || null,
         telegram_notify_enabled: false,
       });
@@ -115,18 +126,39 @@ function CustomerForm({ onSave, onDone }) {
                 Pick from contacts
               </button>
             </div>
-            <input
-              type="tel"
-              inputMode="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Mobile number"
-              className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px]"
-              style={{ borderRadius: 'var(--radius-md)', borderColor: phoneNumber.trim() ? '#1B4332' : '#e8e2d8' }}
-            />
-            {showPhoneReminderHint && (
-              <p className="text-xs mt-2 font-medium" style={{ color: '#b45309' }}>
-                You can save now, but SMS reminders need a phone number.
+            <div className="flex gap-0">
+              <div
+                className="flex items-center justify-center px-3 py-3 border-2 border-r-0 text-sm font-bold flex-shrink-0"
+                style={{ background: 'rgba(27,67,50,0.06)', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : '#e8e2d8', color: '#1B4332', minWidth: '64px', borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)' }}
+              >
+                +251
+              </div>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phoneDigits}
+                onChange={(e) => {
+                  let raw = e.target.value.replace(/\D/g, '');
+                  if (raw.length === 10 && (raw.startsWith('07') || raw.startsWith('09'))) {
+                    raw = raw.slice(1);
+                  }
+                  if (raw.length <= 9) setPhoneDigits(raw);
+                }}
+                onBlur={() => setPhoneTouched(true)}
+                placeholder="9XXXXXXXX"
+                maxLength={9}
+                className="flex-1 p-3 border-2 text-base focus:outline-none min-h-[48px]"
+                style={{ borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', borderColor: (phoneTouched && phoneEntered && !phoneValid) ? '#dc2626' : (phoneEntered && phoneValid ? '#1B4332' : '#e8e2d8') }}
+              />
+            </div>
+            {phoneTouched && phoneEntered && !phoneValid && (
+              <p className="text-xs mt-1.5 font-medium text-red-600">
+                Phone must start with 7 or 9 (9 digits)
+              </p>
+            )}
+            {!phoneEntered && (
+              <p className="text-xs mt-1.5 font-medium" style={{ color: '#b45309' }}>
+                SMS reminders need a mobile number.
               </p>
             )}
           </div>
