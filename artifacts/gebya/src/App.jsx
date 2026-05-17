@@ -6,13 +6,12 @@ import { LangProvider, useLang } from './context/LangContext';
 import { ToastContainer, fireToast } from './components/Toast';
 import TransactionForm from './components/TransactionForm';
 import EditTransactionSheet from './components/EditTransactionSheet';
-import CustomerList from './components/CustomerList';
-import CustomerDetail from './components/CustomerDetail';
 import CustomerForm from './components/CustomerForm';
 import CustomerTransactionSheet from './components/CustomerTransactionSheet';
 import CustomerMessageReady from './components/CustomerMessageReady';
 import FastDubieCustomerPicker from './components/FastDubieCustomerPicker';
 import CustomerTelegramConnectSheet from './components/CustomerTelegramConnectSheet';
+import DubiePage from './components/DubiePage';
 import HistoryView from './components/HistoryView';
 import SettingsPage from './components/SettingsPage';
 import OnboardingScreen from './components/OnboardingScreen';
@@ -1292,13 +1291,19 @@ const safeErr = err instanceof Error ? err.message : String(err);
     setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
     setLedgerCustomers(prev => prev.map(c => c.id === draft.customer_id ? { ...c, updated_at: now } : c));
     setCustomerTransactionModal(null);
-    setMessageReadyModal({
-      type: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'payment' : 'credit',
-      customerId: draft.customer_id,
-      amount: draft.amount,
-      itemNote: draft.item_note,
-      dueDate: draft.due_date,
-    });
+
+    const botAutoSent = !!(customer?.telegram_chat_id && customer?.telegram_notify_enabled);
+    const hasContactInfo = !!(customer?.phone_number || customer?.telegram_username);
+
+    if (!botAutoSent && hasContactInfo) {
+      setMessageReadyModal({
+        type: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'payment' : 'credit',
+        customerId: draft.customer_id,
+        amount: draft.amount,
+        itemNote: draft.item_note,
+        dueDate: draft.due_date,
+      });
+    }
     fireToast(draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? (t.paymentSaved || 'Payment recorded ✓') : t.creditSaved, 2200);
 
     if (draft.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) {
@@ -1858,32 +1863,32 @@ const safeErr = err instanceof Error ? err.message : String(err);
         )}
 
         {activeTab === 'merro' && (
-          selectedCustomer ? (
-            <CustomerDetail
-              customer={selectedCustomer}
-              onBack={() => setSelectedCustomerId(null)}
-              onAddCredit={() => setCustomerTransactionModal({
-                mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
-                customerId: selectedCustomer.id,
-              })}
-              onRecordPayment={() => setCustomerTransactionModal({
-                mode: CUSTOMER_TRANSACTION_TYPES.PAYMENT,
-                customerId: selectedCustomer.id,
-              })}
-              onToggleTelegramNotify={() => handleToggleCustomerTelegramNotify(selectedCustomer)}
-              onOpenTelegramConnect={() => setTelegramConnectCustomerId(selectedCustomer.id)}
-              onResendTelegramUpdate={() => handleResendCustomerTelegramUpdate(selectedCustomer)}
-              onEditTransaction={setCustomerTransactionEditTarget}
-              shopName={shopProfile?.name}
-            />
-          ) : (
-            <CustomerList
-              customers={customerSummaries}
-              onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
-              onAddCustomer={handleAddCustomer}
-              shopName={shopProfile?.name}
-            />
-          )
+          <DubiePage
+            customerSummaries={customerSummaries}
+            selectedCustomerId={selectedCustomerId}
+            onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
+            onAddCustomer={handleAddCustomer}
+            onBackToCustomerList={() => setSelectedCustomerId(null)}
+            onAddCredit={() => selectedCustomer && setCustomerTransactionModal({
+              mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+              customerId: selectedCustomer.id,
+            })}
+            onRecordPayment={() => selectedCustomer && setCustomerTransactionModal({
+              mode: CUSTOMER_TRANSACTION_TYPES.PAYMENT,
+              customerId: selectedCustomer.id,
+            })}
+            onToggleTelegramNotify={() => selectedCustomer && handleToggleCustomerTelegramNotify(selectedCustomer)}
+            onOpenTelegramConnect={() => selectedCustomer && setTelegramConnectCustomerId(selectedCustomer.id)}
+            onResendTelegramUpdate={() => selectedCustomer && handleResendCustomerTelegramUpdate(selectedCustomer)}
+            onEditCustomerTransaction={setCustomerTransactionEditTarget}
+            supplierSummaries={supplierSummaries}
+            onSaveSupplier={handleSaveSupplier}
+            onSaveSupplierTransaction={handleSaveSupplierTransaction}
+            onUpdateSupplierTransaction={handleUpdateSupplierTransaction}
+            onDeleteSupplierTransaction={handleDeleteSupplierTransaction}
+            shopName={shopProfile?.name}
+            catalogEntries={activeCatalogEntries}
+          />
         )}
 
         {activeTab === 'history' && (

@@ -8,18 +8,13 @@ import CustomerForm from './CustomerForm';
 
 const RETURN_FILTERS = [
   { id: 'all', label: 'All' },
-  { id: 'money', label: 'Money to receive' },
-  { id: 'return_today', label: 'Return today' },
+  { id: 'open', label: 'Open' },
+  { id: 'due_today', label: 'Due today' },
   { id: 'overdue', label: 'Overdue' },
-  { id: 'no_date', label: 'No return date' },
 ];
 
 function getCustomerName(customer) {
   return customer.display_name || customer.displayName || '';
-}
-
-function getCustomerNote(customer) {
-  return customer.note || '';
 }
 
 function getCustomerPhone(customer) {
@@ -41,78 +36,71 @@ function getCustomerStatus(customer) {
 function getCollectionStatusText(customer, t) {
   const balance = getCustomerBalance(customer);
   const status = getCustomerStatus(customer);
-  const owesText = `${t.customerOwesPrefix || 'Owes'} ${fmt(balance)} birr`;
 
   if (!status.hasBalance) return '';
-  if (status.key === 'due_today') return `${owesText} - ${t.dueToday || 'Return today'}`;
+  if (status.key === 'due_today') return t.dueToday || 'Due today';
   if (status.key === 'overdue') {
     const dayLabel = status.days === 1 ? (t.day || 'day') : (t.days || 'days');
-    return `${owesText} - ${t.overdueBy || 'Overdue by'} ${status.days} ${dayLabel}`;
+    return `${t.overdueBy || 'Overdue by'} ${status.days} ${dayLabel}`;
   }
   if (status.key === 'due_in') {
     const dayLabel = status.days === 1 ? (t.day || 'day') : (t.days || 'days');
-    return `${owesText} - ${t.dueIn || 'Return in'} ${status.days} ${dayLabel}`;
+    return `${t.dueIn || 'Due in'} ${status.days} ${dayLabel}`;
   }
-  return `${owesText} - ${t.noDueDate || 'No return date'}`;
+  return '';
 }
 
 function matchesCustomer(customer, query) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return [
-    getCustomerName(customer),
-    getCustomerNote(customer),
-    getCustomerPhone(customer),
-    getCustomerTelegram(customer),
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(q));
+  const name = getCustomerName(customer).toLowerCase();
+  const phone = getCustomerPhone(customer).toLowerCase();
+  return name.includes(q) || phone.includes(q);
 }
 
-function buildQuickReminderMessage(customer, shopName) {
-  return buildCustomerReminderMessage({ customer, shopName });
+function sendReminderDirect(customer, shopName) {
+  const message = buildCustomerReminderMessage({ customer, shopName });
+  const hasPhone = Boolean(getCustomerPhone(customer));
+  const hasTelegram = Boolean(getCustomerTelegram(customer));
+
+  if (hasPhone && !hasTelegram) {
+    window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    return 'sms';
+  }
+  if (hasTelegram && !hasPhone) {
+    const telegram = getCustomerTelegram(customer);
+    const normalized = telegram.startsWith('@') ? telegram.slice(1) : telegram;
+    window.open(`https://t.me/${normalized}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    return 'telegram';
+  }
+  return 'multiple';
 }
 
-function CustomerList({ customers = [], onSelectCustomer, onAddCustomer, shopName }) {
+function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, onAddCustomer, shopName }) {
   const [query, setQuery] = useState('');
   const [returnFilter, setReturnFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [reminderTarget, setReminderTarget] = useState(null);
+  const [reminderChannels, setReminderChannels] = useState(null);
   const [copied, setCopied] = useState(false);
   const { t } = useLang();
-
-  const trimmedQuery = query.trim();
-  const hasQuery = trimmedQuery.length > 0;
 
   const filteredCustomers = useMemo(
     () => customers.filter((customer) => {
       if (!matchesCustomer(customer, query)) return false;
       const status = getCustomerStatus(customer);
-      if (returnFilter === 'money') return status.hasBalance;
-      if (returnFilter === 'return_today') return status.key === 'due_today';
+      if (returnFilter === 'open') return status.hasBalance;
+      if (returnFilter === 'due_today') return status.key === 'due_today';
       if (returnFilter === 'overdue') return status.key === 'overdue';
-      if (returnFilter === 'no_date') return status.key === 'no_due_date';
       return true;
     }),
     [returnFilter, customers, query]
-  );
-
-  const outstanding = useMemo(
-    () => filteredCustomers.reduce((sum, customer) => sum + getCustomerBalance(customer), 0),
-    [filteredCustomers]
   );
 
   const customersWithBalance = useMemo(
     () => filteredCustomers.filter((customer) => getCustomerBalance(customer) > 0).length,
     [filteredCustomers]
   );
-
-  const searchSummary = t.customerSearchResults
-    ? t.customerSearchResults
-        .replace('{shown}', String(filteredCustomers.length))
-        .replace('{total}', String(customers.length))
-    : `${filteredCustomers.length} of ${customers.length}`;
 
   const handleAddCustomer = async (payload) => {
     setSaveError(false);
@@ -125,81 +113,81 @@ function CustomerList({ customers = [], onSelectCustomer, onAddCustomer, shopNam
     return false;
   };
 
-  const handleSendReminder = async (customer) => {
-    setReminderTarget(customer);
-    const message = buildQuickReminderMessage(customer, shopName);
+  const handleReminderTap = (customer) => {
     const hasPhone = Boolean(getCustomerPhone(customer));
     const hasTelegram = Boolean(getCustomerTelegram(customer));
-    const safeShopName = shopName || 'your shop';
+    const hasShare = typeof navigator !== 'undefined' && navigator.share;
 
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Reminder from ${safeShopName}`,
-          text: message,
-        });
-        setReminderTarget(null);
-        return;
-      } catch {
-      }
-    }
-
-if (hasPhone) {
-       const encodedBody = encodeURIComponent(message);
-       window.open(`sms:?body=${encodedBody}`, '_blank', 'noopener,noreferrer');
-       setReminderTarget(null);
-       return;
-     }
-
-     if (hasTelegram) {
-       const telegram = getCustomerTelegram(customer);
-       const normalized = telegram.startsWith('@') ? telegram.slice(1) : telegram;
-       const encoded = encodeURIComponent(message);
-       window.open(`https://t.me/${normalized}?text=${encoded}`, '_blank', 'noopener,noreferrer');
-      setReminderTarget(null);
+    if (!hasPhone && !hasTelegram) {
+      const message = buildCustomerReminderMessage({ customer, shopName });
+      navigator.clipboard?.writeText(message).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
       return;
     }
 
-    try {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      setTimeout(() => { setCopied(false); setReminderTarget(null); }, 2500);
-    } catch {
-      setReminderTarget(null);
+    if (!hasPhone || !hasTelegram) {
+      sendReminderDirect(customer, shopName);
+      return;
     }
+
+    setReminderChannels({ customer, hasPhone, hasTelegram, hasShare });
+  };
+
+  const handleChannelSend = async (channel) => {
+    if (!reminderChannels) return;
+    const { customer } = reminderChannels;
+    const message = buildCustomerReminderMessage({ customer, shopName });
+
+    if (channel === 'sms') {
+      window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    } else if (channel === 'telegram') {
+      const telegram = getCustomerTelegram(customer);
+      const normalized = telegram.startsWith('@') ? telegram.slice(1) : telegram;
+      window.open(`https://t.me/${normalized}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    } else if (channel === 'share') {
+      try {
+        await navigator.share({ title: `Reminder from ${shopName || 'shop'}`, text: message });
+      } catch { /* dismissed */ }
+    } else if (channel === 'copy') {
+      try {
+        await navigator.clipboard.writeText(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch { /* failed */ }
+    }
+    setReminderChannels(null);
   };
 
   return (
-    <div className="space-y-4">
-      <div
-        className="p-4 border"
-        style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide font-bold" style={{ color: '#9ca3af' }}>
-              {t.customerTotalBalance || 'Total Balance'}
-            </p>
-            <p className="text-xl font-black" style={{ color: '#92400e' }}>
-              {fmt(outstanding)} birr
-            </p>
-            <p className="text-xs mt-1" style={{ color: '#6b7280' }}>
-              {customersWithBalance} {t.customerBalance || 'with balance'}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-3 py-2 text-sm font-black text-white min-h-[44px] press-scale"
-            style={{ background: '#1B4332', borderRadius: 'var(--radius-sm)' }}
-            type="button"
-          >
-            <span className="inline-flex items-center gap-1">
-              <Plus className="w-4 h-4" /> {t.addCustomer || 'Add Customer'}
-            </span>
-          </button>
+    <div className="space-y-3">
+      {/* Summary header */}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div>
+          <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
+            {t.customerTotalBalance || 'Total to collect'}
+          </p>
+          <p className="text-xl font-bold" style={{ color: '#92400e' }}>
+            {fmt(totalOutstanding)} <span className="text-sm font-semibold" style={{ color: '#b45309' }}>birr</span>
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+            {customersWithBalance} {t.customerBalance || 'with balance'}
+          </p>
         </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="px-3 py-2 text-sm font-bold text-white min-h-[44px] press-scale"
+          style={{ background: '#1B4332', borderRadius: 'var(--radius-sm)' }}
+          type="button"
+        >
+          <span className="inline-flex items-center gap-1">
+            <Plus className="w-4 h-4" /> {t.addCustomer || 'Add'}
+          </span>
+        </button>
       </div>
 
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#9ca3af' }} />
         <input
@@ -208,12 +196,13 @@ if (hasPhone) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t.searchCustomerPlaceholder || 'Search customers...'}
           autoCapitalize="words"
-          className="w-full pl-9 pr-4 py-3 text-sm bg-white border outline-none"
-          style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
+          className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border outline-none"
+          style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}
         />
       </div>
 
-      <div className="grid grid-cols-5 gap-1.5">
+      {/* Filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {RETURN_FILTERS.map((filter) => {
           const active = returnFilter === filter.id;
           return (
@@ -221,12 +210,12 @@ if (hasPhone) {
               key={filter.id}
               type="button"
               onClick={() => setReturnFilter(filter.id)}
-              className="px-1.5 py-2 text-[11px] font-black min-h-[40px] border press-scale"
+              className="px-3 py-1.5 text-xs font-bold min-h-[36px] whitespace-nowrap border press-scale"
               style={{
                 background: active ? '#1B4332' : '#fff',
                 color: active ? '#fff' : '#374151',
                 borderColor: active ? '#1B4332' : 'var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: '999px',
               }}
             >
               {filter.label}
@@ -235,64 +224,42 @@ if (hasPhone) {
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-xs" style={{ color: '#6b7280' }}>
-          {hasQuery ? searchSummary : t.customerSearchHint || `${customers.length} customers`}
-        </p>
-        {hasQuery && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="text-xs font-bold min-h-[32px] px-2"
-            style={{ color: '#1B4332' }}
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      {/* Customer rows */}
+      <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+        {filteredCustomers.map((customer) => {
+          const balance = getCustomerBalance(customer);
+          const hasBalance = balance > 0;
+          const statusText = getCollectionStatusText(customer, t);
+          const hasPhone = Boolean(getCustomerPhone(customer));
+          const hasTelegram = Boolean(getCustomerTelegram(customer));
 
-      <div className="space-y-3">
-        {filteredCustomers.map((customer) => (
-          <div
-            key={customer.id}
-            onClick={() => onSelectCustomer?.(customer)}
-            className="w-full text-left p-4 border press-scale cursor-pointer"
-            style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectCustomer?.(customer); } }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-black text-gray-900 truncate">{getCustomerName(customer)}</p>
-                {getCustomerBalance(customer) > 0 && (
-                  <p className="text-sm mt-1 font-bold" style={{ color: getCustomerStatus(customer).isDueNow ? '#b45309' : '#92400e' }}>
-                    {getCollectionStatusText(customer, t)}
+          return (
+            <div
+              key={customer.id}
+              onClick={() => onSelectCustomer?.(customer)}
+              className="flex items-center gap-3 py-3 px-1 cursor-pointer press-scale"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectCustomer?.(customer); } }}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-gray-900 truncate">{getCustomerName(customer)}</p>
+                {hasBalance && statusText && (
+                  <p className="text-xs mt-0.5" style={{ color: statusText.includes('Overdue') ? '#b45309' : '#6b7280' }}>
+                    {statusText}
                   </p>
                 )}
-                {getCustomerNote(customer) && (
-                  <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-                    {getCustomerNote(customer)}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs" style={{ color: '#9ca3af' }}>
-                  {getCustomerPhone(customer) && <span>{getCustomerPhone(customer)}</span>}
-                  {getCustomerTelegram(customer) && <span>{getCustomerTelegram(customer)}</span>}
-                </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-                  Balance
+                <p className="text-sm font-bold" style={{ color: hasBalance ? '#92400e' : '#9ca3af' }}>
+                  {fmt(balance)}
                 </p>
-                <p className="text-lg font-black" style={{ color: '#92400e' }}>
-                  {fmt(getCustomerBalance(customer))} birr
-                </p>
-                {getCustomerBalance(customer) > 0 && (
+                {hasBalance && (hasPhone || hasTelegram) && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); handleSendReminder(customer); }}
-                    className="mt-1 p-1.5 flex items-center justify-center border press-scale"
-                    style={{ minWidth: '32px', minHeight: '32px', borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                    onClick={(e) => { e.stopPropagation(); handleReminderTap(customer); }}
+                    className="mt-0.5 p-1 press-scale"
+                    style={{ minWidth: '28px', minHeight: '28px' }}
                     aria-label="Send reminder"
                   >
                     <Bell className="w-3.5 h-3.5" style={{ color: '#C4883A' }} />
@@ -300,124 +267,116 @@ if (hasPhone) {
                 )}
               </div>
             </div>
-          </div>
-        ))}
-
-        {filteredCustomers.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center text-center py-10 border"
-            style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}
-          >
-            <Users className="w-8 h-8 mb-2" style={{ color: '#d1d5db' }} />
-            <p className="text-sm" style={{ color: '#9ca3af' }}>
-              {customers.length === 0
-                ? (t.noCustomersYet || 'No customers yet')
-                : (hasQuery || collectionFilter !== 'all' ? (t.noCustomerSearchResults || 'No matches found') : (t.noCustomersFound || 'No customers'))}
-            </p>
-            <p className="text-xs mt-2 max-w-xs" style={{ color: '#6b7280' }}>
-              {customers.length === 0
-                ? (t.customerHelperText || 'Add your first customer to start tracking credit')
-                : (returnFilter === 'return_today'
-                  ? (t.noReturnTodayHint || 'No customers are due today')
-                  : (returnFilter === 'overdue'
-                    ? (t.noOverdueHint || 'No overdue customers')
-                    : (returnFilter === 'no_date'
-                      ? (t.noNoDateHint || 'All customers with balance have a return date')
-                      : (t.customerSearchHint || 'Try a different search term'))))}
-            </p>
-          </div>
-        )}
+          );
+        })}
       </div>
 
-      {reminderTarget && !copied && (
+      {/* Empty state */}
+      {filteredCustomers.length === 0 && (
+        <div className="flex flex-col items-center justify-center text-center py-10">
+          <Users className="w-8 h-8 mb-2" style={{ color: '#d1d5db' }} />
+          <p className="text-sm" style={{ color: '#9ca3af' }}>
+            {customers.length === 0
+              ? (t.noCustomersYet || 'No customers yet')
+              : (query.trim() ? (t.noCustomerSearchResults || 'No matches found') : (t.noCustomersFound || 'No customers'))}
+          </p>
+          <p className="text-xs mt-2 max-w-xs" style={{ color: '#6b7280' }}>
+            {customers.length === 0
+              ? (t.customerHelperText || 'Add your first customer to start tracking credit')
+              : (returnFilter === 'due_today'
+                ? (t.noReturnTodayHint || 'No customers are due today')
+                : (returnFilter === 'overdue'
+                  ? (t.noOverdueHint || 'No overdue customers')
+                  : (t.customerSearchHint || 'Try a different search term')))}
+          </p>
+        </div>
+      )}
+
+      {/* Reminder channel picker — only when multiple channels available */}
+      {reminderChannels && !copied && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 animate-fade"
-          onClick={(e) => { if (e.target === e.currentTarget) setReminderTarget(null); }}
+          className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-fade"
+          onClick={(e) => { if (e.target === e.currentTarget) setReminderChannels(null); }}
         >
           <div
-            className="bg-white w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up"
+            className="bg-white w-full max-w-md animate-slide-up"
             style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}
           >
-            <div className="sticky top-0 bg-white z-10 px-5 pt-5 pb-4 border-b" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', borderColor: 'var(--color-border-light)' }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide font-black" style={{ color: '#C4883A' }}>
-                    Reminder
-                  </p>
-                  <h2 className="text-lg font-black text-gray-900">Send reminder to {getCustomerName(reminderTarget)}</h2>
-                </div>
+            <div className="px-5 pt-4 pb-3 border-b" style={{ borderColor: 'var(--color-border-light)' }}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-900">
+                  Send reminder to {getCustomerName(reminderChannels.customer)}
+                </p>
                 <button
                   type="button"
-                  onClick={() => setReminderTarget(null)}
+                  onClick={() => setReminderChannels(null)}
                   aria-label="Close"
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center press-scale"
+                  className="p-1.5 press-scale"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="w-4 h-4 text-gray-400" />
                 </button>
               </div>
             </div>
-            <div className="px-5 py-4 space-y-3">
-              {getCustomerPhone(reminderTarget) && (
+            <div className="px-5 py-3 space-y-1">
+              {reminderChannels.hasPhone && (
                 <button
                   type="button"
-                  onClick={() => { handleSendReminder(reminderTarget); }}
-                  className="w-full p-3 font-black text-white min-h-[52px] flex items-center justify-center gap-2 press-scale"
-                  style={{ background: '#166534', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #14532d' }}
+                  onClick={() => handleChannelSend('sms')}
+                  className="w-full py-3 text-sm font-bold text-left px-3 min-h-[48px] press-scale"
+                  style={{ borderRadius: 'var(--radius-sm)', color: '#374151' }}
                 >
-                  Send SMS
+                  SMS
                 </button>
               )}
-              {getCustomerTelegram(reminderTarget) && (
+              {reminderChannels.hasTelegram && (
                 <button
                   type="button"
-                  onClick={() => { handleSendReminder(reminderTarget); }}
-                  className="w-full p-3 font-black text-white min-h-[52px] flex items-center justify-center gap-2 press-scale"
-                  style={{ background: '#2481cc', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #1a5f94' }}
+                  onClick={() => handleChannelSend('telegram')}
+                  className="w-full py-3 text-sm font-bold text-left px-3 min-h-[48px] press-scale"
+                  style={{ borderRadius: 'var(--radius-sm)', color: '#2481cc' }}
                 >
-                  Send via Telegram
+                  Telegram
+                </button>
+              )}
+              {reminderChannels.hasShare && (
+                <button
+                  type="button"
+                  onClick={() => handleChannelSend('share')}
+                  className="w-full py-3 text-sm font-bold text-left px-3 min-h-[48px] press-scale"
+                  style={{ borderRadius: 'var(--radius-sm)', color: '#374151' }}
+                >
+                  Share
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => { handleSendReminder(reminderTarget); }}
-                className="w-full p-3 font-black text-white min-h-[52px] flex items-center justify-center gap-2 press-scale"
-                style={{ background: '#374151', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #1f2937' }}
+                onClick={() => handleChannelSend('copy')}
+                className="w-full py-3 text-sm font-bold text-left px-3 min-h-[48px] press-scale"
+                style={{ borderRadius: 'var(--radius-sm)', color: '#6b7280' }}
               >
                 Copy to clipboard
               </button>
               <button
                 type="button"
-                onClick={() => setReminderTarget(null)}
-                className="w-full p-3 font-semibold text-sm min-h-[44px] flex items-center justify-center"
-                style={{ color: '#6b7280', borderRadius: 'var(--radius-md)' }}
+                onClick={() => setReminderChannels(null)}
+                className="w-full py-3 text-sm text-center min-h-[44px] press-scale"
+                style={{ color: '#9ca3af' }}
               >
-                Not now
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {reminderTarget && copied && (
-        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 animate-fade">
-          <div
-            className="bg-white w-full max-w-md p-6 animate-slide-up text-center"
-            style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}
-          >
-            <p className="text-3xl mb-2">Copied</p>
-            <p className="text-sm" style={{ color: '#6b7280' }}>Reminder text copied. Send it to {getCustomerName(reminderTarget)} using any app.</p>
-            <button
-              type="button"
-              onClick={() => { setReminderTarget(null); setCopied(false); }}
-              className="mt-4 w-full p-3 font-black text-white min-h-[52px] press-scale"
-              style={{ background: '#1B4332', borderRadius: 'var(--radius-md)' }}
-            >
-              Done
-            </button>
-          </div>
+      {/* Copied confirmation */}
+      {copied && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-sm font-bold text-white animate-fade" style={{ background: '#1B4332', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)' }}>
+          Copied to clipboard
         </div>
       )}
 
+      {/* Add customer form */}
       {showForm && (
         <CustomerForm
           onSave={handleAddCustomer}
