@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Bell, Plus, Search, Users, X } from 'lucide-react';
+import { Bell, Search, Users, X } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
 import { getCustomerCollectionStatus } from '../utils/customerLedger';
 import { buildCustomerReminderMessage } from '../utils/customerReminder';
-import CustomerForm from './CustomerForm';
 
 const RETURN_FILTERS = [
   { id: 'all', label: 'All' },
@@ -76,11 +75,9 @@ function sendReminderDirect(customer, shopName) {
   return 'multiple';
 }
 
-function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, onAddCustomer, shopName }) {
+function CustomerList({ customers = [], onSelectCustomer, shopName }) {
   const [query, setQuery] = useState('');
   const [returnFilter, setReturnFilter] = useState('all');
-  const [showForm, setShowForm] = useState(false);
-  const [saveError, setSaveError] = useState(false);
   const [reminderChannels, setReminderChannels] = useState(null);
   const [copied, setCopied] = useState(false);
   const { t } = useLang();
@@ -102,16 +99,10 @@ function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, 
     [filteredCustomers]
   );
 
-  const handleAddCustomer = async (payload) => {
-    setSaveError(false);
-    const saved = await onAddCustomer?.(payload);
-    if (saved) {
-      setShowForm(false);
-      return true;
-    }
-    setSaveError(true);
-    return false;
-  };
+  const customersWithBalanceTotal = useMemo(
+    () => filteredCustomers.reduce((sum, c) => sum + Math.max(getCustomerBalance(c), 0), 0),
+    [filteredCustomers]
+  );
 
   const handleReminderTap = (customer) => {
     const hasPhone = Boolean(getCustomerPhone(customer));
@@ -163,28 +154,16 @@ function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, 
   return (
     <div className="space-y-3">
       {/* Summary header */}
-      <div className="flex items-center justify-between gap-3 px-1">
-        <div>
-          <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
-            {t.customerTotalBalance || 'Total to collect'}
-          </p>
-          <p className="text-xl font-bold" style={{ color: '#92400e' }}>
-            {fmt(totalOutstanding)} <span className="text-sm font-semibold" style={{ color: '#b45309' }}>birr</span>
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
-            {customersWithBalance} {t.customerBalance || 'with balance'}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-3 py-2 text-sm font-bold text-white min-h-[44px] press-scale"
-          style={{ background: '#1B4332', borderRadius: 'var(--radius-sm)' }}
-          type="button"
-        >
-          <span className="inline-flex items-center gap-1">
-            <Plus className="w-4 h-4" /> {t.addCustomer || 'Add'}
-          </span>
-        </button>
+      <div className="px-1 pb-1">
+        <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
+          {t.customerTotalBalance || 'Total to collect'}
+        </p>
+        <p className="text-lg font-bold" style={{ color: '#92400e' }}>
+          {fmt(customersWithBalanceTotal)} <span className="text-sm font-semibold" style={{ color: '#b45309' }}>birr</span>
+        </p>
+        <p className="text-xs" style={{ color: '#6b7280' }}>
+          {customersWithBalance} {t.customerBalance || 'with balance'}
+        </p>
       </div>
 
       {/* Search */}
@@ -275,14 +254,14 @@ function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, 
       {filteredCustomers.length === 0 && (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <Users className="w-8 h-8 mb-2" style={{ color: '#d1d5db' }} />
-          <p className="text-sm" style={{ color: '#9ca3af' }}>
+          <p className="text-sm font-semibold" style={{ color: '#374151' }}>
             {customers.length === 0
-              ? (t.noCustomersYet || 'No customers yet')
+              ? (t.noCustomerDubieYet || 'No customer Dubie yet')
               : (query.trim() ? (t.noCustomerSearchResults || 'No matches found') : (t.noCustomersFound || 'No customers'))}
           </p>
           <p className="text-xs mt-2 max-w-xs" style={{ color: '#6b7280' }}>
             {customers.length === 0
-              ? (t.customerHelperText || 'Add your first customer to start tracking credit')
+              ? (t.customerDubieEmptyHint || 'When someone takes goods without paying now, record their name and amount here.')
               : (returnFilter === 'due_today'
                 ? (t.noReturnTodayHint || 'No customers are due today')
                 : (returnFilter === 'overdue'
@@ -374,20 +353,6 @@ function CustomerList({ customers = [], totalOutstanding = 0, onSelectCustomer, 
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-sm font-bold text-white animate-fade" style={{ background: '#1B4332', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)' }}>
           Copied to clipboard
         </div>
-      )}
-
-      {/* Add customer form */}
-      {showForm && (
-        <CustomerForm
-          onSave={handleAddCustomer}
-          onDone={() => setShowForm(false)}
-        />
-      )}
-
-      {saveError && (
-        <p className="text-center text-xs font-bold" style={{ color: '#dc2626' }}>
-          {t.customerSaveFailed || 'Could not save customer. Please try again.'}
-        </p>
       )}
     </div>
   );

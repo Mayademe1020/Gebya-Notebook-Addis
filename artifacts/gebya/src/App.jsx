@@ -801,6 +801,168 @@ const safeErr = err instanceof Error ? err.message : String(err);
     [suppliers, supplierTransactions]
   );
 
+  const handleGiveCustomerDubie = useCallback(async (payload) => {
+    const now = Date.now();
+    let customerId = payload.customer_id;
+
+    if (payload.customer) {
+      const linkToken = createCustomerTelegramLinkToken();
+      const id = await db.customers.add({
+        display_name: payload.customer.display_name.trim(),
+        note: null,
+        phone_number: payload.customer.phone_number || null,
+        telegram_username: payload.customer.telegram_username || null,
+        telegram_chat_id: null,
+        telegram_notify_enabled: false,
+        telegram_link_token: linkToken,
+        telegram_linked_at: null,
+        telegram_link_requested_at: null,
+        created_at: now,
+        updated_at: now,
+      });
+      const saved = await db.customers.get(id);
+      setLedgerCustomers(prev => [...prev, saved]);
+      customerId = id;
+    }
+
+    if (!customerId) return false;
+
+    const entry = {
+      customer_id: customerId,
+      type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+      amount: payload.amount,
+      item_note: payload.item_note || null,
+      catalog_entry_id: payload.catalog_entry_id || null,
+      item_kind: payload.item_kind || null,
+      due_date: payload.due_date || null,
+      reference_code: null,
+      telegram_delivery_state: null,
+      telegram_delivery_attempted_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const id = await db.customer_transactions.add(entry);
+    const referenceCode = createCustomerTransactionReference(id, now);
+    await db.customer_transactions.update(id, { reference_code });
+    const saved = await db.customer_transactions.get(id);
+    await db.customers.update(customerId, { updated_at: now });
+
+    setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
+    setLedgerCustomers(prev => prev.map(c => c.id === customerId ? { ...c, updated_at: now } : c));
+    fireToast(t.creditSaved || 'Dubie saved', 2200);
+    return true;
+  }, [t]);
+
+  const handleRecordCustomerPayment = useCallback(async (payload) => {
+    const customer = customerSummaries.find(c => c.id === payload.customer_id);
+    if (!customer) { fireToast(t.customerNotFound || 'Customer not found', 2200); return false; }
+
+    const amount = Number(payload.amount) || 0;
+    if (amount <= 0) { fireToast(t.validAmountRequired || 'Enter a valid amount', 2200); return false; }
+    if (amount > Math.max(customer.balance || 0, 0)) { fireToast(t.paymentMoreThanBalance || 'More than balance', 2600); return false; }
+
+    const now = Date.now();
+    const entry = {
+      customer_id: payload.customer_id,
+      type: CUSTOMER_TRANSACTION_TYPES.PAYMENT,
+      amount,
+      item_note: payload.note || null,
+      due_date: null,
+      reference_code: null,
+      telegram_delivery_state: null,
+      telegram_delivery_attempted_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const id = await db.customer_transactions.add(entry);
+    const referenceCode = createCustomerTransactionReference(id, now);
+    await db.customer_transactions.update(id, { reference_code });
+    const saved = await db.customer_transactions.get(id);
+    await db.customers.update(payload.customer_id, { updated_at: now });
+
+    setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
+    setLedgerCustomers(prev => prev.map(c => c.id === payload.customer_id ? { ...c, updated_at: now } : c));
+    fireToast(t.paymentSaved || 'Payment recorded', 2200);
+    return true;
+  }, [customerSummaries, t]);
+
+  const handleTakeSupplierDubie = useCallback(async (payload) => {
+    const now = Date.now();
+    let supplierId = payload.supplier_id;
+
+    if (payload.supplier) {
+      const id = await db.suppliers.add({
+        display_name: payload.supplier.display_name.trim(),
+        phone_number: payload.supplier.phone_number || null,
+        note: null,
+        active: true,
+        created_at: now,
+        updated_at: now,
+      });
+      const saved = await db.suppliers.get(id);
+      setSuppliers(prev => [...prev, saved]);
+      supplierId = id;
+    }
+
+    if (!supplierId) return false;
+
+    const entry = {
+      supplier_id: supplierId,
+      type: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
+      amount: payload.amount,
+      catalog_entry_id: payload.catalog_entry_id || null,
+      item_name: payload.item_name || null,
+      item_kind: payload.item_kind || null,
+      quantity: null,
+      note: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const id = await db.supplier_transactions.add(entry);
+    const saved = await db.supplier_transactions.get(id);
+    await db.suppliers.update(supplierId, { updated_at: now });
+
+    setSupplierTransactions(prev => [saved, ...prev]);
+    setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, updated_at: now } : s));
+    fireToast(t.supplierDubieSaved || 'Supplier Dubie saved', 2200);
+    return true;
+  }, [t]);
+
+  const handleRecordSupplierPayment = useCallback(async (payload) => {
+    const supplier = supplierSummaries.find(s => s.id === payload.supplier_id);
+    if (!supplier) { fireToast('Supplier not found', 2200); return false; }
+
+    const amount = Number(payload.amount) || 0;
+    if (amount <= 0) { fireToast('Enter a valid amount', 2200); return false; }
+    if (amount > Math.max(supplier.balance || 0, 0)) { fireToast('Payment is more than remaining dubie', 2600); return false; }
+
+    const now = Date.now();
+    const entry = {
+      supplier_id: payload.supplier_id,
+      type: SUPPLIER_TRANSACTION_TYPES.PAYMENT,
+      amount,
+      catalog_entry_id: null,
+      item_name: null,
+      item_kind: null,
+      quantity: null,
+      note: payload.note || null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const id = await db.supplier_transactions.add(entry);
+    const saved = await db.supplier_transactions.get(id);
+    await db.suppliers.update(payload.supplier_id, { updated_at: now });
+
+    setSupplierTransactions(prev => [saved, ...prev]);
+    setSuppliers(prev => prev.map(s => s.id === payload.supplier_id ? { ...s, updated_at: now } : s));
+    fireToast('Supplier payment recorded', 2200);
+    return true;
+  }, [supplierSummaries]);
+
   const telegramConnectCustomer = useMemo(
     () => customerSummaries.find(c => c.id === telegramConnectCustomerId) || null,
     [customerSummaries, telegramConnectCustomerId]
@@ -1867,7 +2029,6 @@ const safeErr = err instanceof Error ? err.message : String(err);
             customerSummaries={customerSummaries}
             selectedCustomerId={selectedCustomerId}
             onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
-            onAddCustomer={handleAddCustomer}
             onBackToCustomerList={() => setSelectedCustomerId(null)}
             onAddCredit={() => selectedCustomer && setCustomerTransactionModal({
               mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
@@ -1882,6 +2043,10 @@ const safeErr = err instanceof Error ? err.message : String(err);
             onResendTelegramUpdate={() => selectedCustomer && handleResendCustomerTelegramUpdate(selectedCustomer)}
             onEditCustomerTransaction={setCustomerTransactionEditTarget}
             supplierSummaries={supplierSummaries}
+            onGiveCustomerDubie={handleGiveCustomerDubie}
+            onRecordCustomerPayment={handleRecordCustomerPayment}
+            onTakeSupplierDubie={handleTakeSupplierDubie}
+            onRecordSupplierPayment={handleRecordSupplierPayment}
             onSaveSupplier={handleSaveSupplier}
             onSaveSupplierTransaction={handleSaveSupplierTransaction}
             onUpdateSupplierTransaction={handleUpdateSupplierTransaction}

@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Store } from 'lucide-react';
+import { Search, Store } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
-import SupplierForm from './SupplierForm';
 
 function getSupplierName(supplier) {
   return supplier.display_name || supplier.displayName || '';
@@ -39,9 +38,8 @@ function matchesSupplier(supplier, query) {
   return name.includes(q) || phone.includes(q);
 }
 
-function SupplierList({ suppliers = [], totalOutstanding = 0, onSelectSupplier, onAddSupplier }) {
+function SupplierList({ suppliers = [], onSelectSupplier }) {
   const [query, setQuery] = useState('');
-  const [showForm, setShowForm] = useState(false);
   const { t } = useLang();
 
   const filteredSuppliers = useMemo(
@@ -54,31 +52,24 @@ function SupplierList({ suppliers = [], totalOutstanding = 0, onSelectSupplier, 
     [filteredSuppliers]
   );
 
+  const suppliersWithBalanceTotal = useMemo(
+    () => filteredSuppliers.reduce((sum, s) => sum + Math.max(getSupplierBalance(s), 0), 0),
+    [filteredSuppliers]
+  );
+
   return (
     <div className="space-y-3">
       {/* Summary header */}
-      <div className="flex items-center justify-between gap-3 px-1">
-        <div>
-          <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
-            {t.totalToPay || 'Total to pay'}
-          </p>
-          <p className="text-xl font-bold" style={{ color: '#92400e' }}>
-            {fmt(totalOutstanding)} <span className="text-sm font-semibold" style={{ color: '#b45309' }}>birr</span>
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
-            {suppliersWithBalance} {t.suppliersWithBalance || 'with balance'}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-3 py-2 text-sm font-bold text-white min-h-[44px] press-scale"
-          style={{ background: '#1B4332', borderRadius: 'var(--radius-sm)' }}
-          type="button"
-        >
-          <span className="inline-flex items-center gap-1">
-            <Plus className="w-4 h-4" /> {t.addSupplier || 'Add'}
-          </span>
-        </button>
+      <div className="px-1 pb-1">
+        <p className="text-xs font-semibold" style={{ color: '#9ca3af' }}>
+          {t.totalToPay || 'Total to pay'}
+        </p>
+        <p className="text-lg font-bold" style={{ color: '#92400e' }}>
+          {fmt(suppliersWithBalanceTotal)} <span className="text-sm font-semibold" style={{ color: '#b45309' }}>birr</span>
+        </p>
+        <p className="text-xs" style={{ color: '#6b7280' }}>
+          {suppliersWithBalance} {t.suppliersWithBalance || 'with balance'}
+        </p>
       </div>
 
       {/* Search */}
@@ -136,28 +127,17 @@ function SupplierList({ suppliers = [], totalOutstanding = 0, onSelectSupplier, 
       {filteredSuppliers.length === 0 && (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <Store className="w-8 h-8 mb-2" style={{ color: '#d1d5db' }} />
-          <p className="text-sm" style={{ color: '#9ca3af' }}>
+          <p className="text-sm font-semibold" style={{ color: '#374151' }}>
             {suppliers.length === 0
-              ? (t.noSuppliersYet || 'No suppliers yet')
+              ? (t.noSupplierDubieYet || 'No supplier Dubie yet')
               : (query.trim() ? (t.noSupplierSearchResults || 'No matches found') : '')}
           </p>
           <p className="text-xs mt-2 max-w-xs" style={{ color: '#6b7280' }}>
             {suppliers.length === 0
-              ? (t.supplierHelperText || 'Add a supplier to track what you owe')
+              ? (t.supplierDubieEmptyHint || 'When you take goods or stock from a supplier on credit, record the supplier and amount here.')
               : ''}
           </p>
         </div>
-      )}
-
-      {showForm && (
-        <SupplierForm
-          onSave={async (payload) => {
-            const saved = await onAddSupplier?.(payload);
-            if (saved) setShowForm(false);
-            return saved;
-          }}
-          onDone={() => setShowForm(false)}
-        />
       )}
     </div>
   );

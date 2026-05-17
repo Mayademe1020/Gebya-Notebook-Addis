@@ -7,16 +7,17 @@ import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import db from '../db';
 
-const DRAFT_KEY = 'gebya_sale_draft';
+const SALE_DRAFT_KEY = 'gebya_sale_draft';
+const EXPENSE_DRAFT_KEY = 'gebya_expense_draft';
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
-function loadDraft() {
+function loadDraft(key) {
   try {
-    const stored = localStorage.getItem(DRAFT_KEY);
+    const stored = localStorage.getItem(key);
     if (!stored) return null;
     const draft = JSON.parse(stored);
     if (draft.savedAt && Date.now() - draft.savedAt > DRAFT_EXPIRY_MS) {
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(key);
       return null;
     }
     return draft;
@@ -25,15 +26,15 @@ function loadDraft() {
   }
 }
 
-function saveDraft(data) {
+function saveDraft(key, data) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, savedAt: Date.now() }));
+    localStorage.setItem(key, JSON.stringify({ ...data, savedAt: Date.now() }));
   } catch { /* ignore */ }
 }
 
-function clearDraft() {
+function clearDraft(key) {
   try {
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(key);
   } catch { /* ignore */ }
 }
 
@@ -100,21 +101,24 @@ function TransactionForm({
   const dueDateOptions = getDueDateOptions();
 
   useEffect(() => {
-    if (!isSale) return;
-    const draft = loadDraft();
+    const draftKey = isSale ? SALE_DRAFT_KEY : isExpense ? EXPENSE_DRAFT_KEY : null;
+    if (!draftKey) return;
+    const draft = loadDraft(draftKey);
     if (draft) {
       setItem(draft.item || '');
       setAmount(draft.amount || '');
       setPaymentType(draft.paymentType || initialPaymentType || 'cash');
       setPaymentProvider(draft.paymentProvider || initialPaymentProvider || '');
-      setSaleSettlementMode(draft.saleSettlementMode || 'paid_now');
-      setSaleCustomerName(draft.saleCustomerName || '');
-      setPaidAmount(draft.paidAmount || '');
-      setSaleDueDate(draft.saleDueDate || '');
-      setQuantity(draft.quantity || '1');
+      if (isSale) {
+        setSaleSettlementMode(draft.saleSettlementMode || 'paid_now');
+        setSaleCustomerName(draft.saleCustomerName || '');
+        setPaidAmount(draft.paidAmount || '');
+        setSaleDueDate(draft.saleDueDate || '');
+        setQuantity(draft.quantity || '1');
+        if (draft.photo) setPhoto(draft.photo);
+      }
       setCostPrice(draft.costPrice || '');
       setShowMoreDetails(draft.showMoreDetails || false);
-      if (draft.photo) setPhoto(draft.photo);
       setDraftRestored(true);
       setTimeout(() => setDraftRestored(false), 3000);
     }
@@ -131,18 +135,25 @@ function TransactionForm({
   }, [saveState]);
 
   useEffect(() => {
-    if (!isSale || saveState === 'success') return;
+    if ((!isSale && !isExpense) || saveState === 'success') return;
+    const draftKey = isSale ? SALE_DRAFT_KEY : EXPENSE_DRAFT_KEY;
     const timer = setTimeout(() => {
-      saveDraft({
-        item, amount, paymentType, paymentProvider, saleSettlementMode,
-        saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
-        photo,
-      });
+      if (isSale) {
+        saveDraft(draftKey, {
+          item, amount, paymentType, paymentProvider, saleSettlementMode,
+          saleCustomerName, paidAmount, saleDueDate, quantity, costPrice, showMoreDetails,
+          photo,
+        });
+      } else {
+        saveDraft(draftKey, {
+          item, amount, paymentType, paymentProvider, costPrice, showMoreDetails,
+        });
+      }
     }, 500);
     return () => clearTimeout(timer);
   }, [item, amount, paymentType, paymentProvider, saleSettlementMode, saleCustomerName,
       paidAmount, saleDueDate, quantity, costPrice, showMoreDetails, photo,
-      isSale, saveState]);
+      isSale, isExpense, saveState]);
 
   const sellingPrice = parseFloat(parseInput(amount)) || 0;
   const cost = parseFloat(parseInput(costPrice)) || 0;
@@ -228,7 +239,8 @@ function TransactionForm({
       await onSave(data);
       setLastSaved({ item: data.item_name, amount: data.amount, type });
       setSaveState('success');
-      clearDraft();
+      const draftKey = isSale ? SALE_DRAFT_KEY : isExpense ? EXPENSE_DRAFT_KEY : null;
+      if (draftKey) clearDraft(draftKey);
     } catch (err) {
       setSaveState('idle');
       fireToast(t.saveFailed || 'Could not save. Please try again.', 3000);
@@ -311,7 +323,7 @@ function TransactionForm({
    };
 
   const handleClose = () => {
-    if (isSale && (item.trim() || amount || photo)) {
+    if ((isSale || isExpense) && (item.trim() || amount || (isSale && photo))) {
       setShowDraftPrompt(true);
     } else {
       onDone();
@@ -952,12 +964,24 @@ function TransactionForm({
                 </div>
               )}
             </>
-          )}
+              )}
 
-          {/* Save button for non-sale */}
+              {/* Inline save guidance for Expense */}
+              {isExpense && !canSave && (
+                <div className="flex items-center gap-1.5 text-xs font-medium font-sans px-1" style={{ color: '#9ca3af' }}>
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0" style={{ color: '#d1d5db' }} />
+                  {(() => {
+                    if (!sellingPrice) return lang === 'am' ? 'መጠን ያስገቡ' : 'Enter an amount';
+                    if (!item.trim()) return lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter expense reason';
+                    return '';
+                  })()}
+                </div>
+              )}
+
+              {/* Save button for non-sale */}
           {!isSale && (
-            <div className="px-6 pb-8 pt-2">
-              <button onClick={handleSave} disabled={!canSave}
+            <div className="sticky bottom-0 bg-white pt-2 pb-4 px-1 -mx-1 border-t" style={{ borderColor: '#e8e2d8' }}>
+              <button onClick={handleSave} disabled={!canSave || saveState === 'saving'}
                 className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 transition-all min-h-[56px] active:scale-95 press-scale font-sans"
                 style={{
                   background: canSave ? accent.btn : '#e5e7eb',
@@ -987,7 +1011,12 @@ function TransactionForm({
                   {t.keepDraft}
                 </button>
                 <button
-                  onClick={() => { clearDraft(); setShowDraftPrompt(false); onDone(); }}
+                  onClick={() => {
+                    const draftKey = isSale ? SALE_DRAFT_KEY : isExpense ? EXPENSE_DRAFT_KEY : null;
+                    if (draftKey) clearDraft(draftKey);
+                    setShowDraftPrompt(false);
+                    onDone();
+                  }}
                   className="w-full p-4 font-bold text-gray-600 text-base min-h-[52px] press-scale font-sans"
                   style={{ background: '#f5f5f5', borderRadius: 'var(--radius-md)' }}>
                   {t.discardDraft}
