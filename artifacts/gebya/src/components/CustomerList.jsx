@@ -10,7 +10,7 @@ const RETURN_FILTERS = [
   { id: 'open', label: 'Open' },
   { id: 'due_today', label: 'Due today' },
   { id: 'overdue', label: 'Overdue' },
-  { id: 'follow_up', label: 'Follow-up' },
+  { id: 'follow_up', label: 'Follow-up', labelKey: 'followUp' },
 ];
 
 function getCustomerName(customer) {
@@ -49,8 +49,7 @@ function getCollectionStatusText(customer, t) {
   }
   if (status.key === 'no_due_date' && customer.needs_follow_up) {
     const days = customer.days_since_activity || 0;
-    const dayLabel = days === 1 ? (t.day || 'day') : (t.days || 'days');
-    return `${t.openForDays || 'Open for'} ${days} ${dayLabel}`;
+    return (t.openForDays || 'Open for {days} days').replace('{days}', String(days));
   }
   return '';
 }
@@ -63,8 +62,8 @@ function matchesCustomer(customer, query) {
   return name.includes(q) || phone.includes(q);
 }
 
-function sendReminderDirect(customer, shopName) {
-  const message = buildCustomerReminderMessage({ customer, shopName });
+function sendReminderDirect(customer, shopName, lang) {
+  const message = buildCustomerReminderMessage({ customer, shopName, lang });
   const hasPhone = Boolean(getCustomerPhone(customer));
   const hasTelegram = Boolean(getCustomerTelegram(customer));
 
@@ -86,7 +85,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
   const [returnFilter, setReturnFilter] = useState('all');
   const [reminderChannels, setReminderChannels] = useState(null);
   const [copied, setCopied] = useState(false);
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   const filteredCustomers = useMemo(
     () => customers.filter((customer) => {
@@ -122,7 +121,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
     const hasShare = typeof navigator !== 'undefined' && navigator.share;
 
     if (!hasPhone && !hasTelegram) {
-      const message = buildCustomerReminderMessage({ customer, shopName });
+      const message = buildCustomerReminderMessage({ customer, shopName, lang });
       navigator.clipboard?.writeText(message).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -131,7 +130,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
     }
 
     if (!hasPhone || !hasTelegram) {
-      sendReminderDirect(customer, shopName);
+      sendReminderDirect(customer, shopName, lang);
       return;
     }
 
@@ -141,7 +140,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
   const handleChannelSend = async (channel) => {
     if (!reminderChannels) return;
     const { customer } = reminderChannels;
-    const message = buildCustomerReminderMessage({ customer, shopName });
+    const message = buildCustomerReminderMessage({ customer, shopName, lang });
 
     if (channel === 'sms') {
       window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -214,7 +213,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
                 borderRadius: '999px',
               }}
             >
-              {filter.label}
+              {filter.labelKey ? (t[filter.labelKey] || filter.label) : filter.label}
             </button>
           );
         })}

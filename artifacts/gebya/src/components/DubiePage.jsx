@@ -32,7 +32,7 @@ function DubiePage({
   shopName,
   catalogEntries = [],
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [activeDubieTab, setActiveDubieTab] = useState('collect');
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierTxModal, setSupplierTxModal] = useState(null);

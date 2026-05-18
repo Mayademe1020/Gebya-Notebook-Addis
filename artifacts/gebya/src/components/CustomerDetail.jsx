@@ -17,7 +17,7 @@ function CustomerDetail({
   onEditTransaction,
   shopName,
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [manualReminderText, setManualReminderText] = useState('');
   const customer = propCustomer;
 
@@ -34,6 +34,7 @@ function CustomerDetail({
   const buildReminderText = () => buildCustomerReminderMessage({
     customer,
     shopName,
+    lang,
   });
 
   const handleShareReminder = async () => {

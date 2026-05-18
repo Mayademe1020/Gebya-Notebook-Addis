@@ -172,10 +172,9 @@ runTest('reminder includes customer name shop name and balance', () => {
   });
 
   assert.equal(message, [
-    'Selam Almaz, this is a reminder from Tigist Shop.',
+    'Selam Almaz, from Tigist Shop.',
     'Your remaining balance is 250 birr.',
     'No due date was set.',
-    'Thank you.',
   ].join('\n'));
 });
 

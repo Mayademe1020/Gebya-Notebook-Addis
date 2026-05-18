@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Copy, MessageCircle, Phone, X } from 'lucide-react';
 import { buildCreditAddedMessage, buildPaymentReceiptMessage } from '../utils/customerReminder';
 
-function CustomerMessageReady({ customer, shopName, type, amount, itemNote, dueDate, balance, onDone }) {
+function CustomerMessageReady({ customer, shopName, type, amount, itemNote, dueDate, balance, onDone, lang = 'en' }) {
   const [copied, setCopied] = useState(false);
 
   const isCredit = type === 'credit';
   const message = isCredit
-    ? buildCreditAddedMessage({ customer, shopName, amount, itemNote, dueDate, balance })
-    : buildPaymentReceiptMessage({ customer, shopName, amount, balance });
+    ? buildCreditAddedMessage({ customer, shopName, amount, itemNote, dueDate, balance, lang })
+    : buildPaymentReceiptMessage({ customer, shopName, amount, balance, lang });
 
   const hasPhone = Boolean(customer?.phone_number || customer?.phoneNumber);
   const hasTelegram = Boolean(customer?.telegram_username || customer?.telegramUsername || customer?.telegram_username);

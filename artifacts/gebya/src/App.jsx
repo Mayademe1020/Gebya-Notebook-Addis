@@ -2253,6 +2253,7 @@ const safeErr = err instanceof Error ? err.message : String(err);
             return c?.balance || 0;
           })()}
           onDone={() => setMessageReadyModal(null)}
+          lang={lang}
         />
       )}
 
