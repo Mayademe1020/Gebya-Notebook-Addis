@@ -629,6 +629,10 @@ const EN = {
   supplierNamePlaceholder: 'Supplier name',
   supplierNotePlaceholder: 'Note',
   mobileNumber: 'Mobile number',
+
+  followUp: 'Follow-up',
+  openForDays: 'Open for {days} days',
+  mayNeedFollowUp: 'may need follow-up',
 };
 
 // My Shop keys (myShop, more, frequentExpenses, shareTodayTitle, shareTodayHint) are temporary translations
@@ -1244,6 +1248,10 @@ const AM = {
   supplierNamePlaceholder: 'የአቅራቢ ስም',
   supplierNotePlaceholder: 'ማስታወሻ',
   mobileNumber: 'ስልክ ቁጥር',
+
+  followUp: 'ተከታተል',
+  openForDays: 'ለ{days} ቀናት ክፍት',
+  mayNeedFollowUp: 'ሊከታተል ይገባል',
 };
 
 const LangContext = createContext(null);

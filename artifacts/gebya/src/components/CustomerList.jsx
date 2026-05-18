@@ -10,6 +10,7 @@ const RETURN_FILTERS = [
   { id: 'open', label: 'Open' },
   { id: 'due_today', label: 'Due today' },
   { id: 'overdue', label: 'Overdue' },
+  { id: 'follow_up', label: 'Follow-up' },
 ];
 
 function getCustomerName(customer) {
@@ -45,6 +46,11 @@ function getCollectionStatusText(customer, t) {
   if (status.key === 'due_in') {
     const dayLabel = status.days === 1 ? (t.day || 'day') : (t.days || 'days');
     return `${t.dueIn || 'Due in'} ${status.days} ${dayLabel}`;
+  }
+  if (status.key === 'no_due_date' && customer.needs_follow_up) {
+    const days = customer.days_since_activity || 0;
+    const dayLabel = days === 1 ? (t.day || 'day') : (t.days || 'days');
+    return `${t.openForDays || 'Open for'} ${days} ${dayLabel}`;
   }
   return '';
 }
@@ -89,6 +95,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
       if (returnFilter === 'open') return status.hasBalance;
       if (returnFilter === 'due_today') return status.key === 'due_today';
       if (returnFilter === 'overdue') return status.key === 'overdue';
+      if (returnFilter === 'follow_up') return customer.needs_follow_up === true;
       return true;
     }),
     [returnFilter, customers, query]
@@ -101,6 +108,11 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
 
   const customersWithBalanceTotal = useMemo(
     () => filteredCustomers.reduce((sum, c) => sum + Math.max(getCustomerBalance(c), 0), 0),
+    [filteredCustomers]
+  );
+
+  const customersNeedingFollowUp = useMemo(
+    () => filteredCustomers.filter((customer) => customer.needs_follow_up === true).length,
     [filteredCustomers]
   );
 
@@ -164,6 +176,11 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
         <p className="text-xs" style={{ color: '#6b7280' }}>
           {customersWithBalance} {t.customerBalance || 'with balance'}
         </p>
+        {customersNeedingFollowUp > 0 && (
+          <p className="text-xs mt-0.5 font-medium" style={{ color: '#b45309' }}>
+            {customersNeedingFollowUp} {t.mayNeedFollowUp || 'may need follow-up'}
+          </p>
+        )}
       </div>
 
       {/* Search */}

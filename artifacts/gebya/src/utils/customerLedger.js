@@ -117,7 +117,22 @@ export function getCustomerCollectionStatus(customer = {}, now = Date.now()) {
   };
 }
 
-export function buildCustomerSummaries(customers = [], customerTransactions = []) {
+export function getDaysSinceLastActivity(customer = {}, now = Date.now()) {
+  const lastAt = customer.last_activity_at || 0;
+  if (!Number.isFinite(lastAt) || lastAt <= 0) return null;
+  return Math.round((now - lastAt) / MS_PER_DAY);
+}
+
+export function isFollowUpNeeded(customer = {}, now = Date.now(), thresholdDays = 7) {
+  const status = customer.collection_status || getCustomerCollectionStatus(customer, now);
+  if (status.key !== 'no_due_date') return false;
+  if (!status.hasBalance) return false;
+  const days = getDaysSinceLastActivity(customer, now);
+  if (days == null) return false;
+  return days >= thresholdDays;
+}
+
+export function buildCustomerSummaries(customers = [], customerTransactions = [], now = Date.now()) {
   const txByCustomer = customerTransactions.reduce((acc, item) => {
     if (!acc[item.customer_id]) acc[item.customer_id] = [];
     acc[item.customer_id].push(item);
@@ -140,9 +155,15 @@ export function buildCustomerSummaries(customers = [], customerTransactions = []
         collection_due_date: collectionDueDate,
       };
 
+      const collectionStatus = getCustomerCollectionStatus(summary, now);
+      const daysSinceActivity = getDaysSinceLastActivity(summary, now);
+      const needsFollowUp = isFollowUpNeeded({ ...summary, collection_status: collectionStatus }, now);
+
       return {
         ...summary,
-        collection_status: getCustomerCollectionStatus(summary),
+        collection_status: collectionStatus,
+        days_since_activity: daysSinceActivity,
+        needs_follow_up: needsFollowUp,
       };
     })
     .sort((a, b) => {
