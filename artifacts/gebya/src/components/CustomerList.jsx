@@ -10,7 +10,7 @@ const RETURN_FILTERS = [
   { id: 'open', label: 'Open' },
   { id: 'due_today', label: 'Due today' },
   { id: 'overdue', label: 'Overdue' },
-  { id: 'follow_up', label: 'Follow-up' },
+  { id: 'follow_up', label: 'Follow-up', labelKey: 'followUp' },
 ];
 
 function getCustomerName(customer) {
@@ -49,8 +49,7 @@ function getCollectionStatusText(customer, t) {
   }
   if (status.key === 'no_due_date' && customer.needs_follow_up) {
     const days = customer.days_since_activity || 0;
-    const dayLabel = days === 1 ? (t.day || 'day') : (t.days || 'days');
-    return `${t.openForDays || 'Open for'} ${days} ${dayLabel}`;
+    return (t.openForDays || 'Open for {days} days').replace('{days}', String(days));
   }
   return '';
 }
@@ -214,7 +213,7 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
                 borderRadius: '999px',
               }}
             >
-              {filter.label}
+              {filter.labelKey ? (t[filter.labelKey] || filter.label) : filter.label}
             </button>
           );
         })}
