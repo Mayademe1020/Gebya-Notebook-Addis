@@ -86,8 +86,8 @@ function CustomerForm({ onSave, onDone }) {
         <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', borderColor: 'var(--color-border-light)' }}>
           <div className="flex justify-between items-center gap-3">
             <div>
-              <h2 className="text-xl font-black text-gray-900">New customer</h2>
-              <p className="text-sm mt-1" style={{ color: '#6b7280' }}>Reminders need contact info.</p>
+              <h2 className="text-xl font-black text-gray-900">{t.newCustomerTitle}</h2>
+              <p className="text-sm mt-1" style={{ color: '#6b7280' }}>{t.newCustomerHint}</p>
             </div>
             <button onClick={onDone} aria-label={t.close} className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center press-scale">
               <X className="w-5 h-5 text-gray-500" />
@@ -98,13 +98,13 @@ function CustomerForm({ onSave, onDone }) {
         <div className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-gray-700 font-semibold mb-2">
-              Customer name <span className="text-red-500">*</span>
+              {t.customerNameLabel} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Customer name"
+              placeholder={t.customerNamePlaceholder}
               autoFocus
               className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px]"
               style={{ borderRadius: 'var(--radius-md)', borderColor: displayName.trim() ? '#1B4332' : '#e8e2d8' }}
@@ -114,7 +114,7 @@ function CustomerForm({ onSave, onDone }) {
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
               <label className="block text-gray-700 font-semibold">
-                Mobile number
+                {t.mobileNumberLabel}
               </label>
               <button
                 type="button"
@@ -123,7 +123,7 @@ function CustomerForm({ onSave, onDone }) {
                 className="px-3 py-2 text-xs font-black border min-h-[40px] press-scale disabled:opacity-45 disabled:cursor-not-allowed"
                 style={{ background: contactsSupported ? '#eff6ff' : '#f9fafb', color: contactsSupported ? '#1d4ed8' : '#9ca3af', borderColor: contactsSupported ? '#bfdbfe' : '#e5e7eb', borderRadius: 'var(--radius-sm)' }}
               >
-                Pick from contacts
+                {t.pickFromContacts}
               </button>
             </div>
             <div className="flex gap-0">
@@ -153,19 +153,19 @@ function CustomerForm({ onSave, onDone }) {
             </div>
             {phoneTouched && phoneEntered && !phoneValid && (
               <p className="text-xs mt-1.5 font-medium text-red-600">
-                Phone must start with 7 or 9 (9 digits)
+                {t.phoneMustStartWith7or9}
               </p>
             )}
             {!phoneEntered && (
               <p className="text-xs mt-1.5 font-medium" style={{ color: '#b45309' }}>
-                SMS reminders need a mobile number.
+                {t.smsRemindersHint}
               </p>
             )}
           </div>
 
           <div>
             <label className="block text-gray-700 font-semibold mb-2">
-              Telegram
+              {t.telegramLabel}
             </label>
             <input
               type="text"
@@ -181,18 +181,18 @@ function CustomerForm({ onSave, onDone }) {
               </p>
             )}
             <p className="text-xs mt-2" style={{ color: '#6b7280' }}>
-              Bot connection can be added later.
+              {t.telegramLaterHint}
             </p>
           </div>
 
           <div>
             <label className="block text-gray-700 font-semibold mb-2">
-              Note
+              {t.noteLabel}
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Note"
+              placeholder={t.noteLabel}
               rows={3}
               className="w-full p-3 border-2 focus:outline-none text-sm resize-none"
               style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
@@ -203,7 +203,7 @@ function CustomerForm({ onSave, onDone }) {
         <div className="px-6 pb-8 pt-2">
           <button onClick={handleSave} disabled={!canSave || saving} className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 min-h-[56px] press-scale" style={{ background: canSave ? '#1B4332' : '#e5e7eb', color: canSave ? '#fff' : '#9ca3af', borderRadius: 'var(--radius-md)', boxShadow: canSave ? '0 4px 0 #0f2b20, var(--shadow-sm)' : 'none' }}>
             <Save className="w-5 h-5" />
-            {saving ? t.saving : 'Save customer'}
+            {saving ? t.saving : t.saveCustomer}
           </button>
         </div>
       </div>

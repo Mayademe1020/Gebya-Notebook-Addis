@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Search, UserRound, X } from 'lucide-react';
 import { fmt } from '../utils/numformat';
+import { useLang } from '../context/LangContext';
 
 function matchesCustomer(customer, query) {
   const q = query.trim().toLowerCase();
@@ -27,6 +28,7 @@ function sortNotebookCustomers(customers) {
 }
 
 function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustomer, onDone }) {
+  const { t } = useLang();
   const [query, setQuery] = useState('');
   const trimmedQuery = query.trim();
 
@@ -53,11 +55,11 @@ function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustom
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-wide font-black" style={{ color: '#C4883A' }}>
-                Existing customer
+                {t.dubieExistingCustomer}
               </p>
-              <h2 className="text-xl font-black text-gray-900 leading-tight">Add Dubie</h2>
+              <h2 className="text-xl font-black text-gray-900 leading-tight">{t.dubieAddTitle}</h2>
               <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-                Search or choose a recent customer.
+                {t.dubieSearchHint}
               </p>
             </div>
             <button
@@ -78,7 +80,7 @@ function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustom
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search customer"
+                placeholder={t.dubieSearchPlaceholder}
               autoCapitalize="words"
               autoFocus
               className="w-full pl-9 pr-4 py-3 text-sm bg-white border-2 outline-none min-h-[48px]"
@@ -93,15 +95,15 @@ function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustom
             style={{ background: '#1B4332', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #0f2b20' }}
           >
             <Plus className="w-5 h-5" />
-            New customer
+            {t.dubieNewCustomer}
           </button>
 
           <div className="flex items-center justify-between gap-3 px-1">
             <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-              {openBalanceCount > 0 ? 'Open balance customers' : 'Recent customers'}
+              {openBalanceCount > 0 ? t.dubieOpenBalanceCustomers : t.dubieRecentCustomers}
             </p>
             <p className="text-xs" style={{ color: '#6b7280' }}>
-              {visibleCustomers.length} shown
+              {visibleCustomers.length} {t.dubieShown}
             </p>
           </div>
 
@@ -142,10 +144,10 @@ function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustom
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-                        Remaining balance
+                        {t.dubieRemainingBalance}
                       </p>
                       <p className="text-sm font-black" style={{ color: hasOpenBalance ? '#92400e' : '#6b7280' }}>
-                        {fmt(balance)} birr
+                        {fmt(balance)} {t.birr}
                       </p>
                     </div>
                   </div>
@@ -158,9 +160,9 @@ function FastDubieCustomerPicker({ customers = [], onSelectCustomer, onNewCustom
                 className="text-center py-8 px-4 border"
                 style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}
               >
-                <p className="text-sm font-bold text-gray-800">No customer found</p>
+                <p className="text-sm font-bold text-gray-800">{t.dubieNoCustomerFound}</p>
                 <p className="text-xs mt-2" style={{ color: '#6b7280' }}>
-                  Try another name or add a new customer.
+                  {t.dubieTryAnother}
                 </p>
               </div>
             )}

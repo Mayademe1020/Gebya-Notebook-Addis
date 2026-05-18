@@ -96,7 +96,7 @@ function SupplierForm({ onSave, onDone }) {
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
               <label className="block text-gray-700 font-semibold">
-                {t.mobileNumber || 'Mobile number'}
+                {t.mobileNumber}
               </label>
               <button
                 type="button"

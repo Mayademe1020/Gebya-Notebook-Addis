@@ -4,9 +4,9 @@ import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
 import { SUPPLIER_TRANSACTION_TYPES, isValidSupplierTransactionType } from '../utils/supplierLedger';
 
-const MODE_OPTIONS = [
-  { id: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD, label: 'Add amount owed' },
-  { id: SUPPLIER_TRANSACTION_TYPES.PAYMENT, label: 'Record payment' },
+const MODE_OPTIONS = (t) => [
+  { id: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD, label: t.addAmountOwed || 'Add owed' },
+  { id: SUPPLIER_TRANSACTION_TYPES.PAYMENT, label: t.recordPayment || 'Record payment' },
 ];
 
 function handleNumericInput(e, setter) {
@@ -78,8 +78,8 @@ function SupplierTransactionSheet({
             <div>
               <h2 className="text-lg font-bold text-gray-900">
                 {isEditing
-                  ? (isPayment ? 'Edit payment' : 'Edit amount owed')
-                  : (isPayment ? 'Record payment' : 'Add amount owed')}
+                  ? (isPayment ? (t.editPayment || 'Edit payment') : (t.editAmountOwed || 'Edit amount owed'))
+                  : (isPayment ? (t.recordPayment || 'Record payment') : (t.addAmountOwed || 'Add owed'))}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{supplier?.display_name || ''}</p>
             </div>
@@ -91,9 +91,9 @@ function SupplierTransactionSheet({
 
         <div className="px-6 py-4 space-y-4">
           {/* Mode toggle */}
-          {!isEditing && (
+            {!isEditing && (
             <div className="flex gap-1 p-1" style={{ background: '#f3f4f6', borderRadius: 'var(--radius-sm)' }}>
-              {MODE_OPTIONS.map(opt => (
+              {MODE_OPTIONS(t).map(opt => (
                 <button
                   key={opt.id}
                   type="button"
@@ -152,7 +152,7 @@ function SupplierTransactionSheet({
             {overPayment && (
               <div className="p-3 border mt-2" style={{ background: '#fef2f2', borderColor: '#fecaca', borderRadius: 'var(--radius-sm)' }}>
                 <p className="text-xs font-bold text-red-600">
-                  More than the remaining balance.
+                  {t.moreThanRemainingBalance || 'More than the remaining balance.'}
                 </p>
               </div>
             )}
@@ -192,7 +192,7 @@ function SupplierTransactionSheet({
             <textarea
               value={itemNote}
               onChange={(e) => setItemNote(e.target.value)}
-              placeholder={isPayment ? (t.paymentNotePlaceholder || 'Payment note') : (t.itemNotePlaceholder || 'What was purchased')}
+              placeholder={isPayment ? (t.paymentNotePlaceholder || 'Payment note') : (t.whatWasPurchased || 'What was purchased')}
               rows={2}
               className="w-full p-3 border-2 focus:outline-none text-sm resize-none"
               style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}

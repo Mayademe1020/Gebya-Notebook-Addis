@@ -804,10 +804,12 @@ const safeErr = err instanceof Error ? err.message : String(err);
   const handleGiveCustomerDubie = useCallback(async (payload) => {
     const now = Date.now();
     let customerId = payload.customer_id;
+    let savedCustomer = null;
+    let savedTransaction = null;
 
     if (payload.customer) {
       const linkToken = createCustomerTelegramLinkToken();
-      const id = await db.customers.add({
+      const customerPayload = {
         display_name: payload.customer.display_name.trim(),
         note: null,
         phone_number: payload.customer.phone_number || null,
@@ -819,37 +821,69 @@ const safeErr = err instanceof Error ? err.message : String(err);
         telegram_link_requested_at: null,
         created_at: now,
         updated_at: now,
+      };
+
+      const entry = {
+        customer_id: null, // set after customer add
+        type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+        amount: payload.amount,
+        item_note: payload.item_note || null,
+        catalog_entry_id: payload.catalog_entry_id || null,
+        item_kind: payload.item_kind || null,
+        due_date: payload.due_date || null,
+        reference_code: null,
+        telegram_delivery_state: null,
+        telegram_delivery_attempted_at: null,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await db.transaction('rw', db.customers, db.customer_transactions, async () => {
+        const id = await db.customers.add(customerPayload);
+        savedCustomer = await db.customers.get(id);
+        customerId = id;
+
+        entry.customer_id = customerId;
+        const txId = await db.customer_transactions.add(entry);
+        const referenceCode = createCustomerTransactionReference(txId, now);
+        await db.customer_transactions.update(txId, { reference_code: referenceCode });
+        savedTransaction = await db.customer_transactions.get(txId);
       });
-      const saved = await db.customers.get(id);
-      setLedgerCustomers(prev => [...prev, saved]);
-      customerId = id;
+
+      setLedgerCustomers(prev => [...prev, savedCustomer]);
+    } else {
+      if (!customerId) return false;
+
+      const entry = {
+        customer_id: customerId,
+        type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+        amount: payload.amount,
+        item_note: payload.item_note || null,
+        catalog_entry_id: payload.catalog_entry_id || null,
+        item_kind: payload.item_kind || null,
+        due_date: payload.due_date || null,
+        reference_code: null,
+        telegram_delivery_state: null,
+        telegram_delivery_attempted_at: null,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await db.transaction('rw', db.customer_transactions, db.customers, async () => {
+        const txId = await db.customer_transactions.add(entry);
+        const referenceCode = createCustomerTransactionReference(txId, now);
+        await db.customer_transactions.update(txId, { reference_code: referenceCode });
+        savedTransaction = await db.customer_transactions.get(txId);
+        await db.customers.update(customerId, { updated_at: now });
+      });
     }
 
-    if (!customerId) return false;
+    if (!savedTransaction) return false;
 
-    const entry = {
-      customer_id: customerId,
-      type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
-      amount: payload.amount,
-      item_note: payload.item_note || null,
-      catalog_entry_id: payload.catalog_entry_id || null,
-      item_kind: payload.item_kind || null,
-      due_date: payload.due_date || null,
-      reference_code: null,
-      telegram_delivery_state: null,
-      telegram_delivery_attempted_at: null,
-      created_at: now,
-      updated_at: now,
-    };
-
-    const id = await db.customer_transactions.add(entry);
-    const referenceCode = createCustomerTransactionReference(id, now);
-    await db.customer_transactions.update(id, { reference_code });
-    const saved = await db.customer_transactions.get(id);
-    await db.customers.update(customerId, { updated_at: now });
-
-    setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
-    setLedgerCustomers(prev => prev.map(c => c.id === customerId ? { ...c, updated_at: now } : c));
+    setLedgerTransactions(prev => insertCustomerTransaction(prev, savedTransaction));
+    if (customerId) {
+      setLedgerCustomers(prev => prev.map(c => c.id === customerId ? { ...c, updated_at: now } : c));
+    }
     fireToast(t.creditSaved || 'Dubie saved', 2200);
     return true;
   }, [t]);
@@ -891,42 +925,72 @@ const safeErr = err instanceof Error ? err.message : String(err);
   const handleTakeSupplierDubie = useCallback(async (payload) => {
     const now = Date.now();
     let supplierId = payload.supplier_id;
+    let savedSupplier = null;
+    let savedTransaction = null;
 
     if (payload.supplier) {
-      const id = await db.suppliers.add({
+      const supplierPayload = {
         display_name: payload.supplier.display_name.trim(),
         phone_number: payload.supplier.phone_number || null,
         note: null,
         active: true,
         created_at: now,
         updated_at: now,
+      };
+
+      const entry = {
+        supplier_id: null, // set after supplier add
+        type: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
+        amount: payload.amount,
+        catalog_entry_id: payload.catalog_entry_id || null,
+        item_name: payload.item_name || null,
+        item_kind: payload.item_kind || null,
+        quantity: null,
+        note: null,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await db.transaction('rw', db.suppliers, db.supplier_transactions, async () => {
+        const id = await db.suppliers.add(supplierPayload);
+        savedSupplier = await db.suppliers.get(id);
+        supplierId = id;
+
+        entry.supplier_id = supplierId;
+        const txId = await db.supplier_transactions.add(entry);
+        savedTransaction = await db.supplier_transactions.get(txId);
       });
-      const saved = await db.suppliers.get(id);
-      setSuppliers(prev => [...prev, saved]);
-      supplierId = id;
+
+      setSuppliers(prev => [...prev, savedSupplier]);
+    } else {
+      if (!supplierId) return false;
+
+      const entry = {
+        supplier_id: supplierId,
+        type: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
+        amount: payload.amount,
+        catalog_entry_id: payload.catalog_entry_id || null,
+        item_name: payload.item_name || null,
+        item_kind: payload.item_kind || null,
+        quantity: null,
+        note: null,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await db.transaction('rw', db.supplier_transactions, db.suppliers, async () => {
+        const txId = await db.supplier_transactions.add(entry);
+        savedTransaction = await db.supplier_transactions.get(txId);
+        await db.suppliers.update(supplierId, { updated_at: now });
+      });
     }
 
-    if (!supplierId) return false;
+    if (!savedTransaction) return false;
 
-    const entry = {
-      supplier_id: supplierId,
-      type: SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
-      amount: payload.amount,
-      catalog_entry_id: payload.catalog_entry_id || null,
-      item_name: payload.item_name || null,
-      item_kind: payload.item_kind || null,
-      quantity: null,
-      note: null,
-      created_at: now,
-      updated_at: now,
-    };
-
-    const id = await db.supplier_transactions.add(entry);
-    const saved = await db.supplier_transactions.get(id);
-    await db.suppliers.update(supplierId, { updated_at: now });
-
-    setSupplierTransactions(prev => [saved, ...prev]);
-    setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, updated_at: now } : s));
+    setSupplierTransactions(prev => [savedTransaction, ...prev]);
+    if (supplierId) {
+      setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, updated_at: now } : s));
+    }
     fireToast(t.supplierDubieSaved || 'Supplier Dubie saved', 2200);
     return true;
   }, [t]);
@@ -2043,10 +2107,6 @@ const safeErr = err instanceof Error ? err.message : String(err);
             onResendTelegramUpdate={() => selectedCustomer && handleResendCustomerTelegramUpdate(selectedCustomer)}
             onEditCustomerTransaction={setCustomerTransactionEditTarget}
             supplierSummaries={supplierSummaries}
-            onGiveCustomerDubie={handleGiveCustomerDubie}
-            onRecordCustomerPayment={handleRecordCustomerPayment}
-            onTakeSupplierDubie={handleTakeSupplierDubie}
-            onRecordSupplierPayment={handleRecordSupplierPayment}
             onSaveSupplier={handleSaveSupplier}
             onSaveSupplierTransaction={handleSaveSupplierTransaction}
             onUpdateSupplierTransaction={handleUpdateSupplierTransaction}

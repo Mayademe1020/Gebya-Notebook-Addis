@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
-import { Download, Trash2, Info, Shield, ChevronRight, Store, Phone, Check, CreditCard, RefreshCw, Plus, MessageCircle, X, Lock } from 'lucide-react';
+import { Download, Trash2, Info, Shield, ChevronRight, Store, Phone, Check, CreditCard, RefreshCw, Plus, MessageCircle, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import { useAuth } from '../context/AuthContext';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt, parseInput } from '../utils/numformat';
 import db from '../db';
@@ -35,15 +34,11 @@ function SettingsPage({
   earnedBadges,
 }) {
   const { lang, toggleLang, t } = useLang();
-  const { isAuthenticated, encryptionKey } = useAuth();
-  const isAuthEnabled = !!encryptionKey;
   const FREQ_LABELS = lang === 'am' ? FREQ_LABELS_AM : FREQ_LABELS_EN;
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState('');
-  const [exportPin, setExportPin] = useState('');
-  const [exportError, setExportError] = useState('');
   const [lastBackupTime, setLastBackupTime] = useState(null);
   const [catalogForm, setCatalogForm] = useState({
     id: null,
@@ -147,33 +142,12 @@ function SettingsPage({
     ].map(row => row.join(',')).join('\n');
   };
 
-const handleExportAuth = async () => {
-     if (!isAuthenticated) {
-       fireToast(t.exportAuthRequired || 'Authentication required', 2200);
-       return;
-     }
-     // If auth is enabled, require PIN
-     const authState = await import('../lib/auth').then(m => m.getAuthState());
-     if (authState.enabled) {
-       if (!exportPin) {
-         setExportError(t.enterPinToExport || 'Enter your PIN to export');
-         return;
-       }
-       try {
-         const key = await import('../lib/auth').then(m => m.verifyAndGetKey(exportPin));
-         setExportPin('');
-         setExportError('');
-         await exportToCSV(key);
-       } catch (err) {
-         setExportError(err.message || 'Incorrect PIN');
-         setExportPin('');
-       }
-       return;
-     }
-     await exportToCSV(null);
+  const handleExport = async () => {
+     if (totalEntries === 0) return;
+     await exportToCSV();
    };
 
-   const exportToCSV = async (encKey) => {
+   const exportToCSV = async () => {
      const [customerRows, customerTransactionRows, supplierRows, supplierTransactionRows] = await Promise.all([
        db.customers.toArray(),
        db.customer_transactions.toArray(),
@@ -181,15 +155,9 @@ const handleExportAuth = async () => {
        db.supplier_transactions?.toArray?.() || [],
      ]);
 
-     const decrypt = encKey
-       ? (await import('../lib/crypto')).decrypt
-       : null;
+      const decrypt = null;
 
-     const maybeDecrypt = async (val) => {
-       if (!decrypt || !val) return val;
-       const result = await decrypt(val, encKey);
-       return result || val;
-     };
+      const maybeDecrypt = async (val) => val;
 
      const transactionSection = buildCsvSection(
        'Transactions',
@@ -289,29 +257,10 @@ const handleExportAuth = async () => {
     };
 
 const clearAllData = async () => {
-     // Require authentication before destructive action
-     const { verifyAndGetKey } = await import('../lib/auth');
-     if (!exportPin && !cleared) {
-       setShowClearConfirm(false);
-       fireToast(t.exportAuthRequired || 'PIN required to wipe data', 2200);
-       return;
-     }
      // Require typed confirmation
      if (clearConfirmText !== 'DELETE') {
        fireToast(t.typeDeleteConfirm || 'Type DELETE to confirm', 2200);
        return;
-     }
-     // Verify PIN first
-     if (isAuthenticated) {
-       try {
-         const authState = await import('../lib/auth').then(m => m.getAuthState());
-         if (authState.enabled) {
-           await verifyAndGetKey(exportPin);
-         }
-       } catch (err) {
-         fireToast(t.incorrectPin || 'Incorrect PIN', 2200);
-         return;
-       }
      }
      await Promise.all([
        db.transactions.clear(),
@@ -772,8 +721,8 @@ const clearAllData = async () => {
           </div>
 
 <button
-             onClick={handleExportAuth}
-             disabled={totalEntries === 0 || (isAuthEnabled && !exportPin && !isAuthenticated)}
+             onClick={handleExport}
+             disabled={totalEntries === 0}
              className="w-full flex items-center gap-4 px-5 py-4 active:bg-green-50 transition-colors min-h-[64px] disabled:opacity-40"
            >
              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#eff6ff' }}>
@@ -783,23 +732,8 @@ const clearAllData = async () => {
                <div className="font-bold text-gray-800">{t.exportCSV}</div>
                <div className="text-xs text-gray-500 mt-0.5">{t.exportHint}</div>
              </div>
-             {isAuthEnabled && <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />}
              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
            </button>
-
-           {isAuthEnabled && (
-             <div className="px-5 py-2">
-               <input
-                 type="password"
-                 value={exportPin}
-                 onChange={e => { setExportPin(e.target.value); setExportError(''); }}
-                 placeholder={t.enterPinPlaceholder || 'Enter PIN to export'}
-                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none"
-                 style={{ borderColor: exportError ? '#dc2626' : '#e8e2d8' }}
-               />
-               {exportError && <p className="text-xs text-red-500 mt-1">{exportError}</p>}
-             </div>
-           )}
 
 <button
              onClick={() => { setShowClearConfirm(true); setClearConfirmText(''); }}
@@ -811,7 +745,6 @@ const clearAllData = async () => {
              <div className="flex-1 text-left">
                <div className="text-sm text-gray-500">{t.clearAll}</div>
              </div>
-             {isAuthEnabled && <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />}
 </button>
           </div>
 
@@ -822,21 +755,6 @@ const clearAllData = async () => {
                 <p className="text-sm text-gray-500 mb-4">
                   {t.clearConfirmMsg || 'This will permanently delete all your data. This cannot be undone.'}
                 </p>
-
-                {isAuthEnabled && (
-                  <div className="mb-3">
-                    <label className="block text-xs font-bold text-gray-600 mb-1">{t.enterPinPlaceholder || 'Enter PIN'}</label>
-                    <input
-                      type="password"
-                      value={exportPin}
-                      onChange={e => setExportPin(e.target.value)}
-                      placeholder="0000"
-                      className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none"
-                      style={{ borderColor: '#e8e2d8' }}
-                      maxLength={6}
-                    />
-                  </div>
-                )}
 
                 <div className="mb-3">
                   <label className="block text-xs font-bold text-gray-600 mb-1">{t.typeDeleteConfirm || 'Type DELETE to confirm'}</label>
@@ -852,7 +770,7 @@ const clearAllData = async () => {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setShowClearConfirm(false); setClearConfirmText(''); setExportPin(''); }}
+                    onClick={() => { setShowClearConfirm(false); setClearConfirmText(''); }}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold min-h-[44px]"
                     style={{ background: '#f5f5f5', color: '#6b7280' }}
                   >
@@ -860,12 +778,12 @@ const clearAllData = async () => {
                   </button>
                   <button
                     onClick={clearAllData}
-                    disabled={isAuthEnabled && !exportPin}
+                    disabled={clearConfirmText !== 'DELETE'}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white min-h-[44px] ${
-                      clearConfirmText === 'DELETE' && (!isAuthEnabled || exportPin)
+                      clearConfirmText === 'DELETE'
                         ? 'bg-red-600' : 'bg-gray-400'
                     }`}
-                    style={{ cursor: (clearConfirmText === 'DELETE' && (!isAuthEnabled || exportPin)) ? 'pointer' : 'not-allowed' }}
+                    style={{ cursor: clearConfirmText === 'DELETE' ? 'pointer' : 'not-allowed' }}
                   >
                     {t.yesDelete || 'Delete Everything'}
                   </button>
