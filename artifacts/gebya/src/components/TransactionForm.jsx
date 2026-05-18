@@ -97,7 +97,11 @@ function TransactionForm({
   const [popupName, setPopupName] = useState('');
   const [popupAmount, setPopupAmount] = useState('');
   const [popupFreq, setPopupFreq] = useState('monthly');
+  const [showCatalogSuggestions, setShowCatalogSuggestions] = useState(false);
   const selectedCatalogEntry = catalogEntries.find(e => String(e.id) === String(catalogEntryId));
+  const catalogMatches = isSale && catalogEntries.length > 0 && item.length > 0
+    ? catalogEntries.filter(e => e.name.toLowerCase().includes(item.toLowerCase())).slice(0, 5)
+    : [];
   const dueDateOptions = getDueDateOptions();
 
   useEffect(() => {
@@ -349,9 +353,9 @@ function TransactionForm({
       <div className="bg-white w-full max-w-md max-h-[92vh] overflow-y-auto animate-slide-up" style={{ borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0', boxShadow: 'var(--shadow-lg)' }}>
 
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 px-4 pt-3 pb-2 border-b" style={{ borderColor: 'var(--color-border-light)', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0' }}>
+        <div className="sticky top-0 bg-white z-10 px-4 pt-2.5 pb-1.5 border-b" style={{ borderColor: 'var(--color-border-light)', borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0' }}>
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-black text-gray-900 font-sans">{config.title}</h2>
+            <h2 className="text-base font-black text-gray-900 font-sans">{config.title}</h2>
             <button onClick={handleClose} aria-label={t.close}
               className="p-2 rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center press-scale">
               <X className="w-4 h-4 text-gray-500" />
@@ -365,7 +369,7 @@ function TransactionForm({
           )}
         </div>
 
-        <div className="px-4 py-2 space-y-2">
+        <div className="px-4 py-2 space-y-1.5">
 
           {/* Credit direction */}
           {isCredit && (
@@ -447,7 +451,7 @@ function TransactionForm({
                     value={fmtInput(amount)}
                     onChange={e => { handleNumericInput(e, setAmount); setShowValidation(false); }}
                     placeholder="0" autoFocus
-                    className="w-full p-3 pr-16 border-2 focus:outline-none text-base min-h-[48px] font-sans"
+                    className="w-full p-2.5 pr-16 border-2 focus:outline-none text-base min-h-[48px] font-sans"
                     style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && (!sellingPrice || sellingPrice <= 0) ? '#dc2626' : '#e8e2d8' }}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium font-sans">{t.birr}</span>
@@ -457,51 +461,68 @@ function TransactionForm({
                 )}
               </div>
 
-              {/* Catalog + Item + Photo */}
+              {/* Item + Photo + Autocomplete */}
               <div>
-                {catalogEntries.length > 0 && (
-                  <div className="mb-2">
-                    <label className="block text-gray-700 font-semibold mb-1.5 text-xs font-sans">{t.savedCatalogLabel}</label>
-                    <select
-                      value={catalogEntryId}
-                      onChange={e => handleSelectCatalogEntry(e.target.value)}
-                      className="w-full p-2.5 border-2 focus:outline-none text-sm font-sans bg-white"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}>
-                      <option value="">{t.typeManually}</option>
-                      {catalogEntries.map(entry => (
-                        <option key={entry.id} value={entry.id}>
-                          {entry.name} — {entry.kind === 'service' ? t.serviceLabel : t.itemLabel}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="flex items-end gap-1.5">
-                  <div className="flex-1">
-                    <label className="block text-gray-700 font-semibold mb-1.5 text-sm font-sans">
-                      {config.itemLabel} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={e => { setItem(e.target.value); setShowValidation(false); }}
-                      placeholder={config.itemPlaceholder}
-                      className="w-full p-3 border-2 focus:outline-none text-base min-h-[44px] font-sans"
-                      style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && !item.trim() ? '#dc2626' : '#e8e2d8' }}
-                    />
+                <div className="relative">
+                  <div className="flex items-end gap-1.5">
+                    <div className="flex-1">
+                      <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">
+                        {config.itemLabel} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={e => {
+                          setItem(e.target.value);
+                          setShowValidation(false);
+                          if (isSale && catalogEntries.length > 0 && e.target.value.length > 0) {
+                            setShowCatalogSuggestions(true);
+                          } else {
+                            setShowCatalogSuggestions(false);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => setShowCatalogSuggestions(false), 150)}
+                        placeholder={config.itemPlaceholder}
+                        className="w-full p-2.5 pr-12 border-2 focus:outline-none text-base min-h-[44px] font-sans"
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && !item.trim() ? '#dc2626' : '#e8e2d8' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handlePhotoCapture}
+                      className="press-scale flex items-center justify-center flex-shrink-0 rounded-full"
+                      style={{ minWidth: '44px', minHeight: '44px' }}
+                      title="Take photo" aria-label="Attach photo">
+                      <Camera className="w-3.5 h-3.5" style={{ color: '#9ca3af' }} />
+                    </button>
                   </div>
                   {showValidation && !item.trim() && (
                     <p className="text-xs text-red-500 mt-1 font-medium font-sans">{lang === 'am' ? 'የዕቃ ስም ያስገቡ' : 'Enter item name'}</p>
                   )}
-                  <button
-                    type="button"
-                    onClick={handlePhotoCapture}
-                    className="p-2.5 rounded-full border-2 press-scale min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0"
-                    style={{ borderColor: '#e8e2d8', background: '#fff' }}
-                    title="Take photo">
-                    <Camera className="w-4 h-4" style={{ color: '#6b7280' }} />
-                  </button>
+
+                  {/* Catalog autocomplete suggestions */}
+                  {showCatalogSuggestions && catalogMatches.length > 0 && (
+                    <div className="mt-1 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                      {catalogMatches.map(entry => (
+                        <button
+                          key={entry.id} type="button"
+                          onMouseDown={() => {
+                            handleSelectCatalogEntry(entry.id);
+                            setShowCatalogSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-2 press-scale font-sans"
+                          style={{ borderBottom: '1px solid #f0ede8' }}>
+                          <span className="text-xs font-semibold text-gray-900">{entry.name}</span>
+                          {entry.default_price != null && (
+                            <span className="text-[10px] ml-1.5" style={{ color: '#9ca3af' }}>{fmt(entry.default_price)} {t.birr}</span>
+                          )}
+                          {entry.kind && (
+                            <span className="text-[10px] ml-1.5 uppercase" style={{ color: '#c4b89a' }}>{entry.kind === 'service' ? t.serviceLabel : t.itemLabel}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {photo && (
@@ -513,10 +534,10 @@ function TransactionForm({
                 )}
               </div>
 
-              {/* Settlement mode */}
+              {/* Settlement mode — compact */}
               <div>
-                <div className="text-xs font-bold uppercase tracking-wide mb-1.5 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="text-[11px] font-semibold mb-1 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
+                <div className="grid grid-cols-3 gap-1">
                   {[
                     { id: 'paid_now',    label: t.saleSettlementPaidNow    },
                     { id: 'paid_partly', label: t.saleSettlementPaidPartly },
@@ -525,11 +546,11 @@ function TransactionForm({
                     <button
                       key={option.id} type="button"
                       onClick={() => setSaleSettlementMode(option.id)}
-                      className="py-2 px-1 border-2 text-center text-xs font-bold transition-all press-scale font-sans"
+                      className="py-1.5 px-2 border text-center text-xs font-semibold transition-all press-scale font-sans"
                       style={{
                         borderRadius: 'var(--radius-sm)',
                         borderColor: saleSettlementMode === option.id ? '#1B4332' : '#e8e2d8',
-                        background: saleSettlementMode === option.id ? 'rgba(27,67,50,0.07)' : '#fff',
+                        background: saleSettlementMode === option.id ? 'rgba(27,67,50,0.05)' : '#fff',
                         color: saleSettlementMode === option.id ? '#1B4332' : '#6b7280',
                       }}>
                       {option.label}
