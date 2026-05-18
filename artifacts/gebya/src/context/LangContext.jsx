@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 // NATIVE-SPEAKER VERIFICATION REQUIRED
 // All Amharic (AM) strings below were machine-translated and have NOT been
 // reviewed by a native Amharic speaker. Before public launch, every string in
@@ -301,12 +301,15 @@ const EN = {
   creditNamePlaceholder: 'e.g. Abebe...',
   howMuchTotal: 'How much total—',
   saveSale: 'Save Sale',
+  saveAndTrackRemaining: 'Save + Track {amount} {birr}',
+  saveDubieSaleAmount: 'Save Dubie {amount} {birr}',
+  optional: 'optional',
   saleSettlementLabel: 'How was it paid—',
-  saleSettlementPaidNow: 'Paid now',
+  saleSettlementPaidNow: 'Full',
   saleSettlementPaidNowHint: 'No balance left',
-  saleSettlementPaidPartly: 'Paid partly',
+  saleSettlementPaidPartly: 'Partial',
   saleSettlementPaidPartlyHint: 'Some paid now',
-  saleSettlementPayLater: 'Pay later',
+  saleSettlementPayLater: 'Dubie',
   saleSettlementPayLaterHint: 'All stays open',
   salePaidAmountLabel: 'How much was paid now—',
   salePaidAmountHint: 'Paid amount must be more than 0 and less than the total.',
@@ -939,12 +942,15 @@ const AM = {
   creditNamePlaceholder: 'ለምሳሌ አበበ...',
   howMuchTotal: 'ጠቅላላ ሂሳብ',
   saveSale: 'ሽያጭ አስቀምጥ',
+  saveAndTrackRemaining: '{amount} {birr} ቀሪ መዝግብ',
+  saveDubieSaleAmount: '{amount} {birr} ዱቤ አስቀምጥ',
+  optional: 'አማራጭ',
   saleSettlementLabel: 'በምን ተከፈለ',
-  saleSettlementPaidNow: 'አሁን ከፍሏል',
+  saleSettlementPaidNow: 'ሙሉ',
   saleSettlementPaidNowHint: 'የቀረ ሚዛን የለም',
-  saleSettlementPaidPartly: 'በከፊል ከፍሏል',
+  saleSettlementPaidPartly: 'ከፊል',
   saleSettlementPaidPartlyHint: 'አንዳንዱ አሁን ከፍሏል',
-  saleSettlementPayLater: 'በኋላ ይከፍላል',
+  saleSettlementPayLater: 'ዱቤ',
   saleSettlementPayLaterHint: 'ሁሉም ክፍት ይቆያል',
   salePaidAmountLabel: 'አሁን ስንት ከፍሏል—',
   salePaidAmountHint: 'የተከፈለ መጠን ከ0 በላይ እና ከጠቅላላው በታች መሆን አለበት።',

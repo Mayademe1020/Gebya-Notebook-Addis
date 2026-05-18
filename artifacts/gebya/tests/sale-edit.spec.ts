@@ -45,7 +45,7 @@ test('paid partly: edit paid amount within valid range updates remaining and Dub
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Coffee');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
@@ -54,7 +54,7 @@ test('paid partly: edit paid amount within valid range updates remaining and Dub
   await paidInput.fill('400');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -84,7 +84,7 @@ test('paid partly: paid amount = total blocks save', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Tea');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
@@ -93,7 +93,7 @@ test('paid partly: paid amount = total blocks save', async ({ page }) => {
   await paidInput.fill('400');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -122,7 +122,7 @@ test('paid partly: paid amount > total blocks save', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Milk');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
@@ -131,7 +131,7 @@ test('paid partly: paid amount > total blocks save', async ({ page }) => {
   await paidInput.fill('400');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -160,13 +160,13 @@ test('pay later: edit due date updates Dubie', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('800');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Bread');
-  await page.getByRole('button', { name: /pay later/i }).click();
+  await page.getByTestId('sale-settlement-pay_later').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -192,7 +192,7 @@ test('paid partly: edit due date updates Dubie', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Sugar');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
@@ -201,7 +201,7 @@ test('paid partly: edit due date updates Dubie', async ({ page }) => {
   await paidInput.fill('400');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -228,7 +228,7 @@ test('locked settlement mode message visible', async ({ page }) => {
   await page.locator('input[inputmode="decimal"]').first().fill('500');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Salt');
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -247,13 +247,13 @@ test('locked customer message visible', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('800');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Bread');
-  await page.getByRole('button', { name: /pay later/i }).click();
+  await page.getByTestId('sale-settlement-pay_later').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -273,13 +273,13 @@ test('delete linked sale removes Dubie transaction', async ({ page }) => {
   
   await page.locator('input[inputmode="decimal"]').first().fill('800');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Bread');
-  await page.getByRole('button', { name: /pay later/i }).click();
+  await page.getByTestId('sale-settlement-pay_later').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -309,7 +309,7 @@ test('paid partly: edit total amount below existing paid amount blocks save', as
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Coffee');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   const customerInput = page.getByPlaceholder(/name, nickname/i);
   await customerInput.fill('Sam');
@@ -318,7 +318,7 @@ test('paid partly: edit total amount below existing paid amount blocks save', as
   await paidInput.fill('600');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -347,13 +347,13 @@ test('defensive guard: rejects invalid paid_partly update via direct DB manipula
   
   await page.locator('input[inputmode="decimal"]').first().fill('1000');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Guard Test');
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
   
   await page.getByPlaceholder(/name, nickname/i).fill('Sam');
   await page.locator('input[inputmode="decimal"]').nth(1).fill('400');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 
@@ -424,13 +424,13 @@ test('pay later: clear due date sets null in transaction and Dubie', async ({ pa
   
   await page.locator('input[inputmode="decimal"]').first().fill('800');
   await page.getByPlaceholder(/e\.g\. bread/i).fill('Clear Date');
-  await page.getByRole('button', { name: /pay later/i }).click();
+  await page.getByTestId('sale-settlement-pay_later').click();
   
   await page.getByPlaceholder(/name, nickname/i).fill('Sam');
   await page.locator('input[type="date"]').first().fill('2026-12-31');
   
   await page.waitForTimeout(600);
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByTestId('sale-save-button').click();
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
 

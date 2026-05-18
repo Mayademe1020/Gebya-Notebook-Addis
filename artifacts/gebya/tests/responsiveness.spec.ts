@@ -11,7 +11,7 @@ test('responsiveness check: sale form at 320px, 360px, 375px', async ({ page }) 
   }
 
   // Open Sale form
-  await page.getByRole('button', { name: /sale/i }).click();
+  await page.getByRole('button', { name: /type sale/i }).click();
   await page.waitForTimeout(1000);
 
   // Fill some data to expand form
@@ -34,8 +34,8 @@ test('responsiveness check: sale form at 320px, 360px, 375px', async ({ page }) 
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'test-results/responsive-375px.png', fullPage: true });
 
-  // Test Pay Later state at 320px
-  await page.getByRole('button', { name: /pay later/i }).click();
+  // Test Dubie state at 320px
+  await page.getByTestId('sale-settlement-pay_later').click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'test-results/responsive-320px-pay-later.png', fullPage: true });
 });

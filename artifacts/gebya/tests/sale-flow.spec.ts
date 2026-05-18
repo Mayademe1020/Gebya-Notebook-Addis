@@ -30,7 +30,9 @@ test('single-screen sale: paid now flow saves and auto-closes', async ({ page })
 
   await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
   await expect(page.getByText(/what did you sell/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: /paid now/i })).toBeVisible();
+  await expect(page.getByTestId('sale-settlement-paid_now')).toHaveText(/full/i);
+  await expect(page.getByTestId('sale-settlement-paid_partly')).toHaveText(/partial/i);
+  await expect(page.getByTestId('sale-settlement-pay_later')).toHaveText(/dubie/i);
 
   const amountInput = page.locator('input[inputmode="decimal"]').first();
   await amountInput.fill('1500');
@@ -50,10 +52,10 @@ test('single-screen sale: paid now flow saves and auto-closes', async ({ page })
 
   // Auto-closes after ~1.2s, form should be gone and sale button visible again
   await page.waitForTimeout(2000);
-  await expect(page.getByRole('button', { name: /sale/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /type sale/i })).toBeVisible();
 });
 
-test('single-screen sale: pay later flow gates on customer name', async ({ page }) => {
+test('single-screen sale: Dubie flow gates on customer name and tracks full amount', async ({ page }) => {
   await page.getByRole('button', { name: /sale/i }).click();
 
   await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
@@ -61,14 +63,12 @@ test('single-screen sale: pay later flow gates on customer name', async ({ page 
   const amountInput = page.locator('input[inputmode="decimal"]').first();
   await amountInput.fill('800');
 
-  const itemInput = page.getByPlaceholder(/e\.g\. bread, sugar/i);
-  await itemInput.fill('Bread');
-
-  await page.getByRole('button', { name: /pay later/i }).click();
+  await page.getByTestId('sale-settlement-pay_later').click();
 
   await expect(page.getByText(/customer name or clue/i)).toBeVisible();
+  await expect(page.getByText(/payment type/i)).not.toBeVisible();
 
-  const saveBtn = page.getByRole('button', { name: /save sale/i });
+  const saveBtn = page.getByRole('button', { name: /save dubie 800\.00 birr/i });
   await expect(saveBtn).toBeVisible();
   await expect(saveBtn).toBeDisabled();
 
@@ -81,8 +81,38 @@ test('single-screen sale: pay later flow gates on customer name', async ({ page 
   await saveBtn.click();
 
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
+  const linked = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['transactions', 'customer_transactions'], 'readonly');
+      const transactions = [];
+      const customerTransactions = [];
+      tx.objectStore('transactions').openCursor().onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          transactions.push(cursor.value);
+          cursor.continue();
+        }
+      };
+      tx.objectStore('customer_transactions').openCursor().onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          customerTransactions.push(cursor.value);
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve({ transactions, customerTransactions });
+      tx.onerror = () => reject(tx.error);
+    });
+  });
+  expect(linked.transactions.some(tx => tx.type === 'sale' && tx.remaining_amount === 800 && tx.item_name === 'Sale')).toBe(true);
+  expect(linked.customerTransactions.some(tx => tx.type === 'credit_add' && tx.amount === 800)).toBe(true);
   await page.waitForTimeout(2000);
-  await expect(page.getByRole('button', { name: /sale/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /type sale/i })).toBeVisible();
 });
 
 test('single-screen sale: paid partly requires paid amount and customer', async ({ page }) => {
@@ -96,7 +126,7 @@ test('single-screen sale: paid partly requires paid amount and customer', async 
   const itemInput = page.getByPlaceholder(/e\.g\. bread, sugar/i);
   await itemInput.fill('Tea');
 
-  await page.getByRole('button', { name: /paid partly/i }).click();
+  await page.getByTestId('sale-settlement-paid_partly').click();
 
   await expect(page.locator('input[inputmode="decimal"]').nth(1)).toBeVisible();
   await expect(page.getByText(/customer name or clue/i)).toBeVisible();
@@ -115,12 +145,13 @@ test('single-screen sale: paid partly requires paid amount and customer', async 
 
   await page.waitForTimeout(600);
 
-  await expect(saveBtn).toBeEnabled();
-  await saveBtn.click();
+  const trackBtn = page.getByRole('button', { name: /save \+ track 600\.00 birr/i });
+  await expect(trackBtn).toBeEnabled();
+  await trackBtn.click();
 
   await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
   await page.waitForTimeout(2000);
-  await expect(page.getByRole('button', { name: /sale/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /type sale/i })).toBeVisible();
 });
 
 test('single-screen sale: inline validation shows helper text when disabled', async ({ page }) => {
@@ -137,7 +168,41 @@ test('single-screen sale: inline validation shows helper text when disabled', as
   const amountInput = page.locator('input[inputmode="decimal"]').first();
   await amountInput.fill('500');
 
-  await expect(page.getByText(/enter what you sold/i)).toBeVisible();
+  await expect(page.getByText(/enter what you sold/i)).not.toBeVisible();
+  await expect(saveBtn).toBeEnabled();
+});
+
+test('single-screen sale: item is optional and blank item stores safe Sale label', async ({ page }) => {
+  await page.getByRole('button', { name: /sale/i }).click();
+
+  await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
+
+  const amountInput = page.locator('input[inputmode="decimal"]').first();
+  await amountInput.fill('250');
+
+  const saveBtn = page.getByRole('button', { name: /save sale/i });
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();
+
+  await expect(page.getByText(/birr.*saved/i)).toBeVisible({ timeout: 5000 });
+
+  const storedItemName = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('transactions', 'readonly');
+      const req = tx.objectStore('transactions').openCursor();
+      req.onsuccess = (event) => {
+        const cursor = event.target.result;
+        resolve(cursor?.value?.item_name || null);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  });
+  expect(storedItemName).toBe('Sale');
 });
 
 test('single-screen sale: optional details expand/collapse', async ({ page }) => {

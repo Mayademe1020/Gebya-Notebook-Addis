@@ -51,6 +51,36 @@ const ACCENT = {
   amber: { btn: '#C4883A', shadow: '#96662b' },
 };
 
+const SALE_SETTLEMENT_STYLES = {
+  paid_now: {
+    text: '#1B4332',
+    border: '#2d6a4f',
+    bg: 'rgba(45,106,79,0.08)',
+    softBg: '#f0fdf4',
+    softBorder: '#bbf7d0',
+    btn: '#2d6a4f',
+    shadow: '#1B4332',
+  },
+  paid_partly: {
+    text: '#92400e',
+    border: '#C4883A',
+    bg: 'rgba(196,136,58,0.12)',
+    softBg: '#fffbeb',
+    softBorder: '#fde68a',
+    btn: '#C4883A',
+    shadow: '#96662b',
+  },
+  pay_later: {
+    text: '#5b21b6',
+    border: '#7c3aed',
+    bg: 'rgba(124,58,237,0.10)',
+    softBg: '#f5f3ff',
+    softBorder: '#ddd6fe',
+    btn: '#7c3aed',
+    shadow: '#5b21b6',
+  },
+};
+
 function TransactionForm({
   type, onSave, onDone, enabledProviders, catalogEntries = [], recurringExpenses,
   onRecurringChange, initialPaymentType, initialPaymentProvider, customerSuggestions = [],
@@ -82,6 +112,7 @@ function TransactionForm({
   const [paymentType, setPaymentType] = useState(initialPaymentType || 'cash');
   const [paymentProvider, setPaymentProvider] = useState(initialPaymentProvider || '');
   const [saleSettlementMode, setSaleSettlementMode] = useState('paid_now');
+  const settlementStyle = SALE_SETTLEMENT_STYLES[saleSettlementMode] || SALE_SETTLEMENT_STYLES.paid_now;
   const [saleCustomerName, setSaleCustomerName] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [saleDueDate, setSaleDueDate] = useState('');
@@ -200,7 +231,25 @@ function TransactionForm({
   const saleCustomerValid = !requiresCustomerBalance || saleCustomerName.trim().length > 0;
   const partialAmountValid = !isSale || saleSettlementMode !== 'paid_partly' || (parsedPaidAmount > 0 && parsedPaidAmount < sellingPrice);
 
-  const canSave = item.trim() && sellingPrice > 0 && hasDueDate && (!phoneEntered || phoneValid) && saleCustomerValid && partialAmountValid;
+  const saleItemName = isSale ? (item.trim() || t.saleLabelShort || 'Sale') : item.trim();
+  const itemValid = isSale || item.trim().length > 0;
+  const canSave = itemValid && sellingPrice > 0 && hasDueDate && (!phoneEntered || phoneValid) && saleCustomerValid && partialAmountValid;
+
+  const formatSaleCta = (template, value) => String(template || '')
+    .replace('{amount}', fmt(value))
+    .replace('{birr}', t.birr || 'birr');
+
+  const getSaleCtaText = () => {
+    if (!sellingPrice || sellingPrice <= 0) return t.saveSale;
+    if (saleSettlementMode === 'paid_partly') {
+      if (!partialAmountValid) return t.saveSale;
+      return formatSaleCta(t.saveAndTrackRemaining, remainingAmount);
+    }
+    if (saleSettlementMode === 'pay_later') {
+      return formatSaleCta(t.saveDubieSaleAmount, sellingPrice);
+    }
+    return t.saveSale;
+  };
 
   const getEffectiveDueDate = () => {
     if (selectedDue === 'custom' && customDue) return new Date(customDue).getTime();
@@ -218,7 +267,7 @@ function TransactionForm({
     const fullPhone = phoneEntered && phoneValid ? '+251' + phoneDigits : null;
     const data = {
       type,
-      item_name: item.trim(),
+      item_name: saleItemName,
       catalog_entry_id: catalogEntryId ? Number(catalogEntryId) : null,
       item_kind: selectedCatalogEntry?.kind || null,
       quantity: isCredit ? 1 : qty,
@@ -369,7 +418,7 @@ function TransactionForm({
           )}
         </div>
 
-        <div className="px-4 py-2 space-y-1.5">
+        <div className="px-4 py-3 space-y-3">
 
           {/* Credit direction */}
           {isCredit && (
@@ -467,7 +516,7 @@ function TransactionForm({
                   <div className="flex items-end gap-1.5">
                     <div className="flex-1">
                       <label className="block text-gray-700 font-semibold mb-1 text-sm font-sans">
-                        {config.itemLabel} <span className="text-red-500">*</span>
+                        {config.itemLabel} <span className="text-gray-400 font-normal text-xs">({t.optional || 'optional'})</span>
                       </label>
                       <input
                         type="text"
@@ -484,7 +533,7 @@ function TransactionForm({
                         onBlur={() => setTimeout(() => setShowCatalogSuggestions(false), 150)}
                         placeholder={config.itemPlaceholder}
                         className="w-full p-2.5 pr-12 border-2 focus:outline-none text-base min-h-[44px] font-sans"
-                        style={{ borderRadius: 'var(--radius-md)', borderColor: showValidation && !item.trim() ? '#dc2626' : '#e8e2d8' }}
+                        style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                       />
                     </div>
                     <button
@@ -536,22 +585,24 @@ function TransactionForm({
 
               {/* Settlement mode — compact */}
               <div>
-                <div className="text-[11px] font-semibold mb-1 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
-                <div className="grid grid-cols-3 gap-1">
+                <div className="text-[11px] font-semibold mb-1.5 font-sans" style={{ color: '#6b7280' }}>{t.saleSettlementLabel}</div>
+                <div className="grid grid-cols-3 gap-1.5 p-1 border" style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8', background: '#faf9f7' }}>
                   {[
-                    { id: 'paid_now',    label: t.saleSettlementPaidNow    },
-                    { id: 'paid_partly', label: t.saleSettlementPaidPartly },
-                    { id: 'pay_later',   label: t.saleSettlementPayLater   },
+                    { id: 'paid_now',    label: t.saleSettlementPaidNow,    style: SALE_SETTLEMENT_STYLES.paid_now    },
+                    { id: 'paid_partly', label: t.saleSettlementPaidPartly, style: SALE_SETTLEMENT_STYLES.paid_partly },
+                    { id: 'pay_later',   label: t.saleSettlementPayLater,   style: SALE_SETTLEMENT_STYLES.pay_later   },
                   ].map(option => (
                     <button
                       key={option.id} type="button"
+                      data-testid={`sale-settlement-${option.id}`}
                       onClick={() => setSaleSettlementMode(option.id)}
-                      className="py-1.5 px-2 border text-center text-xs font-semibold transition-all press-scale font-sans"
+                      className="py-2.5 px-2 border text-center text-xs font-black transition-all press-scale font-sans"
                       style={{
                         borderRadius: 'var(--radius-sm)',
-                        borderColor: saleSettlementMode === option.id ? '#1B4332' : '#e8e2d8',
-                        background: saleSettlementMode === option.id ? 'rgba(27,67,50,0.05)' : '#fff',
-                        color: saleSettlementMode === option.id ? '#1B4332' : '#6b7280',
+                        borderColor: saleSettlementMode === option.id ? option.style.border : 'transparent',
+                        background: saleSettlementMode === option.id ? option.style.bg : '#fff',
+                        color: saleSettlementMode === option.id ? option.style.text : '#6b7280',
+                        boxShadow: saleSettlementMode === option.id ? '0 1px 0 rgba(17,24,39,0.04)' : 'none',
                       }}>
                       {option.label}
                     </button>
@@ -619,7 +670,7 @@ function TransactionForm({
                     )}
                   </div>
 
-                  {saleSettlementMode === 'pay_later' && (
+                  {saleSettlementMode !== 'paid_now' && (
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1.5 text-xs font-sans">{t.dueDateOptional}</label>
                       <input
@@ -634,11 +685,12 @@ function TransactionForm({
 
                   {/* Remaining balance */}
                   {remainingAmount > 0 && (
-                    <div className="p-2.5 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)' }}>
+                    <div className="p-3 border" style={{ background: settlementStyle.softBg, borderColor: settlementStyle.softBorder, borderRadius: 'var(--radius-md)' }}>
                       <div className="flex items-center justify-between gap-2 text-xs font-sans">
                         <span className="font-semibold text-gray-700">{t.saleRemainingBalanceLabel}</span>
-                        <span className="font-black" style={{ color: '#92400e' }}>{fmt(remainingAmount)} {t.birr}</span>
+                        <span className="font-black" style={{ color: settlementStyle.text }}>{fmt(remainingAmount)} {t.birr}</span>
                       </div>
+                      <p className="text-[10px] mt-1 font-medium font-sans" style={{ color: settlementStyle.text }}>{t.saleRemainingBalanceHint}</p>
                     </div>
                   )}
                 </>
@@ -646,11 +698,11 @@ function TransactionForm({
 
               {/* Pay later info */}
               {saleSettlementMode === 'pay_later' && (
-                <div className="flex items-start gap-2 p-2" style={{ background: '#fffbeb', borderRadius: 'var(--radius-md)', border: '1px solid #fde68a' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C4883A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                <div className="flex items-start gap-2 p-2" style={{ background: settlementStyle.softBg, borderRadius: 'var(--radius-md)', border: `1px solid ${settlementStyle.softBorder}` }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={settlementStyle.border} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                   </svg>
-                  <p className="text-xs font-medium font-sans" style={{ color: '#92400e' }}>{t.noPaymentCollected}</p>
+                  <p className="text-xs font-medium font-sans" style={{ color: settlementStyle.text }}>{t.noPaymentCollected}</p>
                 </div>
               )}
 
@@ -748,17 +800,17 @@ function TransactionForm({
 
               {/* Save button for Sale */}
               <div className="sticky bottom-0 bg-white pt-2 pb-4 px-1 -mx-1 border-t" style={{ borderColor: '#e8e2d8' }}>
-                <button onClick={handleSave} disabled={!canSave || saveState === 'saving'}
+                <button data-testid="sale-save-button" onClick={handleSave} disabled={!canSave || saveState === 'saving'}
                   className="w-full p-4 font-black text-white text-base flex items-center justify-center gap-2 transition-all min-h-[56px] active:scale-95 press-scale font-sans"
                   style={{
-                    background: canSave ? accent.btn : '#e5e7eb',
+                    background: canSave ? settlementStyle.btn : '#e5e7eb',
                     color: canSave ? '#fff' : '#9ca3af',
                     cursor: canSave ? 'pointer' : 'not-allowed',
                     borderRadius: 'var(--radius-md)',
-                    boxShadow: canSave ? `0 4px 0 ${accent.shadow}` : 'none',
+                    boxShadow: canSave ? `0 4px 0 ${settlementStyle.shadow}` : 'none',
                   }}>
                   <Save className="w-5 h-5" />
-                  {config.buttonText}
+                  {getSaleCtaText()}
                 </button>
               </div>
             </>
