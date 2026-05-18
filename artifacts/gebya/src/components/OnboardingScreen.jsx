@@ -1,16 +1,7 @@
 ﻿import { useState } from 'react';
 import { useLang } from '../context/LangContext';
 import db from '../db';
-
-const BUSINESS_TYPE_OPTIONS = [
-  'shop',
-  'wholesale',
-  'distributor',
-  'boutique',
-  'cafe',
-  'service',
-  'other',
-];
+import { BUSINESS_TYPE_OPTIONS, getTemplatesForType } from '../utils/itemTemplates';
 
 function isValidPhone(digits) {
   return /^[79]\d{8}$/.test(digits);
@@ -26,6 +17,7 @@ function OnboardingScreen({ onComplete }) {
   ];
   const [name, setName] = useState('');
   const [phoneDigits, setPhoneDigits] = useState('');
+  const [address, setAddress] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [customBusinessType, setCustomBusinessType] = useState('');
   const [saving, setSaving] = useState(false);
@@ -49,8 +41,24 @@ function OnboardingScreen({ onComplete }) {
     await db.settings.put({ key: 'intro_seen', value: 'yes' });
     await db.settings.put({ key: 'shop_name', value: name.trim() });
     await db.settings.put({ key: 'shop_phone', value: fullPhone });
+    await db.settings.put({ key: 'shop_address', value: address.trim() });
     await db.settings.put({ key: 'shop_business_type', value: resolvedBusinessType });
-    onComplete({ name: name.trim(), phone: fullPhone, businessType: resolvedBusinessType });
+    const templates = getTemplatesForType(resolvedBusinessType);
+    const existingCount = await db.catalog_entries.count();
+    if (templates.length > 0 && existingCount === 0) {
+      for (const tpl of templates) {
+        await db.catalog_entries.add({
+          name: tpl.name,
+          kind: tpl.kind,
+          default_price: 0,
+          default_cost: 0,
+          note: '',
+          active: true,
+          created_at: Date.now(),
+        });
+      }
+    }
+    onComplete({ name: name.trim(), phone: fullPhone, address: address.trim(), businessType: resolvedBusinessType });
   };
 
   return (
@@ -140,8 +148,22 @@ function OnboardingScreen({ onComplete }) {
 
             <div>
               <label className="block font-semibold text-gray-700 mb-1.5 text-sm font-sans">
-                {t.onboardBusinessTypeLabel} <span className="text-gray-400 font-normal">{t.onboardBusinessTypeOptional}</span>
+                {t.shopAddress} <span className="text-gray-400 font-normal">{t.shopAddressOptional}</span>
               </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder={t.shopAddressPlaceholder}
+                className="w-full p-4 border-2 text-base focus:outline-none font-sans"
+                style={{
+                  borderRadius: 'var(--radius-md)',
+                  borderColor: '#e8e2d8',
+                }}
+              />
+            </div>
+
+            <div>
               <p className="text-xs leading-5 font-medium font-sans mb-2" style={{ color: '#6b7280' }}>
                 {t.onboardBusinessTypeHelper}
               </p>

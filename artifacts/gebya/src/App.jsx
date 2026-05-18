@@ -210,7 +210,7 @@ function AppInner() {
 
   const loadData = useCallback(async () => {
     try {
-      const [txns, customerRows, customerTxRows, catalogRows, supplierRows, supplierTxRows, nameRow, phoneRow, businessTypeRow, epRow, reRow, telegramRow] = await Promise.all([
+      const [txns, customerRows, customerTxRows, catalogRows, supplierRows, supplierTxRows, nameRow, phoneRow, businessTypeRow, epRow, reRow, telegramRow, addressRow] = await Promise.all([
         db.transactions.toArray(),
         db.customers.toArray(),
         db.customer_transactions.toArray(),
@@ -223,6 +223,7 @@ function AppInner() {
         db.settings.get('enabled_payment_methods'),
         db.settings.get('recurring_expenses'),
         db.settings.get('shop_telegram'),
+        db.settings.get('shop_address'),
       ]);
       txns.sort((a, b) => b.created_at - a.created_at);
       setTransactions(txns);
@@ -236,6 +237,7 @@ function AppInner() {
         phone: phoneRow?.value || '',
         businessType: businessTypeRow?.value || '',
         telegram: telegramRow?.value || '',
+        address: addressRow?.value || '',
       });
       try { setEnabledProviders(epRow ? JSON.parse(epRow.value) : DEFAULT_PROVIDERS); } catch { setEnabledProviders(DEFAULT_PROVIDERS); }
       try { setRecurringExpenses(reRow ? JSON.parse(reRow.value) : []); } catch { setRecurringExpenses([]); }
@@ -746,11 +748,13 @@ const safeErr = err instanceof Error ? err.message : String(err);
     }
   };
 
-  const handleProfileSave = async (name, phone, telegram) => {
+  const handleProfileSave = async (name, phone, telegram, address, businessType) => {
     await db.settings.put({ key: 'shop_name', value: name });
     await db.settings.put({ key: 'shop_phone', value: phone || '' });
     await db.settings.put({ key: 'shop_telegram', value: telegram || '' });
-    setShopProfile({ name, phone: phone || '', telegram: telegram || '' });
+    await db.settings.put({ key: 'shop_address', value: address || '' });
+    await db.settings.put({ key: 'shop_business_type', value: businessType || '' });
+    setShopProfile({ name, phone: phone || '', telegram: telegram || '', address: address || '', businessType: businessType || '' });
   };
 
   const customerSummaries = useMemo(
@@ -2143,6 +2147,10 @@ const safeErr = err instanceof Error ? err.message : String(err);
             earnedBadges={earnedBadges}
             onSaveCatalogEntry={handleSaveCatalogEntry}
             onToggleCatalogEntryActive={handleToggleCatalogEntryActive}
+            onCatalogRefresh={async () => {
+              const rows = await db.catalog_entries?.toArray?.() || [];
+              setCatalogEntries(rows);
+            }}
             onSaveSupplier={handleSaveSupplier}
             onSaveSupplierTransaction={handleSaveSupplierTransaction}
             onUpdateSupplierTransaction={handleUpdateSupplierTransaction}

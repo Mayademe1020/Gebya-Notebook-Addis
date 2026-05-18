@@ -9,6 +9,7 @@ import { fireToast } from './Toast';
 import { normalizeTelegram } from '../utils/customerTelegram';
 import PwaInstallPanel from './PwaInstallPanel.jsx';
 import { SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
+import { BUSINESS_TYPE_OPTIONS, getTemplatesForType } from '../utils/itemTemplates';
 
 const FREQ_LABELS_EN = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' };
 const FREQ_LABELS_AM = { daily: 'ዕለታዊ', weekly: 'ሳምንታዊ', monthly: 'ወርሃዊ' };
@@ -26,6 +27,7 @@ function SettingsPage({
   onRecurringChange,
   onSaveCatalogEntry,
   onToggleCatalogEntryActive,
+  onCatalogRefresh,
   onSaveSupplier,
   onSaveSupplierTransaction,
   onUpdateSupplierTransaction,
@@ -64,6 +66,7 @@ function SettingsPage({
     note: '',
   });
   const [supplierDeleteTarget, setSupplierDeleteTarget] = useState(null);
+  const [showAddCommonItems, setShowAddCommonItems] = useState(false);
 
   const [editName, setEditName] = useState(shopProfile?.name || '');
   const [editPhoneDigits, setEditPhoneDigits] = useState(() => {
@@ -71,6 +74,8 @@ function SettingsPage({
     return raw.startsWith('+251') ? raw.slice(4) : raw.replace(/\D/g, '').slice(-9);
   });
   const [editTelegram, setEditTelegram] = useState(shopProfile?.telegram || '');
+  const [editAddress, setEditAddress] = useState(shopProfile?.address || '');
+  const [editBusinessType, setEditBusinessType] = useState(shopProfile?.businessType || '');
   const [profileSaved, setProfileSaved] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -97,6 +102,10 @@ function SettingsPage({
       const cbRow = await db.settings.get('custom_banks');
       const cwRow = await db.settings.get('custom_wallets');
       const lbRow = await db.settings.get('last_backup_time');
+      const addrRow = await db.settings.get('shop_address');
+      const btRow = await db.settings.get('shop_business_type');
+      if (addrRow?.value) setEditAddress(addrRow.value);
+      if (btRow?.value) setEditBusinessType(btRow.value);
       if (cbRow?.value) {
         try { setCustomBanks(JSON.parse(cbRow.value)); } catch { /* ignore */ }
       }
@@ -122,10 +131,39 @@ function SettingsPage({
   const handleProfileSave = async () => {
     if (!editName.trim() || !phoneValid || !telegramValid) return;
     const fullPhone = editPhoneDigits ? '+251' + editPhoneDigits : '';
-    await onProfileSave(editName.trim(), fullPhone, normalizedTelegram || '');
+    await onProfileSave(editName.trim(), fullPhone, normalizedTelegram || '', editAddress.trim(), editBusinessType);
     setEditTelegram(normalizedTelegram || '');
     setProfileSaved(true);
     setTimeout(() => setProfileSaved(false), 2000);
+  };
+
+  const handleAddCommonItems = async () => {
+    const templates = getTemplatesForType(editBusinessType);
+    if (!templates || templates.length === 0) {
+      fireToast(t.itemsAlreadyExist || 'No templates for this business type');
+      return;
+    }
+    const existingNames = new Set((catalogEntries || []).map(e => e.name.toLowerCase()));
+    const toAdd = templates.filter(tpl => !existingNames.has(tpl.name.toLowerCase()));
+    if (toAdd.length === 0) {
+      fireToast(t.itemsAlreadyExist || 'These items are already in your catalog');
+      setShowAddCommonItems(false);
+      return;
+    }
+    for (const tpl of toAdd) {
+      await db.catalog_entries.add({
+        name: tpl.name,
+        kind: tpl.kind,
+        default_price: 0,
+        default_cost: 0,
+        note: '',
+        active: true,
+        created_at: Date.now(),
+      });
+    }
+    fireToast(t.itemsAddedSuccess || `${toAdd.length} items added`);
+    setShowAddCommonItems(false);
+    if (onCatalogRefresh) onCatalogRefresh();
   };
 
   const csvCell = (value) => {
@@ -546,6 +584,45 @@ const clearAllData = async () => {
                 <p className="text-xs text-red-500 mt-1 font-medium">{t.telegramFormatHint}</p>
               )}
             </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1">
+                <Store className="w-3.5 h-3.5" /> {t.shopAddress} <span className="text-gray-400 font-normal">{t.shopAddressOptional}</span>
+              </label>
+              <input
+                type="text"
+                value={editAddress}
+                onChange={e => setEditAddress(e.target.value)}
+                placeholder={t.shopAddressPlaceholder}
+                className="w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none"
+                style={{ borderColor: '#e8e2d8' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1">
+                <Store className="w-3.5 h-3.5" /> {t.editBusinessType} <span className="text-gray-400 font-normal">{t.onboardBusinessTypeOptional}</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {BUSINESS_TYPE_OPTIONS.map((option) => {
+                  const active = editBusinessType === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setEditBusinessType(option)}
+                      className="px-2.5 py-1.5 border text-xs font-bold min-h-[32px] transition-all"
+                      style={{
+                        borderRadius: '999px',
+                        borderColor: active ? '#C4883A' : '#e8e2d8',
+                        background: active ? 'rgba(196,136,58,0.1)' : '#FAF8F5',
+                        color: active ? '#C4883A' : '#4b5563',
+                      }}
+                    >
+                      {t[`businessType${option.charAt(0).toUpperCase()}${option.slice(1)}`] || option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <button
               onClick={handleProfileSave}
               disabled={!editName.trim() || !phoneValid || !telegramValid || (!profileChanged && !profileSaved)}
@@ -911,6 +988,23 @@ const clearAllData = async () => {
             <section>
               <h2 className="text-xs font-bold tracking-widest uppercase text-green-800 mb-2 px-1">Items & Services</h2>
               <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
+                {editBusinessType && (
+                  <div className="px-5 pt-4 pb-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCommonItems(true)}
+                      className="w-full py-3 rounded-xl text-sm font-bold border-2 transition-all min-h-[44px]"
+                      style={{
+                        borderColor: '#C4883A',
+                        background: 'rgba(196,136,58,0.08)',
+                        color: '#C4883A',
+                      }}
+                    >
+                      {t.addCommonItems || 'Add common items'}
+                    </button>
+                    <p className="text-xs text-gray-400 mt-1">{t.addCommonItemsHint || 'Quick-fill your catalog with items for your business type'}</p>
+                  </div>
+                )}
                 <div className="px-5 pt-5 pb-4 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     {['item', 'service'].map(kind => (
@@ -1128,6 +1222,33 @@ const clearAllData = async () => {
             <div className="text-4xl mb-3">🗑️</div>
             <p className="font-bold text-gray-800">{t.dataCleared}</p>
             <p className="text-sm text-gray-500 mt-1">{t.reloading}</p>
+          </div>
+        </div>
+      )}
+
+      {showAddCommonItems && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">{t.addCommonItems || 'Add common items'}</h3>
+            <p className="text-sm text-gray-500 text-center mb-4">
+              {t.addCommonItemsHint || 'This will add common items for your business type to your catalog.'}
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={handleAddCommonItems}
+                className="w-full p-4 text-white rounded-2xl font-bold min-h-[52px]"
+                style={{ background: '#C4883A' }}
+              >
+                {t.add || 'Add items'}
+              </button>
+              <button
+                onClick={() => setShowAddCommonItems(false)}
+                className="w-full p-4 rounded-2xl font-bold min-h-[52px]"
+                style={{ background: '#f5f5f5', color: '#374151' }}
+              >
+                {t.cancel}
+              </button>
+            </div>
           </div>
         </div>
       )}
