@@ -298,3 +298,174 @@ test('no undo button appears after save', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: /undo/i })).not.toBeVisible();
 });
+
+test('item autocomplete shows suggestions after typing 1+ character', async ({ page }) => {
+  // Add a catalog entry directly via IndexedDB
+  await page.evaluate(async () => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('catalog_entries', 'readwrite');
+        const store = tx.objectStore('catalog_entries');
+        store.add({ id: Date.now(), name: 'Bread', kind: 'item', default_price: 50, default_cost: 35, active: true, created_at: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  });
+
+  // Reload so React state picks up the new catalog entry
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+
+  await page.getByRole('button', { name: /sale/i }).click();
+  await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
+
+  // No suggestions when field is empty
+  const itemInput = page.getByPlaceholder(/e\.g\. bread, sugar/i);
+  await expect(page.getByText('Bread')).not.toBeVisible();
+
+  // Type partial name
+  await itemInput.fill('Bre');
+
+  // Suggestion should appear
+  await expect(page.getByText('Bread')).toBeVisible({ timeout: 3000 });
+
+  // Close form
+  await page.locator('button[aria-label="Close"]').click();
+});
+
+test('tapping autocomplete suggestion fills item and autofills price when amount is empty', async ({ page }) => {
+  // Add catalog entry
+  await page.evaluate(async () => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('catalog_entries', 'readwrite');
+        const store = tx.objectStore('catalog_entries');
+        store.add({ id: Date.now(), name: 'Coffee', kind: 'item', default_price: 120, default_cost: 80, active: true, created_at: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  });
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+
+  await page.getByRole('button', { name: /sale/i }).click();
+  await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
+
+  // Type to trigger suggestions
+  const itemInput = page.getByPlaceholder(/e\.g\. bread, sugar/i);
+  await itemInput.fill('Cof');
+
+  // Tap suggestion
+  await page.getByText('Coffee').click();
+
+  // Verify item filled
+  await expect(itemInput).toHaveValue('Coffee');
+
+  // Verify amount autofilled with default price
+  const amountInput = page.locator('input[inputmode="decimal"]').first();
+  await expect(amountInput).toHaveValue('120');
+
+  // Verify save enabled
+  const saveBtn = page.getByRole('button', { name: /save sale/i });
+  await expect(saveBtn).toBeEnabled();
+
+  // Close form
+  await page.locator('button[aria-label="Close"]').click();
+});
+
+test('selecting autocomplete suggestion does NOT overwrite manually typed amount', async ({ page }) => {
+  // Add catalog entry with default price 50
+  await page.evaluate(async () => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('catalog_entries', 'readwrite');
+        const store = tx.objectStore('catalog_entries');
+        store.add({ id: Date.now(), name: 'Bread', kind: 'item', default_price: 50, default_cost: 35, active: true, created_at: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  });
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+
+  await page.getByRole('button', { name: /sale/i }).click();
+  await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
+
+  // Enter amount FIRST
+  const amountInput = page.locator('input[inputmode="decimal"]').first();
+  await amountInput.fill('80');
+
+  // Type to trigger suggestions
+  const itemInput = page.getByPlaceholder(/e\.g\. bread, sugar/i);
+  await itemInput.fill('Bre');
+
+  // Tap suggestion
+  await page.getByText('Bread').click();
+
+  // Verify item filled
+  await expect(itemInput).toHaveValue('Bread');
+
+  // Verify amount is STILL 80 (not overwritten to 50)
+  await expect(amountInput).toHaveValue('80');
+
+  // Close form
+  await page.locator('button[aria-label="Close"]').click();
+});
+
+test('Amharic same-script autocomplete matches catalog item', async ({ page }) => {
+  // Add Amharic catalog entry
+  await page.evaluate(async () => {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('GebyaDB');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('catalog_entries', 'readwrite');
+        const store = tx.objectStore('catalog_entries');
+        store.add({ id: Date.now(), name: 'ዳቦ', kind: 'item', default_price: 50, default_cost: 35, active: true, created_at: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  });
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+
+  await page.getByRole('button', { name: /sale/i }).click();
+  await expect(page.getByText(/how much total/i)).toBeVisible({ timeout: 5000 });
+
+  // Type Amharic character
+  const itemInput = page.getByPlaceholder(/e\.g\. bread/i);
+  await itemInput.fill('ዳ');
+
+  // Suggestion with Amharic name should appear
+  await expect(page.getByText('ዳቦ')).toBeVisible({ timeout: 3000 });
+
+  // Tap suggestion
+  await page.getByText('ዳቦ').click();
+
+  // Verify item filled with Amharic name
+  await expect(itemInput).toHaveValue('ዳቦ');
+
+  // Verify amount autofilled
+  const amountInput = page.locator('input[inputmode="decimal"]').first();
+  await expect(amountInput).toHaveValue('50');
+
+  // Close form
+  await page.locator('button[aria-label="Close"]').click();
+});
