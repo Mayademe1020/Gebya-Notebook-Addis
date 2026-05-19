@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, TrendingUp, Flame, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import { getCreditStatus } from '../utils/ethiopianCalendar';
 
 const P = {
   overdueBg: '#fef2f2',
@@ -19,10 +18,7 @@ function getOverdueCount(customerSummaries) {
   let count = 0;
   for (const c of customerSummaries) {
     if (c.balance <= 0) continue;
-    if (c.due_date) {
-      const status = getCreditStatus(c.due_date);
-      if (status.key === 'overdue') count++;
-    }
+    if (c.collection_status?.key === 'overdue') count++;
   }
   return count;
 }
