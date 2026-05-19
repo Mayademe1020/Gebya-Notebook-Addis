@@ -430,6 +430,26 @@ function AppInner() {
 
       if (linkedCustomerTransaction) {
         setLedgerTransactions(prev => insertCustomerTransaction(prev, linkedCustomerTransaction));
+
+        const existingTxs = await db.customer_transactions
+          .where('customer_id')
+          .equals(linkedCustomer.id)
+          .toArray();
+        const priorTxs = existingTxs.filter(tx => tx.id !== linkedCustomerTransaction.id);
+        const previousBalance = Math.max(getCustomerBalance(priorTxs), 0);
+        const updatedBalance = previousBalance + remainingAmount;
+
+        await handleLedgerCommunication({
+          customer: linkedCustomer,
+          transactionType: 'credit',
+          amount: remainingAmount,
+          itemNote: linkedCustomerTransaction.item_note,
+          dueDate: linkedCustomerTransaction.due_date,
+          previousBalance,
+          updatedBalance,
+          referenceCode: linkedCustomerTransaction.reference_code,
+          transactionId: linkedCustomerTransaction.id,
+        });
       }
 
       if (transaction.type === 'sale' || transaction.type === 'expense') {
@@ -1059,6 +1079,93 @@ const safeErr = err instanceof Error ? err.message : String(err);
     }
   }, [shopProfile?.name]);
 
+  const handleLedgerCommunication = useCallback(async ({
+    customer,
+    transactionType,
+    amount,
+    itemNote,
+    dueDate,
+    previousBalance,
+    updatedBalance,
+    referenceCode,
+    transactionId,
+  }) => {
+    const botEligible = !!(
+      customer?.telegram_chat_id &&
+      customer?.telegram_notify_enabled &&
+      customer?.telegram_link_token
+    );
+
+    if (botEligible) {
+      const message = buildCustomerLedgerTelegramMessage({
+        shopName: shopProfile?.name,
+        customerName: customer.display_name,
+        type: transactionType === 'credit'
+          ? CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD
+          : CUSTOMER_TRANSACTION_TYPES.PAYMENT,
+        amount,
+        itemNote,
+        previousBalance,
+        updatedBalance,
+        createdAt: Date.now(),
+        referenceCode,
+      });
+
+      let botError = null;
+      let delivered = false;
+
+      try {
+        await syncLinkedCustomerTelegramState(customer, updatedBalance);
+        const result = await sendTelegramLedgerUpdate({
+          token: customer.telegram_link_token,
+          currentBalance: updatedBalance,
+          message,
+          reference: referenceCode,
+        });
+        delivered = !!result?.delivered;
+      } catch (error) {
+        botError = error;
+      }
+
+      if (delivered) {
+        await db.customer_transactions.update(transactionId, {
+          telegram_delivery_state: 'bot_sent',
+          telegram_delivery_attempted_at: Date.now(),
+        });
+        return;
+      }
+
+      const failureReason = botError
+        ? (botError.message || t.telegramSendFailed)
+        : 'Delivery not confirmed';
+
+      await db.customer_transactions.update(transactionId, {
+        telegram_delivery_state: 'bot_failed',
+        telegram_delivery_error: failureReason,
+        telegram_delivery_attempted_at: Date.now(),
+      });
+
+      if (botError) {
+        fireToast(`${t.telegramDubieSavedButFailed} ${failureReason}`, 2600);
+      }
+    }
+
+    setMessageReadyModal({
+      type: transactionType,
+      customerId: customer.id,
+      amount,
+      itemNote,
+      dueDate,
+    });
+  }, [
+    shopProfile?.name,
+    t,
+    syncLinkedCustomerTelegramState,
+    sendTelegramLedgerUpdate,
+    setMessageReadyModal,
+    fireToast,
+  ]);
+
   const handleAddCustomer = async (payload) => {
     const draft = normalizeCustomerDraft(payload);
     if (!draft) return false;
@@ -1523,18 +1630,6 @@ const safeErr = err instanceof Error ? err.message : String(err);
     setLedgerCustomers(prev => prev.map(c => c.id === draft.customer_id ? { ...c, updated_at: now } : c));
     setCustomerTransactionModal(null);
 
-    const botAutoSent = !!(customer?.telegram_chat_id && customer?.telegram_notify_enabled);
-    const hasContactInfo = !!(customer?.phone_number || customer?.telegram_username);
-
-    if (!botAutoSent && hasContactInfo) {
-      setMessageReadyModal({
-        type: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'payment' : 'credit',
-        customerId: draft.customer_id,
-        amount: draft.amount,
-        itemNote: draft.item_note,
-        dueDate: draft.due_date,
-      });
-    }
     fireToast(draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? (t.paymentSaved || 'Payment recorded ✓') : t.creditSaved, 2200);
 
     if (draft.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) {
@@ -1562,65 +1657,17 @@ const safeErr = err instanceof Error ? err.message : String(err);
       } catch { /* non-critical */ }
     }
 
-    let telegramDeliveryState = 'not_configured';
-    let telegramDeliveryError = null;
-    const message = buildCustomerLedgerTelegramMessage({
-      shopName: shopProfile?.name,
-      customerName: customer.display_name,
-      type: draft.type,
+    await handleLedgerCommunication({
+      customer,
+      transactionType: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'payment' : 'credit',
       amount,
       itemNote: draft.item_note,
+      dueDate: draft.due_date,
       previousBalance,
       updatedBalance: nextBalance,
-      createdAt: now,
       referenceCode,
+      transactionId: saved.id,
     });
-
-    if (customer?.telegram_chat_id) {
-      await syncLinkedCustomerTelegramState(customer, nextBalance);
-    }
-
-    if (customer?.telegram_notify_enabled && customer?.telegram_chat_id && customer?.telegram_link_token) {
-      try {
-        const result = await sendTelegramLedgerUpdate({
-          token: customer.telegram_link_token,
-          currentBalance: nextBalance,
-          message,
-          reference: referenceCode,
-        });
-        telegramDeliveryState = result?.delivered ? 'bot_sent' : 'bot_pending';
-      } catch (error) {
-        telegramDeliveryState = 'bot_failed';
-        telegramDeliveryError = error?.message || t.telegramSendFailed;
-      }
-    } else if (customer?.telegram_notify_enabled && customer?.telegram_username) {
-      const telegramUrl = buildTelegramMessageUrl(customer.telegram_username, message);
-      if (telegramUrl) {
-        window.open(telegramUrl, '_blank', 'noopener,noreferrer');
-        telegramDeliveryState = 'manual_opened';
-      } else {
-        telegramDeliveryState = 'manual_unavailable';
-        telegramDeliveryError = t.telegramManualInvalid;
-      }
-    } else {
-      telegramDeliveryState = customer?.telegram_chat_id ? 'bot_linked_updates_off' : 'not_linked';
-    }
-
-    if (saved?.id) {
-      const deliveryUpdates = {
-        reference_code: referenceCode,
-        telegram_delivery_state: telegramDeliveryState,
-        telegram_delivery_error: telegramDeliveryError,
-        telegram_delivery_attempted_at: Date.now(),
-      };
-      await db.customer_transactions.update(saved.id, deliveryUpdates);
-      saved = { ...saved, ...deliveryUpdates };
-      setLedgerTransactions(prev => prev.map(entry => entry.id === saved.id ? saved : entry));
-    }
-
-    if (telegramDeliveryState === 'bot_failed') {
-      fireToast(`${t.telegramDubieSavedButFailed} ${telegramDeliveryError || t.telegramSendFailed}`, 2600);
-    }
 
     return true;
   };
@@ -1979,6 +2026,7 @@ const safeErr = err instanceof Error ? err.message : String(err);
               todaySalesCount={todayTransactions.filter(tx => tx.type === 'sale').length}
               usageStats={usageStats}
               onNavigateToDubie={() => setActiveTab('merro')}
+              onNavigateToFollowUp={() => setActiveTab('merro')}
             />
 
             <div className="overflow-hidden animate-elastic stagger-3" style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)' }}>
@@ -2262,6 +2310,10 @@ const safeErr = err instanceof Error ? err.message : String(err);
             return c?.balance || 0;
           })()}
           onDone={() => setMessageReadyModal(null)}
+          onAddPhone={(customer) => {
+            setActiveTab('merro');
+            setSelectedCustomerId(customer?.id);
+          }}
           lang={lang}
         />
       )}

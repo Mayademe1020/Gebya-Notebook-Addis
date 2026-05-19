@@ -6,7 +6,7 @@ import {
   getCustomerCollectionStatus,
   sortCustomerTransactions,
 } from '../utils/customerLedger.js';
-import { buildCustomerReminderMessage } from '../utils/customerReminder.js';
+import { buildCustomerReminderMessage, buildSmsUri, buildCreditAddedMessage, buildPaymentReceiptMessage } from '../utils/customerReminder.js';
 import { normalizeCustomerDraft, normalizeCustomerTransactionDraft } from '../utils/customerLedgerMutations.js';
 import { buildSupplierSummaries, getSupplierBalance, SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger.js';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes.js';
@@ -338,6 +338,162 @@ runTest('unknown supplier transaction types do not change balance', () => {
   ]);
 
   assert.equal(balance, 250);
+});
+
+runTest('buildSmsUri returns null when phone is missing', () => {
+  assert.equal(buildSmsUri(null, 'Hello'), null);
+  assert.equal(buildSmsUri('', 'Hello'), null);
+  assert.equal(buildSmsUri(undefined, 'Hello'), null);
+});
+
+runTest('buildSmsUri includes recipient phone and encoded body', () => {
+  const uri = buildSmsUri('+251911111111', 'Selam Abebe.\nBalance: 500 birr');
+  assert.ok(uri.startsWith('sms:+251911111111?body='));
+  assert.ok(uri.includes('Selam'));
+  assert.ok(uri.includes('%0A'));
+});
+
+runTest('buildSmsUri strips spaces from phone', () => {
+  const uri = buildSmsUri('+251 911 111 111', 'Test');
+  assert.ok(uri.startsWith('sms:+251911111111?body='));
+});
+
+runTest('buildCreditAddedMessage includes shop and balance', () => {
+  const msg = buildCreditAddedMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 500,
+    customerName: 'Abebe',
+    lang: 'en',
+  });
+  assert.ok(msg.startsWith('Selam Abebe.'));
+  assert.ok(msg.includes('500 birr credit was recorded at Tigist Shop'));
+  assert.ok(msg.includes('Current balance: 500 birr'));
+});
+
+runTest('buildCreditAddedMessage includes item note when short', () => {
+  const msg = buildCreditAddedMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 500,
+    itemNote: 'Sugar 2kg',
+    customerName: 'Abebe',
+    lang: 'en',
+  });
+  assert.ok(msg.includes('For: Sugar 2kg'));
+});
+
+runTest('buildCreditAddedMessage omits long item notes', () => {
+  const msg = buildCreditAddedMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 500,
+    itemNote: 'This is a very long item note that exceeds the sixty character limit and should be omitted from the message',
+    customerName: 'Abebe',
+    lang: 'en',
+  });
+  assert.ok(!msg.includes('For:'));
+});
+
+runTest('buildCreditAddedMessage includes trust line', () => {
+  const msg = buildCreditAddedMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 500,
+    lang: 'en',
+  });
+  assert.ok(msg.includes('contact the shop if anything is incorrect'));
+});
+
+runTest('buildCreditAddedMessage Amharic includes shop and balance', () => {
+  const msg = buildCreditAddedMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 500,
+    customerName: 'Abebe',
+    lang: 'am',
+  });
+  assert.ok(msg.startsWith('ሰላም Abebe.'));
+  assert.ok(msg.includes('500 ብር ክሬዲት'));
+  assert.ok(msg.includes('አጠቃላይ ቀሪ ሂሳብ'));
+});
+
+runTest('buildPaymentReceiptMessage includes shop and balance', () => {
+  const msg = buildPaymentReceiptMessage({
+    shopName: 'Tigist Shop',
+    amount: 200,
+    balance: 300,
+    customerName: 'Almaz',
+    lang: 'en',
+  });
+  assert.ok(msg.startsWith('Selam Almaz.'));
+  assert.ok(msg.includes('200 birr payment was recorded at Tigist Shop'));
+  assert.ok(msg.includes('Remaining balance: 300 birr'));
+});
+
+runTest('buildPaymentReceiptMessage includes thanks when fully paid', () => {
+  const msg = buildPaymentReceiptMessage({
+    shopName: 'Tigist Shop',
+    amount: 500,
+    balance: 0,
+    customerName: 'Almaz',
+    lang: 'en',
+  });
+  assert.ok(msg.includes('Thank you.'));
+});
+
+runTest('buildPaymentReceiptMessage Amharic includes shop and balance', () => {
+  const msg = buildPaymentReceiptMessage({
+    shopName: 'Tigist Shop',
+    amount: 200,
+    balance: 300,
+    customerName: 'Almaz',
+    lang: 'am',
+  });
+  assert.ok(msg.startsWith('ሰላም Almaz.'));
+  assert.ok(msg.includes('200 ብር ክፍያ'));
+  assert.ok(msg.includes('ቀሪ ሂሳብ'));
+});
+
+runTest('buildPaymentReceiptMessage works without customer name', () => {
+  const msg = buildPaymentReceiptMessage({
+    shopName: 'Tigist Shop',
+    amount: 200,
+    balance: 300,
+    lang: 'en',
+  });
+  assert.ok(msg.includes('200 birr payment was recorded at Tigist Shop'));
+});
+
+runTest('sale-linked credit balance computation from prior transactions', () => {
+  const existingTxs = [
+    { type: 'credit_add', amount: 250, created_at: 1000 },
+    { type: 'payment', amount: 80, created_at: 2000 },
+  ];
+  const priorBalance = getCustomerBalance(existingTxs);
+  assert.equal(priorBalance, 170);
+
+  const remainingAmount = 300;
+  const updatedBalance = priorBalance + remainingAmount;
+  assert.equal(updatedBalance, 470);
+});
+
+runTest('customer with no phone or telegram still collectable', () => {
+  const customer = {
+    id: 1,
+    display_name: 'NoContact',
+    phone_number: null,
+    telegram_username: null,
+    balance: 100,
+    collection_status: { key: 'no_due_date', hasBalance: true },
+  };
+
+  const message = buildCustomerReminderMessage({ customer, shopName: 'Shop' });
+  assert.ok(message.includes('Selam NoContact'));
+  assert.ok(message.includes('100 birr'));
+
+  const smsUri = buildSmsUri(customer.phone_number, message);
+  assert.equal(smsUri, null);
 });
 
 console.log('Ledger verification passed.');

@@ -1,5 +1,4 @@
 import { getCustomerCollectionStatus } from './customerLedger.js';
-import { formatEthiopian } from './ethiopianCalendar.js';
 
 function cleanText(value) {
   const text = String(value || '').trim();
@@ -28,14 +27,12 @@ const MSG_EN = {
   reminderDueIn: 'This amount is due in {days} days.',
   reminderNoDueDate: 'No due date was set.',
   reminderAged: 'This balance has been open for {days} days.',
-  creditHeader: 'From {shop}',
-  creditAmount: 'Credit added: {amount} birr',
-  creditReturnDate: 'Return date: {date}',
-  creditRemainingBalance: 'Remaining balance: {balance} birr',
-  receiptHeader: 'Payment receipt from {shop}',
-  receiptAmount: 'Amount paid: {amount} birr',
-  receiptDate: 'Date: {date}',
-  receiptRemainingBalance: 'Remaining balance: {balance} birr',
+  creditLine1: '{amount} birr credit was recorded at {shop}.',
+  creditBalance: 'Current balance: {balance} birr.',
+  creditItemNote: 'For: {itemNote}',
+  creditTrustLine: 'Please contact the shop if anything is incorrect.',
+  receiptLine1: '{amount} birr payment was recorded at {shop}.',
+  receiptBalance: 'Remaining balance: {balance} birr.',
   receiptThanks: 'Thank you.',
 };
 
@@ -47,14 +44,12 @@ const MSG_AM = {
   reminderDueIn: 'ይህ መጠን በ{days} ቀናት ውስጥ ነው።',
   reminderNoDueDate: 'የመመለሻ ቀን አልተቀመጠም።',
   reminderAged: 'ይህ ቀሪ ሂሳብ ለ{days} ቀናት ክፍት ነበር።',
-  creditHeader: 'ከ{shop}',
-  creditAmount: 'የተጨመረ: {amount} ብር',
-  creditReturnDate: 'የመመለሻ ቀን: {date}',
-  creditRemainingBalance: 'ቀሪ ሂሳብ: {balance} ብር',
-  receiptHeader: 'ከ{shop} የክፍያ ማረጋገጫ',
-  receiptAmount: 'የተከፈለ: {amount} ብር',
-  receiptDate: 'ቀን: {date}',
-  receiptRemainingBalance: 'ቀሪ ሂሳብ: {balance} ብር',
+  creditLine1: '{amount} ብር ክሬዲት በ{shop} ተመዝግቧል።',
+  creditBalance: 'አጠቃላይ ቀሪ ሂሳብ: {balance} ብር።',
+  creditItemNote: 'ለ: {itemNote}',
+  creditTrustLine: 'ስህተት ካለ እባክዎ ሱቁን ያግኙ።',
+  receiptLine1: '{amount} ብር ክፍያ በ{shop} ተመዝግቧል።',
+  receiptBalance: 'ቀሪ ሂሳብ: {balance} ብር።',
   receiptThanks: 'አመሰግናለሁ።',
 };
 
@@ -97,38 +92,61 @@ export function buildCustomerReminderMessage({ customer, shopName, now = Date.no
   ].join('\n');
 }
 
-export function buildCreditAddedMessage({ customer, shopName, amount, itemNote, dueDate, balance, now = Date.now(), lang = 'en' }) {
+export function buildSmsUri(phone, message) {
+  if (!phone) return null;
+  const clean = String(phone).replace(/\s+/g, '');
+  return `sms:${clean}?body=${encodeURIComponent(message)}`;
+}
+
+export function buildCreditAddedMessage({ customer, shopName, amount, itemNote, dueDate, balance, customerName, now = Date.now(), lang = 'en' }) {
   const m = lang === 'am' ? MSG_AM : MSG_EN;
   const safeShopName = cleanText(shopName) || 'the shop';
   const formattedAmount = formatReminderAmount(amount);
   const formattedBalance = formatReminderAmount(balance);
-  const returnDateText = dueDate ? formatEthiopian(dueDate) : 'Not set';
 
-  const lines = [
-    tpl(m.creditHeader, { shop: safeShopName }),
-    tpl(m.creditAmount, { amount: formattedAmount }),
-  ];
+  const lines = [];
 
-  if (itemNote) lines.push(itemNote);
+  if (customerName) {
+    const name = cleanText(customerName);
+    if (name) {
+      lines.push(lang === 'am' ? `ሰላም ${name}.` : `Selam ${name}.`);
+    }
+  }
 
-  lines.push(tpl(m.creditReturnDate, { date: returnDateText }));
-  lines.push(tpl(m.creditRemainingBalance, { balance: formattedBalance }));
+  lines.push(tpl(m.creditLine1, { amount: formattedAmount, shop: safeShopName }));
+  lines.push(tpl(m.creditBalance, { balance: formattedBalance }));
+
+  const shortNote = cleanText(itemNote);
+  if (shortNote && shortNote.length <= 60) {
+    lines.push(tpl(m.creditItemNote, { itemNote: shortNote }));
+  }
+
+  lines.push(m.creditTrustLine);
 
   return lines.join('\n');
 }
 
-export function buildPaymentReceiptMessage({ customer, shopName, amount, balance, now = Date.now(), lang = 'en' }) {
+export function buildPaymentReceiptMessage({ customer, shopName, amount, balance, customerName, now = Date.now(), lang = 'en' }) {
   const m = lang === 'am' ? MSG_AM : MSG_EN;
   const safeShopName = cleanText(shopName) || 'the shop';
   const formattedAmount = formatReminderAmount(amount);
   const formattedBalance = formatReminderAmount(balance);
-  const dateText = now ? formatEthiopian(now) : '';
 
-  return [
-    tpl(m.receiptHeader, { shop: safeShopName }),
-    tpl(m.receiptAmount, { amount: formattedAmount }),
-    tpl(m.receiptDate, { date: dateText }),
-    tpl(m.receiptRemainingBalance, { balance: formattedBalance }),
-    m.receiptThanks,
-  ].join('\n');
+  const lines = [];
+
+  if (customerName) {
+    const name = cleanText(customerName);
+    if (name) {
+      lines.push(lang === 'am' ? `ሰላም ${name}.` : `Selam ${name}.`);
+    }
+  }
+
+  lines.push(tpl(m.receiptLine1, { amount: formattedAmount, shop: safeShopName }));
+  lines.push(tpl(m.receiptBalance, { balance: formattedBalance }));
+
+  if (formattedBalance === '0' || formattedBalance === '0.00') {
+    lines.push(m.receiptThanks);
+  }
+
+  return lines.join('\n');
 }

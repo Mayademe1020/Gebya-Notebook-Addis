@@ -13,6 +13,8 @@ test.beforeEach(async ({ page }) => {
   });
   await page.reload({ waitUntil: 'networkidle' });
 
+  await page.evaluate(() => localStorage.clear());
+
   if (await page.getByText(/start your notebook/i).isVisible()) {
     const input = page.getByPlaceholder(/e\.g\. tigist/i);
     await input.waitFor({ state: 'visible' });
@@ -63,7 +65,7 @@ test('expense form: draft restore after close', async ({ page }) => {
 
   await page.waitForTimeout(800);
 
-  await page.locator('button[aria-label="Close"]').click();
+  await page.getByRole('button', { name: /close/i }).click();
   await page.getByRole('button', { name: /keep/i }).click();
 
   await page.getByRole('button', { name: /i spent/i }).click();
@@ -177,7 +179,7 @@ test('expense form: discard draft clears storage', async ({ page }) => {
 
   await page.waitForTimeout(800);
 
-  await page.locator('button[aria-label="Close"]').click();
+  await page.getByRole('button', { name: /close/i }).click();
   await page.getByRole('button', { name: /discard/i }).click();
 
   const draftAfterDiscard = await page.evaluate(() => localStorage.getItem('gebya_expense_draft'));

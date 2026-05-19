@@ -3,7 +3,7 @@ import { Bell, Search, Users, X } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
 import { getCustomerCollectionStatus } from '../utils/customerLedger';
-import { buildCustomerReminderMessage } from '../utils/customerReminder';
+import { buildCustomerReminderMessage, buildSmsUri } from '../utils/customerReminder';
 
 const RETURN_FILTERS = [
   { id: 'all', label: 'All' },
@@ -68,8 +68,9 @@ function sendReminderDirect(customer, shopName, lang) {
   const hasTelegram = Boolean(getCustomerTelegram(customer));
 
   if (hasPhone && !hasTelegram) {
-    window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-    return 'sms';
+    const uri = buildSmsUri(getCustomerPhone(customer), message);
+    if (uri) { window.open(uri, '_blank', 'noopener,noreferrer'); return 'sms'; }
+    return 'copy';
   }
   if (hasTelegram && !hasPhone) {
     const telegram = getCustomerTelegram(customer);
@@ -143,7 +144,8 @@ function CustomerList({ customers = [], onSelectCustomer, shopName }) {
     const message = buildCustomerReminderMessage({ customer, shopName, lang });
 
     if (channel === 'sms') {
-      window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+      const uri = buildSmsUri(getCustomerPhone(customer), message);
+      if (uri) window.open(uri, '_blank', 'noopener,noreferrer');
     } else if (channel === 'telegram') {
       const telegram = getCustomerTelegram(customer);
       const normalized = telegram.startsWith('@') ? telegram.slice(1) : telegram;

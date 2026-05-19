@@ -24,7 +24,10 @@ test('customer ledger flow stays trustworthy after reload', async ({ page }) => 
   await page.getByRole('button', { name: /save dubie/i }).click();
 
   await expect(page.getByText(/^250(?:\.00)? birr$/i)).toBeVisible();
-  await expect(page.getByText(/sugar/i)).toBeVisible();
+  await expect(page.getByText('Sugar', { exact: true })).toBeVisible();
+
+  // Dismiss the post-save notification sheet
+  await page.getByRole('button', { name: /not now/i }).click();
 
   await page.getByRole('button', { name: /record payment/i }).click();
   await page.getByPlaceholder('0').fill('80');
@@ -34,6 +37,9 @@ test('customer ledger flow stays trustworthy after reload', async ({ page }) => 
   await expect(page.getByText(/^170(?:\.00)? birr$/i)).toBeVisible();
   await expect(page.getByText(/bal: 170/i)).toBeVisible();
   await expect(page.getByText(/bal: 250/i)).toBeVisible();
+
+  // Dismiss the post-save notification sheet
+  await page.getByRole('button', { name: /not now/i }).click();
 
   await page.getByRole('button', { name: /back to customers/i }).click();
   await page.getByPlaceholder(/search customer or note/i).fill('Alm');

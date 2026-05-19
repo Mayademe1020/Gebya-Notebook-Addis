@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, TrendingUp, Flame, X } from 'lucide-react';
+import { AlertCircle, TrendingUp, Flame, Clock, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 
 const P = {
   overdueBg: '#fef2f2',
   overdueBorder: '#fca5a5',
   overdueText: '#991b1b',
+  followUpBg: '#fffbeb',
+  followUpBorder: '#fde68a',
+  followUpText: '#92400e',
   milestoneBg: '#f0fdf4',
   milestoneBorder: '#86efac',
   milestoneText: '#166534',
@@ -23,11 +26,21 @@ function getOverdueCount(customerSummaries) {
   return count;
 }
 
+function getFollowUpCount(customerSummaries) {
+  let count = 0;
+  for (const c of customerSummaries) {
+    if (c.balance <= 0) continue;
+    if (c.needs_follow_up === true) count++;
+  }
+  return count;
+}
+
 export default function SellerNotificationBanner({
   customerSummaries,
   todaySalesCount,
   usageStats,
   onNavigateToDubie,
+  onNavigateToFollowUp,
 }) {
   const { t } = useLang();
   const [dismissed, setDismissed] = useState(null);
@@ -50,6 +63,7 @@ export default function SellerNotificationBanner({
   };
 
   const overdueCount = getOverdueCount(customerSummaries || []);
+  const followUpCount = getFollowUpCount(customerSummaries || []);
   const isFirstSale = todaySalesCount === 1;
   const streak = usageStats?.streak || 0;
 
@@ -66,6 +80,20 @@ export default function SellerNotificationBanner({
       body: `${overdueCount} ${t.notifOverdueBody}`,
       action: t.notifOverdueAction,
       onAction: onNavigateToDubie,
+    });
+  }
+
+  if (followUpCount > 0 && dismissed !== 'followup') {
+    notifications.push({
+      type: 'followup',
+      icon: Clock,
+      bg: P.followUpBg,
+      border: P.followUpBorder,
+      text: P.followUpText,
+      title: t.notifFollowUpTitle,
+      body: `${followUpCount} ${t.notifFollowUpBody}`,
+      action: t.notifFollowUpAction,
+      onAction: onNavigateToFollowUp || onNavigateToDubie,
     });
   }
 
