@@ -17,7 +17,9 @@ function MerroList({ creditRecords, onSelectCredit }) {
 
   const active = creditRecords.filter(r => r.status !== 'paid');
   const paid = creditRecords.filter(r => r.status === 'paid');
-  const list = showPaid ? paid : active;
+  const list = (showPaid ? paid : active).sort(
+    (a, b) => (a.due_date || a.created_at || 0) - (b.due_date || b.created_at || 0)
+  );
 
   const owedToMeRecords = active.filter(r => !r.direction || r.direction === 'owes_me');
   const iOweRecords = active.filter(r => r.direction === 'i_owe');
