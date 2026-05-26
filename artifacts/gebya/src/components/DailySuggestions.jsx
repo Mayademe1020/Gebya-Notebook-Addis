@@ -38,18 +38,18 @@ const SUGGESTIONS_AM = [
   },
 ];
 
-export default function DailySuggestions({ todayTransactions, streak = 1, onAction }) {
+export default function DailySuggestions({ todayTransactions, onAction }) {
   const { lang } = useLang();
   const suggestions = lang === 'am' ? SUGGESTIONS_AM : SUGGESTIONS_EN;
 
   const salesCount = todayTransactions.filter(tx => tx.type === 'sale').length;
   const expensesCount = todayTransactions.filter(tx => tx.type === 'expense').length;
 
-  const suggestion = suggestions.find(s => s.condition(salesCount, expensesCount, streak));
+  const suggestion = suggestions.find(s => s.condition(salesCount, expensesCount));
 
   if (!suggestion) return null;
 
-  const message = suggestion.message(salesCount, expensesCount, streak);
+  const message = suggestion.message(salesCount, expensesCount);
 
   return (
     <div
