@@ -1,5 +1,10 @@
-﻿import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
-import { BookOpen, Users, Calendar, Settings, Trash2, Pencil, Share2, X } from 'lucide-react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  BookOpen, Users, Calendar, Settings, Trash2, Pencil, Share2, X,
+  Plus, Minus, RotateCw,
+  MoreVertical,
+  CreditCard, BarChart3, MoreHorizontal,
+} from 'lucide-react';
 import db from './db';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { LangProvider, useLang } from './context/LangContext';
@@ -313,6 +318,82 @@ function ModalFallback({ label }) {
         style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)', boxShadow: 'var(--shadow-lg)' }}
       >
         {label}
+      </div>
+    </div>
+  );
+}
+
+// Today entries row — flat layout matching v4 reference design.
+// Renders amount (colored), item_name · method, time, and a ⋮ popover menu (Edit/Delete).
+// Module-level so it doesn't re-create on every parent render.
+function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [menuOpen]);
+
+  const isExpense = tx.type === 'expense';
+  const isCredit = tx.type === 'credit';
+  const amountColor = isExpense ? '#dc2626' : isCredit ? '#2563eb' : '#16a34a';
+  const sign = isExpense ? '−' : '+';
+  const method = isCredit
+    ? (lang === 'am' ? 'ዱቤ' : 'credit')
+    : tx.payment_type === 'cash'
+      ? 'cash'
+      : (tx.payment_provider || tx.payment_type || 'cash');
+  const time = new Date(tx.created_at).toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
+  const editLabel = lang === 'am' ? 'አርትዕ' : 'Edit';
+  const deleteLabel = lang === 'am' ? 'ሰርዝ' : 'Delete';
+
+  return (
+    <div className="flex items-center py-3 gap-2">
+      <button
+        onClick={onTap}
+        className="flex-1 min-w-0 text-left flex items-baseline gap-2 press-scale"
+      >
+        <span className="font-bold text-sm flex-shrink-0" style={{ color: amountColor }}>
+          {isCredit && '↻ '}{sign}{fmt(tx.amount || 0)} {t.birr}
+        </span>
+        <span className="text-sm text-gray-600 truncate min-w-0">
+          {tx.item_name || '—'}
+          <span className="text-gray-400"> · {method}</span>
+        </span>
+      </button>
+      <span className="text-xs text-gray-400 flex-shrink-0">{time}</span>
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="p-2 press-scale min-w-[36px] min-h-[36px] flex items-center justify-center"
+          aria-label={lang === 'am' ? 'ተጨማሪ' : 'More'}
+        >
+          <MoreVertical className="w-4 h-4 text-gray-400" />
+        </button>
+        {menuOpen && (
+          <div
+            className="absolute right-0 top-full mt-1 bg-white z-20 min-w-[130px]"
+            style={{ border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+          >
+            <button
+              onClick={() => { onEdit(); setMenuOpen(false); }}
+              className="w-full px-3 py-2 text-left flex items-center gap-2 text-sm hover:bg-gray-50"
+            >
+              <Pencil className="w-3.5 h-3.5" /> {editLabel}
+            </button>
+            <button
+              onClick={() => { onDelete(); setMenuOpen(false); }}
+              className="w-full px-3 py-2 text-left flex items-center gap-2 text-sm text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> {deleteLabel}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1654,6 +1735,27 @@ function AppInner() {
     [todayExpenses]
   );
 
+  // Yesterday derived state — used by TodaySummary's trend indicator (▲/▼ vs yesterday)
+  const yesterdayDateStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toDateString();
+  }, [todayDateStr]);
+
+  const yesterdayTransactions = useMemo(
+    () => transactions.filter(t2 => new Date(t2.created_at).toDateString() === yesterdayDateStr),
+    [transactions, yesterdayDateStr]
+  );
+
+  const yesterdayNet = useMemo(
+    () => yesterdayTransactions.reduce((acc, t2) => {
+      if (t2.type === 'sale') return acc + (t2.amount || 0);
+      if (t2.type === 'expense') return acc - (t2.amount || 0);
+      return acc;
+    }, 0),
+    [yesterdayTransactions]
+  );
+
   const topProducts = useMemo(() => {
     const counts = {};
     todaySales.forEach(t2 => {
@@ -1725,11 +1827,19 @@ function AppInner() {
     );
   }
 
+  // Tab labels swap with language toggle (single language at a time, not stacked)
+  const TAB_LABELS = {
+    today:    { en: 'Today',  am: 'ዛሬ' },
+    merro:    { en: 'Credit', am: 'ዱቤ' },
+    history:  { en: 'Report', am: 'ሪፖርት' },
+    settings: { en: 'More',   am: 'ተጨማሪ' },
+  };
+  // Tab IDs are UNCHANGED — only display labels and icons swap. activeTab logic stays intact.
   const tabs = [
-    { id: 'today',    label: t.todayLabel, sub: t.today,   icon: BookOpen },
-    { id: 'merro',    label: t.creditLabel, sub: t.credit,  icon: Users },
-    { id: 'history',  label: t.report,                       icon: Calendar },
-    { id: 'settings', label: t.settings,                     icon: Settings },
+    { id: 'today',    label: TAB_LABELS.today[lang],    icon: BookOpen },
+    { id: 'merro',    label: TAB_LABELS.merro[lang],    icon: CreditCard },
+    { id: 'history',  label: TAB_LABELS.history[lang],  icon: BarChart3 },
+    { id: 'settings', label: TAB_LABELS.settings[lang], icon: MoreHorizontal },
   ];
 
   const typeEmoji = { sale: 'ðŸ’°', expense: 'ðŸ›’', credit: 'ðŸ‘¥' };
@@ -1825,11 +1935,8 @@ function AppInner() {
 
 
       {activeTab === 'today' && (
-        <div className="px-3 pt-2 pb-1 flex-shrink-0" style={{ background: P.actionBar }}>
-          {/* Time-based greeting */}
-          <p className="text-center text-xs font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            {getTimeGreeting()}
-          </p>
+        <div className="px-3 pt-2 pb-1 flex-shrink-0" style={{ background: 'var(--color-bg)' }}>
+          {/* Greeting removed per Gate 3 preservation map (item 2.1) — tight header per v4 design */}
           {/* Voice — primary action — hidden per D-027 (Amharic/Oromifa STT quality insufficient). */}
           {VOICE_ENABLED && (
             <>
@@ -1850,11 +1957,12 @@ function AppInner() {
           )}
           <div className="flex gap-2 pb-2">
           {[
-            { type: 'sale',    label: t.typeSaleLabel, sub: t.typeSale,  bg: '#2d6a4f', shadow: '#1B4332' },
-            { type: 'expense', label: t.iSpentLabel, sub: t.iSpent, bg: '#D4654A', shadow: '#a84c37' },
-            { type: 'credit',  label: t.creditBtnLabel, sub: t.creditBtn,  bg: '#C4883A', shadow: '#96662b' },
+            { type: 'sale',    label: lang === 'am' ? 'ሽያጭ' : 'Sale',    color: '#16a34a', icon: Plus    },
+            { type: 'expense', label: lang === 'am' ? 'ወጪ'  : 'Expense', color: '#dc2626', icon: Minus   },
+            { type: 'credit',  label: lang === 'am' ? 'ዱቤ'  : 'Credit',  color: '#2563eb', icon: RotateCw },
           ].map(b => {
             const pressed = pressedBtn === b.type;
+            const Icon = b.icon;
             return (
               <button
                 key={b.type}
@@ -1870,17 +1978,16 @@ function AppInner() {
                 onPointerUp={() => setPressedBtn(null)}
                 onPointerLeave={() => setPressedBtn(null)}
                 onPointerCancel={() => setPressedBtn(null)}
-                className="flex-1 py-3 text-center transition-all min-h-[72px]"
+                className="flex-1 py-3 min-h-[54px] flex items-center justify-center gap-2 transition-all"
                 style={{
-                  background: b.bg,
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: pressed ? 'none' : `0 5px 0 ${b.shadow}`,
-                  transform: pressed ? 'translateY(5px)' : 'none',
+                  background: pressed ? `${b.color}15` : '#ffffff',
+                  border: `1.5px solid ${b.color}`,
+                  borderRadius: 'var(--radius-md)',
+                  transform: pressed ? 'scale(0.98)' : 'none',
                 }}
               >
-                <div className="font-black text-white text-lg leading-none">+</div>
-                <div className="font-black text-white text-base leading-snug font-sans">{b.label}</div>
-                <div className="text-white text-xs opacity-70">{b.sub}</div>
+                <Icon className="w-4 h-4" style={{ color: b.color, strokeWidth: 2.5 }} />
+                <span className="font-bold text-sm" style={{ color: b.color }}>{b.label}</span>
               </button>
             );
           })}
@@ -1890,90 +1997,56 @@ function AppInner() {
 
       <main className="flex-1 overflow-y-auto px-4 py-3 pb-28">
         {activeTab === 'today' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <ProfitCard transactions={todayTransactions} />
 
             <Suspense fallback={<PanelFallback label={t.loading} />}>
               <DailySuggestions
                 todayTransactions={todayTransactions}
-                streak={usageStats?.streak || 1}
                 onAction={(type) => setShowForm(type)}
               />
             </Suspense>
 
-
-            <div className="overflow-hidden animate-elastic stagger-3" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)' }}>
-              <div className="px-4 py-3 border-b" style={{ borderColor: P.borderLight }}>
-                <h3 className="font-bold text-gray-700 text-sm font-sans">
-                  {t.todaysEntries}
-                  <span className="ml-2 text-xs px-2 py-0.5" style={{ background: 'rgba(27,67,50,0.08)', color: P.header, borderRadius: 'var(--radius-sm)' }}>
+            {/* Today entries — flat rows with ⋮ menu (Gate 3 / B-014 v4 design) */}
+            <div>
+              <div className="flex items-center justify-between pb-1.5">
+                <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 font-sans">
+                  {lang === 'am' ? 'ምዝገባዎች' : 'ENTRIES'}
+                  <span className="ml-2 text-[11px] font-semibold text-gray-400 tracking-normal normal-case">
                     {todayTransactions.length}
                   </span>
                 </h3>
+                <button
+                  onClick={handleShareReport}
+                  className="p-1.5 press-scale"
+                  aria-label={lang === 'am' ? 'አጋራ' : 'Share'}
+                >
+                  <Share2 className="w-4 h-4 text-gray-400" />
+                </button>
               </div>
 
               {todayTransactions.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <p className="text-4xl mb-3">ðŸŽ¤</p>
-                  <p className="font-bold text-base mb-1" style={{ color: 'var(--color-text)' }}>{lang === 'am' ? 'áŒˆáŠ“ áˆáŠ•áˆ áˆ½á‹«áŒ­ áŠ áˆá‰°áˆ˜á‹˜áŒˆá‰ áˆ' : 'No sales recorded yet'}</p>
-                  <p className="text-sm font-semibold" style={{ color: P.amber }}>
-                    {lang === 'am' ? 'á‹¨áˆ˜áŒ€áˆ˜áˆªá‹« áˆ½á‹«áŒ­á‹ŽáŠ• áˆˆáˆ˜áˆ˜á‹áŒˆá‰¥ áŠ¨áˆ‹á‹­ á‹­áŒ«áŠ‘' : 'Tap above to record your first sale'}
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-medium" style={{ color: '#6b7280' }}>
+                    {lang === 'am' ? 'ገና ምንም ምዝገባ የለም' : 'No entries yet'}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                    {lang === 'am' ? 'ለመጀመር ከላይ ይጫኑ' : 'Tap above to start'}
                   </p>
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: P.borderLight }}>
+                <div className="divide-y" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                   {todayTransactions.map(tx => (
-                    <div key={tx.id}
-                      className="px-3 py-3 flex items-center border-l-4"
-                      style={{ borderLeftColor: typeBorderColor[tx.type] }}>
-                      <span className="text-xl mr-2 flex-shrink-0">{typeEmoji[tx.type]}</span>
-                      <button
-                        className="flex-1 min-w-0 text-left"
-                        onClick={() => setEditTarget(tx)}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-gray-800 text-sm truncate">{tx.item_name}</span>
-                          {tx.updated_at && <span className="text-xs" style={{ color: P.amber }}>{t.edited}</span>}
-                        </div>
-                        {tx.quantity > 1 && <span className="text-xs text-gray-400">x{tx.quantity}</span>}
-                        {tx.actor_name_snapshot && (
-                          <span className="text-xs text-gray-500 block">Entered by {tx.actor_name_snapshot}</span>
-                        )}
-                        {tx.payment_type && tx.payment_type !== 'cash' && (
-                          <span className="text-xs text-gray-400 block">
-                            {[tx.payment_type, tx.payment_provider].filter(Boolean).join(' - ')}
-                          </span>
-                        )}
-                      </button>
-                      <div className="text-right mr-2 flex-shrink-0">
-                        <div className="font-bold text-sm" style={{ color: typeColor[tx.type] }}>
-                          {tx.type === 'expense' ? '-' : ''}{fmt(tx.amount || 0)} {t.birr}
-                        </div>
-                        {tx.profit !== null && tx.profit !== undefined && (
-                          <div className={`text-xs ${tx.profit >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-                            {tx.profit >= 0 ? '+' : ''}{fmt(tx.profit)} {t.profit}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => setEditTarget(tx)}
-                          className="p-2 flex items-center justify-center press-scale"
-                          style={{ background: 'rgba(196,136,58,0.1)', minWidth: '44px', minHeight: '44px', borderRadius: 'var(--radius-sm)' }}
-                          aria-label={t.editEntry}
-                        >
-                          <Pencil className="w-3.5 h-3.5" style={{ color: P.amber }} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(tx)}
-                          className="p-2 flex items-center justify-center press-scale"
-                          style={{ background: '#fff1f2', minWidth: '44px', minHeight: '44px', borderRadius: 'var(--radius-sm)' }}
-                          aria-label={t.deleteEntryLabel}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </button>
-                      </div>
-                    </div>
+                    <TxRow
+                      key={tx.id}
+                      tx={tx}
+                      onTap={() => setEditTarget(tx)}
+                      onEdit={() => setEditTarget(tx)}
+                      onDelete={() => setDeleteTarget(tx)}
+                      t={t}
+                      lang={lang}
+                      fmt={fmt}
+                    />
                   ))}
                 </div>
               )}
@@ -2055,7 +2128,7 @@ function AppInner() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 border-t"
-        style={{ background: 'var(--color-surface)', borderColor: P.border }}>
+        style={{ background: '#ffffff', borderColor: '#e5e7eb' }}>
         <div className="flex">
           {tabs.map(tab => {
             const Icon = tab.icon;
@@ -2067,16 +2140,13 @@ function AppInner() {
                   setActiveTab(tab.id);
                   setSelectedCustomerId(null);
                 }}
-                className="flex-1 flex flex-col items-center gap-0.5 py-2 min-h-[60px] transition-colors press-scale"
-                style={{
-                  background: isActive ? 'rgba(27,67,50,0.07)' : 'transparent',
-                  borderBottom: isActive ? `3px solid ${P.header}` : '3px solid transparent',
-                  color: isActive ? P.header : '#9ca3af',
-                }}
+                className="flex-1 flex flex-col items-center gap-1 py-2 min-h-[56px] press-scale"
+                style={{ color: isActive ? '#1B4332' : '#9ca3af' }}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-xs font-bold">{tab.label}</span>
-                {tab.sub && <span className="text-xs" style={{ opacity: 0.65, fontSize: '0.6rem' }}>{tab.sub}</span>}
+                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[11px]" style={{ fontWeight: isActive ? 700 : 500 }}>
+                  {tab.label}
+                </span>
               </button>
             );
           })}
