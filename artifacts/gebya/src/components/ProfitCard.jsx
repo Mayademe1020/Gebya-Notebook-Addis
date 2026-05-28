@@ -56,7 +56,7 @@ function ProfitCard({ transactions, yesterdayNet }) {
 
   return (
     <div
-      className="px-4 py-3"
+      className="px-3 sm:px-4 py-3"
       style={{
         background: '#ffffff',
         border: '1px solid #e8e2d8',

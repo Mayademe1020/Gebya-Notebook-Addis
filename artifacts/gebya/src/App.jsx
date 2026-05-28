@@ -1849,88 +1849,90 @@ function AppInner() {
   return (
     <div className="min-h-screen flex flex-col max-w-md mx-auto relative" style={{ background: P.bg }}>
 
-      <header className="flex-shrink-0 px-4 pt-9 pb-3 texture-noise" style={{ background: P.header }}>
-        <div className="flex items-center gap-3 mb-3">
-          {/* Avatar — taps to settings */}
+      {/* Lightweight header (v4 design): tight, off-white, no dark green bar.
+          Sales/Spent chips removed — TodaySummary now owns those. */}
+      <header
+        className="flex-shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 pb-2 sm:pb-3"
+        style={{ background: 'var(--color-bg)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+      >
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Avatar — taps to More/Settings */}
           <button
             onClick={() => setActiveTab('settings')}
-            className="flex-shrink-0 press-scale"
-            aria-label="Open profile & settings"
+            className="flex-shrink-0 press-scale flex items-center justify-center rounded-full font-bold text-white"
+            aria-label="Open profile"
             style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.2)',
-              border: '2px solid rgba(255,255,255,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.25rem',
-              fontWeight: 900,
-              color: '#fff',
-              fontFamily: 'var(--font-serif)',
-              letterSpacing: '-0.01em',
+              width: '36px',
+              height: '36px',
+              background: '#6b7280',
+              fontSize: '14px',
+              letterSpacing: '0.02em',
             }}
           >
             {shopProfile.name.charAt(0).toUpperCase()}
           </button>
 
-          {/* Shop name + date */}
+          {/* Shop name + dates */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black text-white tracking-tight font-serif leading-tight truncate">
+            <h1 className="text-sm sm:text-base font-bold tracking-tight leading-tight truncate" style={{ color: '#1a1a1a' }}>
               {shopProfile.name}
             </h1>
-            <p className="text-xs font-semibold mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            <p className="text-[10px] sm:text-xs font-medium mt-0.5 truncate" style={{ color: '#6b7280' }}>
               {t.appName} · {getCurrentEthiopianDate()} · {new Date().toLocaleDateString('en', { day: 'numeric', month: 'short' })}
             </p>
           </div>
 
-          {/* Language toggle */}
+          {/* Language toggle (compact pill) */}
           <button
             onClick={toggleLang}
-            className="text-xs font-bold transition-all flex items-center flex-shrink-0 press-scale"
+            className="flex items-center flex-shrink-0 press-scale"
             style={{
-              background: 'rgba(255,255,255,0.15)',
-              borderRadius: '10px',
-              padding: '3px',
-              gap: '2px',
+              background: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              padding: '2px',
             }}
             aria-label={lang === 'en' ? 'Switch to Amharic' : 'Switch to English'}
           >
-            <span style={{
-              background: lang === 'en' ? 'rgba(255,255,255,0.95)' : 'transparent',
-              color: lang === 'en' ? '#1B4332' : 'rgba(255,255,255,0.6)',
-              fontWeight: lang === 'en' ? 800 : 600,
-              padding: '4px 10px',
-              borderRadius: '8px',
-              transition: 'all 0.18s',
-              display: 'block',
-            }}>EN</span>
-            <span style={{
-              background: lang === 'am' ? 'rgba(255,255,255,0.95)' : 'transparent',
-              color: lang === 'am' ? '#1B4332' : 'rgba(255,255,255,0.6)',
-              fontWeight: lang === 'am' ? 800 : 600,
-              padding: '4px 9px',
-              borderRadius: '8px',
-              transition: 'all 0.18s',
-              display: 'block',
-            }}>አማ</span>
+            <span
+              style={{
+                background: lang === 'en' ? '#1B4332' : 'transparent',
+                color: lang === 'en' ? '#fff' : '#9ca3af',
+                fontWeight: lang === 'en' ? 700 : 600,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                transition: 'all 0.18s',
+              }}
+            >
+              EN
+            </span>
+            <span
+              style={{
+                background: lang === 'am' ? '#1B4332' : 'transparent',
+                color: lang === 'am' ? '#fff' : '#9ca3af',
+                fontWeight: lang === 'am' ? 700 : 600,
+                padding: '3px 7px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                transition: 'all 0.18s',
+              }}
+            >
+              አማ
+            </span>
+          </button>
+
+          {/* Settings gear */}
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="flex-shrink-0 press-scale flex items-center justify-center"
+            aria-label="Settings"
+            style={{ minWidth: '32px', minHeight: '32px', padding: '4px' }}
+          >
+            <Settings className="w-4 h-4" style={{ color: '#6b7280' }} />
           </button>
         </div>
-
-        {activeTab === 'today' && (
-          <div className="flex gap-2">
-            {[
-              { label: t.sales, val: todaySalesTotal, color: 'rgba(255,255,255,0.15)', text: '#fff' },
-              { label: t.spent, val: todayExpensesTotal, color: 'rgba(212,101,74,0.35)', text: '#fff' },
-            ].map(s => (
-              <div key={s.label} className="flex-1 px-3 py-2 text-center animate-elastic" style={{ background: s.color, borderRadius: 'var(--radius-sm)' }}>
-                <div className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>{s.label}</div>
-                <div className="font-black text-sm text-white">{hid(s.val)} {lang === 'am' ? 'ብር' : 'birr'}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Sales/Spent chips REMOVED — TodaySummary below owns them now */}
       </header>
 
 
@@ -1955,7 +1957,7 @@ function AppInner() {
           </p>
             </>
           )}
-          <div className="flex gap-2 pb-2">
+          <div className="flex gap-1.5 sm:gap-2 pb-2">
           {[
             { type: 'sale',    label: lang === 'am' ? 'ሽያጭ' : 'Sale',    color: '#16a34a', icon: Plus    },
             { type: 'expense', label: lang === 'am' ? 'ወጪ'  : 'Expense', color: '#dc2626', icon: Minus   },
@@ -1978,7 +1980,7 @@ function AppInner() {
                 onPointerUp={() => setPressedBtn(null)}
                 onPointerLeave={() => setPressedBtn(null)}
                 onPointerCancel={() => setPressedBtn(null)}
-                className="flex-1 py-3 min-h-[54px] flex items-center justify-center gap-2 transition-all"
+                className="flex-1 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[54px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0"
                 style={{
                   background: pressed ? `${b.color}15` : '#ffffff',
                   border: `1.5px solid ${b.color}`,
@@ -1986,8 +1988,8 @@ function AppInner() {
                   transform: pressed ? 'scale(0.98)' : 'none',
                 }}
               >
-                <Icon className="w-4 h-4" style={{ color: b.color, strokeWidth: 2.5 }} />
-                <span className="font-bold text-sm" style={{ color: b.color }}>{b.label}</span>
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: b.color, strokeWidth: 2.5 }} />
+                <span className="font-bold text-xs sm:text-sm truncate" style={{ color: b.color }}>{b.label}</span>
               </button>
             );
           })}
@@ -1995,7 +1997,7 @@ function AppInner() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto px-4 py-3 pb-28">
+      <main className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-28">
         {activeTab === 'today' && (
           <div className="space-y-4">
             <ProfitCard transactions={todayTransactions} yesterdayNet={yesterdayNet} />
