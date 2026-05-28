@@ -1998,7 +1998,7 @@ function AppInner() {
       <main className="flex-1 overflow-y-auto px-4 py-3 pb-28">
         {activeTab === 'today' && (
           <div className="space-y-4">
-            <ProfitCard transactions={todayTransactions} />
+            <ProfitCard transactions={todayTransactions} yesterdayNet={yesterdayNet} />
 
             <Suspense fallback={<PanelFallback label={t.loading} />}>
               <DailySuggestions
