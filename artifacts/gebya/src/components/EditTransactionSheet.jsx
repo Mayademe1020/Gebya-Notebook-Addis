@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil, Plus } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import VoiceButton from './VoiceButton';
 import PaymentTypeChips from './PaymentTypeChips';
@@ -49,6 +49,16 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
   const [selectedDue, setSelectedDue] = useState(transaction.due_date || null);
   const [customDue, setCustomDue] = useState('');
   const [saving, setSaving] = useState(false);
+  // Editable multi-item breakdown
+  const [editableItems, setEditableItems] = useState(() => (
+    Array.isArray(transaction.items)
+      ? transaction.items.map((it, i) => ({
+          id: `init-${i}`,
+          name: it?.name || '',
+          amount: it?.amount != null ? String(it.amount) : '',
+        }))
+      : []
+  ));
 
   const dueDateOptions = getDueDateOptions();
   const phoneValid = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
@@ -65,12 +75,36 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
     return selectedDue;
   };
 
+  // Breakdown edit helpers
+  const updateBreakdownLine = (id, field, value) =>
+    setEditableItems(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)));
+  const removeBreakdownLine = (id) =>
+    setEditableItems(prev => prev.filter(l => l.id !== id));
+  const addBreakdownLine = () =>
+    setEditableItems(prev => [
+      ...prev,
+      { id: `new-${Date.now()}-${Math.random()}`, name: '', amount: '' },
+    ]);
+
+  const validBreakdown = editableItems
+    .filter(l => l.name.trim() && parseFloat(l.amount) > 0)
+    .map(l => ({ name: l.name.trim(), amount: parseFloat(l.amount) }));
+  const breakdownSum = validBreakdown.reduce((s, it) => s + it.amount, 0);
+  const breakdownDelta = sellingPrice - breakdownSum;
+  const hadBreakdown = Array.isArray(transaction.items) && transaction.items.length > 0;
+
   const handleSave = async () => {
     if (!canSave || saving) return;
     setSaving(true);
     try {
+      // If transaction had a breakdown OR user added new line items, persist the edited items.
+      // item_name auto-derives from line names when breakdown is present.
+      const useBreakdown = (hadBreakdown || editableItems.length > 0) && !isCredit;
+      const finalItemName = useBreakdown && validBreakdown.length > 0
+        ? validBreakdown.map(it => it.name).join(', ').substring(0, 200)
+        : item.trim();
       const updates = {
-        item_name: item.trim(),
+        item_name: finalItemName,
         quantity: isCredit ? 1 : qty,
         amount: sellingPrice,
         cost_price: isCredit ? 0 : cost,
@@ -80,6 +114,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
         customer_phone: isCredit ? (phoneEntered && phoneValid ? '+251' + phoneDigits : null) : null,
         direction: isCredit ? direction : null,
         due_date: isCredit ? getEffectiveDueDate() : null,
+        ...(useBreakdown ? { items: validBreakdown.length > 0 ? validBreakdown : null } : {}),
       };
       await onUpdate(transaction.id, updates);
       onClose();
@@ -118,39 +153,96 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
 
         <div className="px-6 py-4 space-y-4">
 
-          {/* Multi-item breakdown — read-only display when transaction has items[] */}
-          {Array.isArray(transaction.items) && transaction.items.length > 0 && (() => {
-            const sum = transaction.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-            const delta = (Number(transaction.amount) || 0) - sum;
-            const accentBdColor = type === 'expense' ? '#dc2626' : type === 'credit' ? '#2563eb' : '#16a34a';
+          {/* Multi-item breakdown — editable when transaction has items OR when user wants to add one */}
+          {!isCredit && (hadBreakdown || editableItems.length > 0) && (() => {
+            const accentBdColor = type === 'expense' ? '#dc2626' : '#16a34a';
             return (
-              <div className="p-3" style={{ background: 'rgba(27,67,50,0.04)', borderRadius: 'var(--radius-md)', border: '1px solid #e8e2d8' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>
-                  🧺 {transaction.items.length} {transaction.items.length === 1 ? 'item' : 'items'}
+              <div className="p-3 space-y-2"
+                style={{ background: 'rgba(27,67,50,0.04)', borderRadius: 'var(--radius-md)', border: '1px solid #e8e2d8' }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#6b7280' }}>
+                  🧺 {editableItems.length === 1 ? '1 item' : `${editableItems.length} items`}
                 </p>
+
+                {/* Editable line rows */}
                 <div className="space-y-1.5">
-                  {transaction.items.map((it, i) => (
-                    <div key={i} className="flex justify-between items-baseline text-sm">
-                      <span className="truncate min-w-0" style={{ color: '#374151' }}>• {it.name}</span>
-                      <span className="font-semibold flex-shrink-0 ml-2" style={{ color: accentBdColor }}>
-                        {fmt(it.amount || 0)} {t.birr || 'birr'}
-                      </span>
+                  {editableItems.map((line) => (
+                    <div key={line.id} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={line.name}
+                        onChange={(e) => updateBreakdownLine(line.id, 'name', e.target.value)}
+                        placeholder="item"
+                        className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm"
+                        style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                      />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={fmtInput(line.amount)}
+                        onChange={(e) => {
+                          let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+                          const parts = raw.split('.');
+                          if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+                          updateBreakdownLine(line.id, 'amount', raw);
+                        }}
+                        placeholder="0"
+                        className="w-20 px-2 py-2 border focus:outline-none text-sm text-right font-bold"
+                        style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeBreakdownLine(line.id)}
+                        className="press-scale flex items-center justify-center flex-shrink-0"
+                        style={{ minWidth: '32px', minHeight: '32px' }}
+                        aria-label="Remove line"
+                      >
+                        <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                      </button>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between items-baseline mt-2 pt-2 text-xs" style={{ borderTop: '1px solid #e8e2d8' }}>
-                  <span style={{ color: '#6b7280' }}>Items total</span>
-                  <span className="font-bold" style={{ color: '#1a1a1a' }}>{fmt(sum)} {t.birr || 'birr'}</span>
-                </div>
-                {Math.abs(delta) > 0.01 && (
-                  <div className="flex justify-between items-baseline mt-1 text-xs" style={{ color: '#C4883A' }}>
-                    <span>{delta > 0 ? 'Unaccounted' : 'Excess'}</span>
-                    <span className="font-semibold">{fmt(Math.abs(delta))} {t.birr || 'birr'}</span>
+
+                <button
+                  type="button"
+                  onClick={addBreakdownLine}
+                  className="w-full py-2 text-xs font-bold border border-dashed press-scale flex items-center justify-center gap-1"
+                  style={{
+                    borderColor: '#c9bfa8',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#faf9f7',
+                    color: '#6b7280',
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {editableItems.length === 0 ? 'Add first item' : 'Add another item'}
+                </button>
+
+                {/* Totals + delta hint */}
+                {validBreakdown.length > 0 && (
+                  <div className="text-xs pt-2 space-y-0.5" style={{ borderTop: '1px solid #e8e2d8' }}>
+                    <div className="flex justify-between" style={{ color: '#374151' }}>
+                      <span>Items total</span>
+                      <span className="font-bold">{fmt(breakdownSum)} {t.birr || 'birr'}</span>
+                    </div>
+                    {sellingPrice > 0 && Math.abs(breakdownDelta) > 0.01 && (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(breakdownSum))}
+                        className="w-full flex justify-between items-center px-1.5 py-1 mt-1 press-scale"
+                        style={{
+                          color: breakdownDelta > 0 ? '#C4883A' : '#dc2626',
+                          background: breakdownDelta > 0 ? 'rgba(196,136,58,0.08)' : 'rgba(220,38,38,0.06)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                        title="Tap to set total to items sum"
+                      >
+                        <span>{breakdownDelta > 0 ? 'Unaccounted' : 'Items exceed total'}:</span>
+                        <span className="font-bold">{fmt(Math.abs(breakdownDelta))} ⤴</span>
+                      </button>
+                    )}
                   </div>
                 )}
-                <p className="text-[10px] mt-2" style={{ color: '#9ca3af' }}>
-                  Editing keeps the breakdown unchanged. To change items, delete and re-enter.
-                </p>
               </div>
             );
           })()}
