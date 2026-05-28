@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Users } from 'lucide-react';
+import { Plus, Search, Users, Bell } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
+import { daysAgoLabel } from '../utils/reminders';
 
 function matchesCustomer(customer, query) {
   const q = query.trim().toLowerCase();
@@ -16,9 +17,9 @@ function matchesCustomer(customer, query) {
     .some((value) => String(value).toLowerCase().includes(q));
 }
 
-function CustomerList({ customers = [], onSelectCustomer, onAddCustomer }) {
+function CustomerList({ customers = [], onSelectCustomer, onAddCustomer, onRemindCustomer }) {
   const [query, setQuery] = useState('');
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const trimmedQuery = query.trim();
   const hasQuery = trimmedQuery.length > 0;
 
@@ -102,39 +103,76 @@ function CustomerList({ customers = [], onSelectCustomer, onAddCustomer }) {
       </div>
 
       <div className="space-y-3">
-        {filteredCustomers.map((customer) => (
-          <button
-            key={customer.id}
-            type="button"
-            onClick={() => onSelectCustomer?.(customer)}
-            className="w-full text-left p-4 border press-scale"
-            style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-black text-gray-900 truncate">{customer.display_name}</p>
-                {customer.note && (
-                  <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
-                    {customer.note}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs" style={{ color: '#9ca3af' }}>
-                  <span>{(customer.transaction_count || 0)} {t.entries}</span>
-                  {customer.phone_number && <span>{customer.phone_number}</span>}
-                  {customer.telegram_username && <span>{customer.telegram_username}</span>}
+        {filteredCustomers.map((customer) => {
+          const hasBalance = Number(customer.balance || 0) > 0;
+          const canRemind = hasBalance
+            && (customer.telegram_username || customer.telegram_chat_id || customer.phone_number);
+          const lastReminded = daysAgoLabel(customer.last_reminded_at, lang);
+          return (
+            <div
+              key={customer.id}
+              className="w-full p-4 border"
+              style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => onSelectCustomer?.(customer)}
+                  className="flex-1 min-w-0 text-left press-scale"
+                >
+                  <p className="font-black text-gray-900 truncate">{customer.display_name}</p>
+                  {customer.note && (
+                    <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
+                      {customer.note}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs" style={{ color: '#9ca3af' }}>
+                    <span>{(customer.transaction_count || 0)} {t.entries}</span>
+                    {customer.phone_number && <span>{customer.phone_number}</span>}
+                    {customer.telegram_username && <span>{customer.telegram_username}</span>}
+                    {lastReminded && hasBalance && (
+                      <span style={{ color: '#C4883A' }}>
+                        🔔 {lang === 'am' ? 'መጨረሻ' : 'last'} {lastReminded}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onSelectCustomer?.(customer)}
+                    className="text-right press-scale"
+                  >
+                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+                      {t.customerBalance}
+                    </p>
+                    <p className="text-lg font-black" style={{ color: hasBalance ? '#92400e' : '#9ca3af' }}>
+                      {fmt(customer.balance || 0)} birr
+                    </p>
+                  </button>
+                  {canRemind && onRemindCustomer && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onRemindCustomer(customer); }}
+                      className="press-scale flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-bold border"
+                      style={{
+                        borderColor: '#C4883A',
+                        background: 'rgba(196,136,58,0.08)',
+                        color: '#6b4f1d',
+                        borderRadius: 'var(--radius-sm)',
+                        minHeight: '32px',
+                      }}
+                      aria-label={lang === 'am' ? 'አስታውስ' : 'Remind'}
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                      {lang === 'am' ? 'አስታውስ' : 'Remind'}
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-                  {t.customerBalance}
-                </p>
-                <p className="text-lg font-black" style={{ color: '#92400e' }}>
-                  {fmt(customer.balance || 0)} birr
-                </p>
-              </div>
             </div>
-          </button>
-        ))}
+          );
+        })}
 
         {filteredCustomers.length === 0 && (
           <div

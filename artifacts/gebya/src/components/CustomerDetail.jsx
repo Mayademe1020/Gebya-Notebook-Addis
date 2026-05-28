@@ -13,11 +13,16 @@ function CustomerDetail({
   onToggleTelegramNotify,
   onOpenTelegramConnect,
   onResendTelegramUpdate,
+  onRemind,
   isOnline = true,
   isSlowConnection = false,
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   if (!customer) return null;
+
+  const hasContact = customer.telegram_chat_id || customer.telegram_username || customer.phone_number;
+  const hasBalance = Number(customer.balance || 0) > 0;
+  const canRemind = hasContact && hasBalance && onRemind;
 
   const hasLinkedBorrower = !!customer.telegram_chat_id;
   const hasManualTelegram = !!customer.telegram_username;
@@ -70,13 +75,33 @@ function CustomerDetail({
               </p>
             )}
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-              {t.currentBalance}
-            </p>
-            <p className="text-2xl font-black" style={{ color: '#92400e' }}>
-              {fmt(customer.balance || 0)} {t.birr}
-            </p>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
+                {t.currentBalance}
+              </p>
+              <p className="text-2xl font-black" style={{ color: hasBalance ? '#92400e' : '#9ca3af' }}>
+                {fmt(customer.balance || 0)} {t.birr}
+              </p>
+            </div>
+            {canRemind && (
+              <button
+                type="button"
+                onClick={() => onRemind(customer)}
+                className="press-scale flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border"
+                style={{
+                  borderColor: '#C4883A',
+                  background: 'rgba(196,136,58,0.08)',
+                  color: '#6b4f1d',
+                  borderRadius: 'var(--radius-sm)',
+                  minHeight: '32px',
+                }}
+                aria-label={lang === 'am' ? 'አስታውስ' : 'Remind'}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {lang === 'am' ? 'አስታውስ' : 'Remind'}
+              </button>
+            )}
           </div>
         </div>
 

@@ -28,6 +28,7 @@ import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from 
 
 const TransactionForm = lazy(() => import('./components/TransactionForm'));
 const EditTransactionSheet = lazy(() => import('./components/EditTransactionSheet'));
+const ReminderSheet = lazy(() => import('./components/ReminderSheet'));
 const CustomerDetail = lazy(() => import('./components/CustomerDetail'));
 const CustomerForm = lazy(() => import('./components/CustomerForm'));
 const CustomerTransactionSheet = lazy(() => import('./components/CustomerTransactionSheet'));
@@ -471,6 +472,7 @@ function AppInner() {
   const [telegramConnectCustomerId, setTelegramConnectCustomerId] = useState(null);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [customerTransactionModal, setCustomerTransactionModal] = useState(null);
+  const [reminderTarget, setReminderTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
@@ -1237,6 +1239,18 @@ function AppInner() {
     } else if (nextEnabled) {
       fireToast('Manual Telegram updates will open a drafted message after each save.', 2600);
     }
+  };
+
+  const handleCustomerReminderSent = async (customerId) => {
+    const stamp = Date.now();
+    try {
+      await db.customers.update(customerId, { last_reminded_at: stamp });
+    } catch {
+      // non-critical — keep optimistic UI
+    }
+    setLedgerCustomers(prev => prev.map(c => (
+      c.id === customerId ? { ...c, last_reminded_at: stamp } : c
+    )));
   };
 
   const handleCustomQuickAmountsChange = async (nextList) => {
@@ -2108,6 +2122,7 @@ function AppInner() {
                 onToggleTelegramNotify={() => handleToggleCustomerTelegramNotify(selectedCustomer)}
                 onOpenTelegramConnect={() => setTelegramConnectCustomerId(selectedCustomer.id)}
                 onResendTelegramUpdate={() => handleResendCustomerTelegramUpdate(selectedCustomer)}
+                onRemind={(c) => setReminderTarget(c)}
               />
             </Suspense>
           ) : (
@@ -2115,6 +2130,7 @@ function AppInner() {
               customers={customerSummaries}
               onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
               onAddCustomer={() => setShowCustomerForm(true)}
+              onRemindCustomer={(customer) => setReminderTarget(customer)}
             />
           )
         )}
@@ -2228,6 +2244,7 @@ function AppInner() {
                   setShowForm(null);
                   setShowCustomerForm(false);
                   setCustomerTransactionModal(null);
+                  setReminderTarget(null);
                   setActiveTab(tab.id);
                   setSelectedCustomerId(null);
                 }}
@@ -2405,6 +2422,17 @@ function AppInner() {
             enabledProviders={enabledProviders}
             onUpdate={handleUpdateTransaction}
             onClose={() => setEditTarget(null)}
+          />
+        </Suspense>
+      )}
+
+      {reminderTarget && (
+        <Suspense fallback={<ModalFallback label={t.loading} />}>
+          <ReminderSheet
+            customer={reminderTarget}
+            shopName={shopProfile?.name}
+            onClose={() => setReminderTarget(null)}
+            onSent={handleCustomerReminderSent}
           />
         </Suspense>
       )}
