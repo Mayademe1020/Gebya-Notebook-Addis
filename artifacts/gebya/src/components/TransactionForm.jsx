@@ -1568,8 +1568,8 @@ function TransactionForm({
               : '↑ Enter amount received (must be less than total)';
           } else if (needsCustomer && !selectedCustomerForCredit) {
             blocker = lang === 'am'
-              ? '↑ ለማን ይከፍላል? በላይ ላይ ይምረጡ'
-              : '↑ Pick a customer above';
+              ? '↑ ለማን? በላይ ላይ ይምረጡ ወይም ይጨምሩ'
+              : '↑ Add or pick a customer above';
           } else if (isCredit && !item.trim()) {
             blocker = lang === 'am' ? '↑ ስም ይተይቡ' : '↑ Enter customer name';
           } else if (isCredit && !hasDueDate) {

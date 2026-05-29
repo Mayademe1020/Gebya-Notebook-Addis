@@ -8,7 +8,7 @@
 // - Compact due-date pills
 // - Solid colored save button
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Save, X, Plus, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { formatEthiopian, getDueDateOptions } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES, isValidCustomerTransactionType } from '../utils/customerTransactionTypes';
@@ -53,6 +53,21 @@ function CustomerTransactionSheet({
   const [saving, setSaving] = useState(false);
   const [showCustomAmount, setShowCustomAmount] = useState(false);
   const [customAmountValue, setCustomAmountValue] = useState('');
+  // Multi-item breakdown — credit_add only. Pre-populates from editingTransaction.items.
+  const [lineItems, setLineItems] = useState(
+    isEditing && Array.isArray(editingTransaction.items)
+      ? editingTransaction.items.map((it, i) => ({
+          id: `init-${i}`,
+          name: it?.name || '',
+          amount: it?.amount != null ? String(it.amount) : '',
+        }))
+      : []
+  );
+  const [showBreakdown, setShowBreakdown] = useState(
+    isEditing
+    && Array.isArray(editingTransaction.items)
+    && editingTransaction.items.length > 0
+  );
 
   // In edit mode, derive type from the record; otherwise from the mode prop.
   const transactionType = useMemo(() => {
@@ -74,6 +89,43 @@ function CustomerTransactionSheet({
   const dueDateOptions = useMemo(() => getDueDateOptions(), []);
   const overPayment = isPayment && !isEditing && parsedAmount > currentBalance;
   const canSave = parsedAmount > 0 && !overPayment && hasCollectableBalance && !saving;
+
+  // ─── Multi-item breakdown · derived + handlers (credit_add only) ──────
+  const lineItemsTotal = lineItems.reduce((sum, l) => {
+    const v = parseFloat(parseInput(l.amount));
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
+  const validLineItems = lineItems.filter(
+    l => l.name.trim() && parseFloat(parseInput(l.amount)) > 0
+  );
+  const breakdownDelta = parsedAmount - lineItemsTotal;
+
+  const addLineItem = (preset = {}) => {
+    setLineItems(prev => [
+      ...prev,
+      {
+        id: `new-${Date.now()}-${Math.random()}`,
+        name: preset.name || '',
+        amount: preset.amount != null ? String(preset.amount) : '',
+      },
+    ]);
+    setShowBreakdown(true);
+  };
+  const removeLineItem = (id) => setLineItems(prev => prev.filter(l => l.id !== id));
+  const updateLineItem = (id, field, value) =>
+    setLineItems(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)));
+  const handleLineItemAmount = (id, e) => {
+    let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+    const parts = raw.split('.');
+    if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+    updateLineItem(id, 'amount', raw);
+  };
+  const syncAmountToBreakdownSum = () => {
+    if (lineItemsTotal > 0) setAmount(String(lineItemsTotal));
+  };
+  const addFromCatalogToBreakdown = (entry) => {
+    addLineItem({ name: entry.name, amount: entry.default_price });
+  };
 
   // Color accent: credit-add (amber for liability) vs payment (green for settled)
   const accentColor = isPayment ? '#16a34a' : '#C4883A';
@@ -100,15 +152,26 @@ function CustomerTransactionSheet({
 
     setSaving(true);
     try {
+      // Build clean items array for credit_add only
+      const cleanedItems = (!isPayment) ? validLineItems.map(l => ({
+        name: l.name.trim(),
+        amount: parseFloat(parseInput(l.amount)),
+      })) : [];
+
+      // If breakdown present, derive item_note from item names (comma-joined).
+      const itemNoteForSave = cleanedItems.length > 0
+        ? cleanedItems.map(it => it.name).join(', ').substring(0, 200)
+        : (itemNote.trim() || selectedCatalogEntry?.name || null);
+
       const didSave = await onSave?.({
         customer_id: customer?.id,
         type: transactionType,
         amount: parsedAmount,
         catalog_entry_id: catalogEntryId ? Number(catalogEntryId) : null,
         item_kind: selectedCatalogEntry?.kind || null,
-        item_note: itemNote.trim() || selectedCatalogEntry?.name || null,
+        item_note: itemNoteForSave,
         due_date: !isPayment && dueDate ? new Date(dueDate).getTime() : null,
-        // Edit mode: tell App.jsx to UPDATE this row instead of inserting.
+        items: cleanedItems.length > 0 ? cleanedItems : null,  // multi-item breakdown
         editing_id: editingTransaction?.id || null,
       });
       if (didSave) onDone?.();
@@ -372,6 +435,157 @@ function CustomerTransactionSheet({
             </div>
           )}
         </div>
+
+        {/* Multi-item breakdown (credit_add only) — mirrors TransactionForm's 🧺 UX */}
+        {!isPayment && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowBreakdown(v => !v)}
+              className="flex items-center gap-1 text-sm font-semibold py-1 min-h-[36px]"
+              style={{ color: '#C4883A' }}
+            >
+              {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {validLineItems.length > 0
+                ? (lang === 'am' ? `🧺 ${validLineItems.length} ዕቃዎች` : `🧺 ${validLineItems.length} items`)
+                : (lang === 'am' ? '🧺 ብዙ ዕቃዎች ይከፋፍሉ' : '🧺 Break down into items')}
+            </button>
+
+            {showBreakdown && (
+              <div
+                className="mt-2 p-3 border space-y-3"
+                style={{ background: 'var(--color-bg)', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}
+              >
+                {/* Tap saved item chips to add a line */}
+                {topCatalogItems.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
+                      {lang === 'am' ? 'ለማከል ይጫኑ' : 'Tap saved item to add'}
+                    </p>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1">
+                      {topCatalogItems.map(entry => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => addFromCatalogToBreakdown(entry)}
+                          className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center gap-1"
+                          style={{
+                            borderColor: '#e8e2d8',
+                            borderRadius: 'var(--radius-sm)',
+                            background: '#fff',
+                            color: '#374151',
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          {entry.name}
+                          {entry.default_price != null && (
+                            <span className="ml-1 font-normal" style={{ color: '#9ca3af' }}>
+                              {fmt(entry.default_price)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Line items editor */}
+                {lineItems.length > 0 && (
+                  <div className="space-y-1.5">
+                    {lineItems.map((line, idx) => (
+                      <div key={line.id} className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={line.name}
+                          onChange={e => updateLineItem(line.id, 'name', e.target.value)}
+                          placeholder={lang === 'am' ? `ዕቃ ${idx + 1}` : `item ${idx + 1}`}
+                          className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm"
+                          style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                        />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={fmtInput(line.amount)}
+                          onChange={e => handleLineItemAmount(line.id, e)}
+                          placeholder="0"
+                          className="w-20 px-2 py-2 border focus:outline-none text-sm text-right font-bold"
+                          style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(line.id)}
+                          className="press-scale flex items-center justify-center flex-shrink-0"
+                          style={{ minWidth: '32px', minHeight: '32px' }}
+                          aria-label={lang === 'am' ? 'አስወግድ' : 'Remove'}
+                        >
+                          <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add another */}
+                <button
+                  type="button"
+                  onClick={() => addLineItem()}
+                  className="w-full py-2 text-xs font-bold border border-dashed press-scale flex items-center justify-center gap-1"
+                  style={{
+                    borderColor: '#c9bfa8',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#faf9f7',
+                    color: '#6b7280',
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {lineItems.length === 0
+                    ? (lang === 'am' ? 'የመጀመሪያ ዕቃ ጨምር' : 'Add first item')
+                    : (lang === 'am' ? 'ሌላ ዕቃ ጨምር' : 'Add another item')}
+                </button>
+
+                {/* Totals · sync-to-sum button */}
+                {validLineItems.length > 0 && (
+                  <div className="text-xs pt-2 space-y-1" style={{ borderTop: '1px solid #e8e2d8' }}>
+                    <div className="flex justify-between" style={{ color: '#374151' }}>
+                      <span>{lang === 'am' ? 'የዕቃዎች ድምር' : 'Items total'}:</span>
+                      <span className="font-bold">{fmt(lineItemsTotal)} {lang === 'am' ? 'ብር' : 'birr'}</span>
+                    </div>
+                    {parsedAmount > 0 && Math.abs(breakdownDelta) > 0.01 && (
+                      <button
+                        type="button"
+                        onClick={syncAmountToBreakdownSum}
+                        className="w-full flex justify-between items-center px-1.5 py-1 press-scale"
+                        style={{
+                          color: breakdownDelta > 0 ? '#C4883A' : '#dc2626',
+                          background: breakdownDelta > 0 ? 'rgba(196,136,58,0.08)' : 'rgba(220,38,38,0.06)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                      >
+                        <span>{breakdownDelta > 0 ? (lang === 'am' ? 'ቀሪ' : 'Unaccounted') : (lang === 'am' ? 'በላይ' : 'Items exceed')}:</span>
+                        <span className="font-bold">{fmt(Math.abs(breakdownDelta))} ⤴</span>
+                      </button>
+                    )}
+                    {(parsedAmount === 0 || parsedAmount === lineItemsTotal) && lineItemsTotal > 0 && (
+                      <button
+                        type="button"
+                        onClick={syncAmountToBreakdownSum}
+                        className="w-full flex justify-between items-center px-1.5 py-1 press-scale"
+                        style={{
+                          color: '#16a34a',
+                          background: 'rgba(22,163,74,0.06)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                      >
+                        <span>{lang === 'am' ? 'መጠን ከድምር ጋር ይሞላ' : 'Use items sum as total'}</span>
+                        <span className="font-bold">⤴</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Due date (credit only) */}
         {!isPayment && (

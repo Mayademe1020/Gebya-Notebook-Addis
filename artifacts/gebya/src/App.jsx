@@ -1719,13 +1719,17 @@ function AppInner() {
 
   // EDIT-mode branch · if payload carries editing_id, update that row instead
   // of inserting a new one. Used by CustomerDetail long-press → Edit.
-  const updateCustomerTransactionRecord = async (editingId, draft) => {
+  const updateCustomerTransactionRecord = async (editingId, draft, originalPayload) => {
     try {
       const existing = await db.customer_transactions.get(editingId);
       if (!existing) {
         fireToast(t.customerNotFound || 'Entry not found', 2200);
         return false;
       }
+      // Preserve items[] across edit (non-indexed prop bypasses the draft normalizer)
+      const itemsToStore = Array.isArray(originalPayload?.items) && originalPayload.items.length > 0
+        ? originalPayload.items
+        : null;
       const updates = {
         type: draft.type,
         amount: draft.amount,
@@ -1733,6 +1737,7 @@ function AppInner() {
         catalog_entry_id: draft.catalog_entry_id || null,
         item_kind: draft.item_kind || null,
         due_date: draft.due_date || null,
+        items: itemsToStore,
         updated_at: Date.now(),
       };
       await db.customer_transactions.update(editingId, updates);
@@ -1784,7 +1789,7 @@ function AppInner() {
         fireToast(t.validAmountRequired, 2200);
         return false;
       }
-      return updateCustomerTransactionRecord(payload.editing_id, draftForEdit);
+      return updateCustomerTransactionRecord(payload.editing_id, draftForEdit, payload);
     }
 
     const draft = normalizeCustomerTransactionDraft(payload);
@@ -1832,6 +1837,10 @@ function AppInner() {
 
       const entry = {
         ...draft,
+        // Preserve items[] from the original payload (the normalizer strips it)
+        items: Array.isArray(payload?.items) && payload.items.length > 0
+          ? payload.items
+          : null,
         reference_code: null,
         telegram_delivery_state: null,
         telegram_delivery_attempted_at: null,

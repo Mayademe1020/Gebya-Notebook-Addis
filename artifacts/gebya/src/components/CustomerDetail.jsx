@@ -155,36 +155,64 @@ function CustomerDetail({
   return (
     <div className="space-y-3" style={{ paddingBottom: 16 }}>
 
-      {/* ═══ 1. DARK HEADER BAND ══════════════════════════════════════════ */}
+      {/* ═══ 1. DARK HEADER BAND · compact (~80px) ══════════════════════════════════════════ */}
       <div
         style={{
           background: 'linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 100%)',
           color: '#fff',
-          padding: '14px 14px 16px',
+          padding: '8px 14px 12px',
           marginLeft: -12, marginRight: -12, marginTop: -12,
-          // Negate the credit-tab body padding so the dark band reaches the edges
         }}
       >
-        <button
-          type="button"
-          onClick={onBack}
-          className="press-scale"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'transparent', border: 'none', color: '#fff',
-            fontSize: '0.78rem', fontWeight: 700, opacity: 0.85,
-            cursor: 'pointer', marginBottom: 12, padding: '4px 0',
-            minHeight: 32,
-          }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{lang === 'am' ? 'ወደ ደንበኞች ተመለስ' : 'Back · Customers'}</span>
-        </button>
+        {/* Top row: back link + status pill on the right (so they share one line) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="press-scale"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'transparent', border: 'none', color: '#fff',
+              fontSize: '0.78rem', fontWeight: 700, opacity: 0.85,
+              cursor: 'pointer', padding: '4px 0',
+              minHeight: 28,
+            }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{lang === 'am' ? 'ተመለስ · ደንበኞች' : 'Back · Customers'}</span>
+          </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Photo or initials avatar */}
+          {/* Compact status pill on the right — saves vertical space */}
+          {(customer.has_overdue && customer.overdue_days > 0) && (
+            <span style={{
+              background: '#fee2e2', color: '#991b1b',
+              padding: '2px 8px', borderRadius: 999,
+              fontSize: '0.62rem', fontWeight: 800,
+              letterSpacing: '0.04em',
+              flexShrink: 0,
+            }}>
+              {customer.overdue_days}d {lang === 'am' ? 'ቆይቷል' : 'OVERDUE'}
+            </span>
+          )}
+          {!customer.has_overdue && isTopCustomer && (
+            <span style={{
+              background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+              color: '#1a1a1a',
+              padding: '2px 8px', borderRadius: 999,
+              fontSize: '0.62rem', fontWeight: 800,
+              letterSpacing: '0.04em',
+              flexShrink: 0,
+            }}>
+              👑 {lang === 'am' ? 'በሰዓቱ' : 'ON TIME'}
+            </span>
+          )}
+        </div>
+
+        {/* Identity row — avatar 44 + name + phone/entries one line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+          {/* Smaller avatar (44 → was 56) */}
           <div style={{
-            width: 56, height: 56, borderRadius: '50%',
+            width: 44, height: 44, borderRadius: '50%',
             position: 'relative', flexShrink: 0, overflow: 'hidden',
           }}>
             {customer.photo ? (
@@ -194,62 +222,42 @@ function CustomerDetail({
                 width: '100%', height: '100%',
                 background: grad,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: '1.2rem', fontWeight: 800,
+                color: '#fff', fontSize: '1rem', fontWeight: 800,
               }}>{initials}</div>
             )}
             {isTopCustomer && (
               <div style={{
-                position: 'absolute', top: -5, left: -5,
-                width: 22, height: 22, borderRadius: '50%',
+                position: 'absolute', top: -4, left: -4,
+                width: 18, height: 18, borderRadius: '50%',
                 background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
                 border: '2px solid #1a1a1a',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.8rem',
+                fontSize: '0.65rem',
               }}>👑</div>
             )}
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1.15 }}>
+            <p style={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.15 }}>
               {customer.display_name}
             </p>
-            <p style={{ fontSize: '0.72rem', opacity: 0.7, marginTop: 2 }}>
+            <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: 1, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
               {customer.phone_number && (
-                <a href={`tel:${customer.phone_number}`} style={{ color: '#fff', textDecoration: 'none' }}>
-                  {customer.phone_number}
+                <a
+                  href={`tel:${customer.phone_number}`}
+                  style={{ color: '#fff', textDecoration: 'none' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  📞 {customer.phone_number}
                 </a>
               )}
-              {customer.phone_number && customer.transaction_count > 0 && ' · '}
+              {customer.phone_number && customer.transaction_count > 0 && <span>·</span>}
               {customer.transaction_count > 0 && (
                 <span>
                   {customer.transaction_count} {lang === 'am' ? 'መዝገብ' : 'entries'}
                 </span>
               )}
             </p>
-
-            <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
-              {customer.has_overdue && customer.overdue_days > 0 && (
-                <span style={{
-                  background: '#fee2e2', color: '#991b1b',
-                  padding: '3px 9px', borderRadius: 999,
-                  fontSize: '0.65rem', fontWeight: 800,
-                  letterSpacing: '0.04em',
-                }}>
-                  {customer.overdue_days}d {lang === 'am' ? 'ቆይቷል' : 'OVERDUE'}
-                </span>
-              )}
-              {isTopCustomer && (
-                <span style={{
-                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                  color: '#1a1a1a',
-                  padding: '3px 9px', borderRadius: 999,
-                  fontSize: '0.65rem', fontWeight: 800,
-                  letterSpacing: '0.04em',
-                }}>
-                  👑 {lang === 'am' ? 'በሰዓቱ ይከፍላል' : 'ALWAYS ON TIME'}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </div>
