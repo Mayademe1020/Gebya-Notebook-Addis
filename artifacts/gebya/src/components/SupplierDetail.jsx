@@ -1,13 +1,69 @@
-// SupplierDetail.jsx — per-supplier ledger (Khatabook-style "supplier credit")
-// Shows: balance owed, list of purchases on credit + payments made, history.
-// Actions: + Purchase on credit, + Pay supplier, Mark fully paid.
-// No Telegram or Remind buttons — those are for chasing customers, not suppliers.
-import { useMemo } from 'react';
-import { ArrowLeft, CheckCircle2, Phone, Plus, Wallet } from 'lucide-react';
+// SupplierDetail.jsx — Cockpit Synthesis v0.3 · "people I OWE" (Khatabook-style).
+//
+// Commit D: full refactor to mirror CustomerDetail v0.3 patterns but with
+// RED accents (supplier side = I owe, customer side = they owe).
+//
+// Layout (top → bottom):
+//   1. Compact dark header (~80px) · ← Back · status pill · Edit pencil
+//   2. Avatar + name + phone
+//   3. Balance block · "I owe X" prominent + running stats
+//   4. 4-icon quick actions · Buy / Pay / Mark paid / Call
+//   5. History rows with PURCHASE / PAYMENT tags + ⋮ menu + long-press
+//
+// No Telegram (suppliers don't get reminders). No on-time tracking (those
+// are credit-receiver metrics that don't apply when YOU'RE the borrower).
+//
+// Long-press: pointerdown + 500ms timer → action sheet (Edit · Delete · Cancel).
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft, CheckCircle2, MoreVertical, Phone, Plus, Wallet, X, Pencil, Trash2, Truck,
+} from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
 import { useLang } from '../context/LangContext';
+
+// ─── helpers ──────────────────────────────────────────────────────────
+
+function useLongPress(onLongPress, ms = 500) {
+  const timerRef = useRef(null);
+  const targetRef = useRef(null);
+  const start = (e, target) => {
+    targetRef.current = target;
+    timerRef.current = setTimeout(() => {
+      if (targetRef.current) onLongPress(targetRef.current);
+    }, ms);
+  };
+  const cancel = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    targetRef.current = null;
+  };
+  useEffect(() => () => cancel(), []);
+  return { start, cancel };
+}
+
+function pickGradient(name = '') {
+  // Stable hash → red-tinted gradient for the avatar (supplier side).
+  const palette = [
+    ['#7f1d1d', '#dc2626'],
+    ['#991b1b', '#ef4444'],
+    ['#9f1239', '#e11d48'],
+    ['#7c2d12', '#ea580c'],
+    ['#6b21a8', '#a21caf'],
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  const [a, b] = palette[Math.abs(hash) % palette.length];
+  return `linear-gradient(135deg, ${a} 0%, ${b} 100%)`;
+}
+
+function initialsFor(name = '?') {
+  return name.split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+}
+
+// ─── component ────────────────────────────────────────────────────────
 
 function SupplierDetail({
   supplier,
@@ -15,14 +71,25 @@ function SupplierDetail({
   onAddPurchase,
   onPaySupplier,
   onMarkFullyPaid,
+  onEditSupplier,
+  onEditSupplierTransaction,
+  onDeleteSupplierTransaction,
 }) {
   const { t, lang } = useLang();
+  const [actionSheet, setActionSheet] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
+  const longPress = useLongPress((tx) => setActionSheet({ tx }));
+
   if (!supplier) return null;
 
-  const hasBalance = Number(supplier.balance || 0) > 0;
+  const balance = Math.max(Number(supplier.balance || 0), 0);
+  const hasBalance = balance > 0;
+  const initials = initialsFor(supplier.display_name);
+  const grad = pickGradient(supplier.display_name || '');
 
+  // Running balance from oldest → newest
   const historyRows = useMemo(() => {
-    let runningBalance = Number(supplier.balance || 0);
+    let runningBalance = balance;
     return (supplier.transactions || []).map((item) => {
       const balanceAfter = runningBalance;
       runningBalance = item.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT
@@ -30,167 +97,542 @@ function SupplierDetail({
         : runningBalance - Number(item.amount || 0);
       return { ...item, balance_after: balanceAfter };
     });
-  }, [supplier]);
+  }, [supplier, balance]);
+
+  // Same-day count for the date row (Commit C.1-style polish)
+  const oldestPurchase = (supplier.transactions || []).filter(
+    t => t.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD
+  ).slice(-1)[0];
+  const daysOldest = oldestPurchase
+    ? Math.floor((Date.now() - oldestPurchase.created_at) / (1000 * 60 * 60 * 24))
+    : 0;
 
   return (
-    <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-2 min-h-[44px] -ml-1 press-scale"
-        style={{ color: 'var(--color-primary)' }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="font-semibold">{lang === 'am' ? 'ወደ አቅራቢዎች ተመለስ' : 'Back to suppliers'}</span>
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 8 }}>
 
-      {/* Header card */}
-      <div
-        className="p-5 border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xs)' }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-black text-gray-900 leading-tight">{supplier.display_name}</h2>
-            {supplier.note && (
-              <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>{supplier.note}</p>
+      {/* ═══ 1. COMPACT DARK HEADER ══════════════════════════════════════════ */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1a1a1a 0%, #2a1010 100%)',
+        color: '#fff',
+        borderRadius: 14,
+        padding: '10px 14px 14px',
+        boxShadow: '0 4px 16px -4px rgba(220,38,38,0.25)',
+      }}>
+        {/* Top row · Back + status + Edit */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="press-scale"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'transparent', border: 'none', color: '#fff',
+              fontSize: '0.78rem', fontWeight: 700, opacity: 0.85,
+              cursor: 'pointer', padding: '4px 0',
+              minHeight: 28,
+            }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{lang === 'am' ? 'ተመለስ · አቅራቢዎች' : 'Back · Suppliers'}</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {hasBalance && daysOldest > 30 && (
+              <span style={{
+                background: '#fee2e2', color: '#991b1b',
+                padding: '2px 8px', borderRadius: 999,
+                fontSize: '0.62rem', fontWeight: 800,
+                letterSpacing: '0.04em', flexShrink: 0,
+              }}>
+                {daysOldest}d {lang === 'am' ? 'ቆይቷል' : 'OPEN'}
+              </span>
             )}
-          </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-              {lang === 'am' ? 'ለመክፈል' : 'I owe'}
-            </p>
-            <p className="text-2xl font-black" style={{ color: hasBalance ? '#dc2626' : '#9ca3af' }}>
-              {fmt(supplier.balance || 0)} {lang === 'am' ? 'ብር' : 'birr'}
-            </p>
+
+            {/* Edit supplier — Commit D */}
+            {onEditSupplier && (
+              <button
+                type="button"
+                onClick={() => onEditSupplier(supplier)}
+                className="press-scale"
+                aria-label={lang === 'am' ? 'አስተካክል' : 'Edit supplier'}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 30, height: 30,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
-        {supplier.phone_number && (
-          <a
-            href={`tel:${supplier.phone_number}`}
-            className="mt-4 flex items-center gap-2 p-3 min-h-[48px] border"
-            style={{ background: 'var(--color-surface-muted)', borderColor: 'var(--color-border-light)', borderRadius: 'var(--radius-md)', color: 'var(--color-text)' }}
-          >
-            <Phone className="w-4 h-4" />
-            {supplier.phone_number}
-          </a>
-        )}
+        {/* Identity row · avatar + name + phone */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: '50%',
+            position: 'relative', flexShrink: 0, overflow: 'hidden',
+          }}>
+            {supplier.photo ? (
+              <img src={supplier.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{
+                width: '100%', height: '100%',
+                background: grad,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: '1rem', fontWeight: 800,
+              }}>{initials}</div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.15 }}>
+              {supplier.display_name}
+            </p>
+            <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: 2, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {supplier.phone_number ? (
+                <a
+                  href={`tel:${supplier.phone_number}`}
+                  style={{ color: '#fff', textDecoration: 'none' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  📞 {supplier.phone_number}
+                </a>
+              ) : (
+                <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
+                  {lang === 'am' ? 'ስልክ የለም' : 'No phone'}
+                </span>
+              )}
+              {supplier.note && (
+                <>
+                  <span>·</span>
+                  <span style={{ fontStyle: 'italic', opacity: 0.85 }}>{supplier.note}</span>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Primary actions */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
+      {/* ═══ 2. BALANCE BLOCK ══════════════════════════════════════════ */}
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid #ece6d6',
+          borderRadius: 12,
+          padding: 14,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        }}
+      >
+        <div>
+          {hasBalance && daysOldest > 30 && (
+            <span
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: '#dc2626', color: '#fff',
+                fontSize: '0.62rem', fontWeight: 800,
+                padding: '3px 8px', borderRadius: 999,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                marginBottom: 5,
+              }}
+            >
+              ⏰ {daysOldest}d {lang === 'am' ? 'ቆይቷል' : 'open'}
+            </span>
+          )}
+          <p style={{
+            fontSize: '0.6rem', fontWeight: 800,
+            color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase',
+          }}>
+            {lang === 'am' ? 'ለመክፈል' : 'I owe'}
+          </p>
+          <p style={{
+            fontFamily: 'Manrope, system-ui, sans-serif',
+            fontSize: '1.85rem', fontWeight: 800,
+            color: hasBalance ? '#dc2626' : '#9ca3af',
+            lineHeight: 1, marginTop: 4,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {fmt(balance)}
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#9ca3af', marginLeft: 4 }}>
+              {lang === 'am' ? 'ብር' : 'birr'}
+            </span>
+          </p>
+        </div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end',
+          gap: 4, fontSize: '0.7rem', color: '#6b7280',
+        }}>
+          <span>
+            <strong style={{ color: '#1f2937', fontWeight: 700 }}>{supplier.transaction_count || 0}</strong>{' '}
+            {lang === 'am' ? 'መዝገብ' : 'entries'}
+          </span>
+          {oldestPurchase && (
+            <span>
+              {lang === 'am' ? 'የመጀመሪያ ግዢ' : 'First purchase'}:{' '}
+              <strong style={{ color: '#1f2937', fontWeight: 700 }}>
+                {formatEthiopian(oldestPurchase.created_at)}
+              </strong>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ 3. QUICK ACTIONS GRID ══════════════════════════════════════════ */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 6,
+      }}>
+        <QuickAction
+          variant="primary-red"
+          icon={<Plus className="w-4 h-4" />}
+          label={lang === 'am' ? 'ግዢ' : 'Buy'}
           onClick={onAddPurchase}
-          className="p-3 font-bold text-white text-sm min-h-[48px] flex items-center justify-center gap-1.5 press-scale"
-          style={{ background: '#C4883A', borderRadius: 'var(--radius-md)' }}
-        >
-          <Plus className="w-4 h-4" />
-          {lang === 'am' ? 'ግዢ በዱቤ' : 'Buy on credit'}
-        </button>
-        <button
-          type="button"
+        />
+        <QuickAction
+          variant="green"
+          icon={<Wallet className="w-4 h-4" />}
+          label={lang === 'am' ? 'ክፍያ' : 'Pay'}
           onClick={onPaySupplier}
           disabled={!hasBalance}
-          className="p-3 font-bold text-white text-sm min-h-[48px] flex items-center justify-center gap-1.5 press-scale disabled:opacity-45 disabled:cursor-not-allowed"
-          style={{ background: '#2d6a4f', borderRadius: 'var(--radius-md)' }}
-        >
-          <Wallet className="w-4 h-4" />
-          {lang === 'am' ? 'ክፍያ' : 'Pay supplier'}
-        </button>
+        />
+        <QuickAction
+          variant="green"
+          icon={<CheckCircle2 className="w-4 h-4" />}
+          label={lang === 'am' ? 'ሙሉ' : 'Mark paid'}
+          onClick={() => onMarkFullyPaid?.(supplier)}
+          disabled={!hasBalance || !onMarkFullyPaid}
+        />
+        <QuickAction
+          variant="amber"
+          icon={<Phone className="w-4 h-4" />}
+          label={lang === 'am' ? 'ደውል' : 'Call'}
+          href={supplier.phone_number ? `tel:${supplier.phone_number}` : null}
+          disabled={!supplier.phone_number}
+        />
       </div>
 
-      {/* Mark fully paid */}
-      {hasBalance && onMarkFullyPaid && (
-        <button
-          type="button"
-          onClick={() => onMarkFullyPaid(supplier)}
-          className="w-full p-3 font-bold text-sm min-h-[44px] flex items-center justify-center gap-2 border-2 press-scale"
-          style={{
-            background: '#f0fdf4',
-            color: '#166534',
-            borderColor: '#bbf7d0',
-            borderRadius: 'var(--radius-md)',
-          }}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          {lang === 'am'
-            ? `ሙሉ ለሙሉ ተከፍሏል (${fmt(supplier.balance || 0)} ብር)`
-            : `Mark fully paid (${fmt(supplier.balance || 0)} birr)`}
-        </button>
-      )}
-
       {!hasBalance && (
-        <p className="text-xs font-medium -mt-1" style={{ color: 'var(--color-text-muted)' }}>
-          {lang === 'am' ? 'የተከፈለ ዱቤ የለም' : 'No outstanding balance'}
+        <p style={{ fontSize: '0.7rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic' }}>
+          {lang === 'am' ? 'ምንም ለመክፈል የለም' : 'No outstanding balance'}
         </p>
       )}
 
-      {/* History */}
-      <div
-        className="p-4 border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-sm" style={{ color: 'var(--color-primary)' }}>
-            {lang === 'am' ? 'መዝገብ' : 'History'}
+      {hasBalance && !supplier.phone_number && (
+        <button
+          type="button"
+          onClick={() => onEditSupplier?.(supplier)}
+          className="press-scale"
+          style={{
+            background: '#fffbeb',
+            border: '1px dashed #fbbf24',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: '0.72rem', color: '#92400e', fontWeight: 700,
+            textAlign: 'center',
+            cursor: 'pointer',
+            width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          {lang === 'am'
+            ? 'ስልክ ይጨምሩ →'
+            : 'Tap to add a phone number →'}
+        </button>
+      )}
+
+      {/* ═══ 4. HISTORY ══════════════════════════════════════════ */}
+      <div style={{
+        background: '#fff',
+        border: '1px solid #ece6d6',
+        borderRadius: 12,
+        padding: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h3 style={{
+            fontSize: '0.65rem', fontWeight: 800,
+            color: '#9ca3af', letterSpacing: '0.12em', textTransform: 'uppercase',
+          }}>
+            {lang === 'am' ? 'መዝገብ' : 'History'} · {historyRows.length} {lang === 'am' ? 'መዝገብ' : 'entries'}
           </h3>
-          <span className="text-xs" style={{ color: '#9ca3af' }}>
-            {(supplier.transaction_count || 0)} {lang === 'am' ? 'መዝገብ' : 'entries'}
-          </span>
+          {historyRows.length > 0 && (
+            <span style={{ fontSize: '0.62rem', color: '#9ca3af', fontStyle: 'italic' }}>
+              {lang === 'am' ? 'ለማስተካከል ⋮ ይንኩ' : 'tap ⋮ to edit'}
+            </span>
+          )}
         </div>
 
-        {historyRows.length ? (
-          <div className="space-y-2">
-            {historyRows.map((item) => {
-              const isPayment = item.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT;
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 p-3 border"
-                  style={{
-                    background: isPayment ? '#f0fdf4' : '#fef2f2',
-                    borderColor: isPayment ? '#bbf7d0' : '#fecaca',
-                    borderRadius: 'var(--radius-sm)',
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm" style={{ color: isPayment ? '#166534' : '#991b1b' }}>
-                      {isPayment
-                        ? (lang === 'am' ? 'ክፍያ ተከፍሏል' : 'Payment to supplier')
-                        : (lang === 'am' ? 'ግዢ በዱቤ' : 'Bought on credit')}
-                    </p>
-                    {item.item_name && (
-                      <p className="text-sm mt-1" style={{ color: '#4b5563' }}>{item.item_name}</p>
-                    )}
-                    <div className="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style={{ color: '#9ca3af' }}>
-                      <span>{formatEthiopian(item.created_at)}</span>
-                      {item.actor_name_snapshot && <span>{lang === 'am' ? 'በ' : 'by'} {item.actor_name_snapshot}</span>}
-                      <span>{lang === 'am' ? 'ቀሪ' : 'after'}: {fmt(item.balance_after || 0)} {lang === 'am' ? 'ብር' : 'birr'}</span>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-black text-sm" style={{ color: isPayment ? '#166534' : '#991b1b' }}>
-                      {isPayment ? '-' : '+'}{fmt(item.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-6">
-            <p className="text-sm" style={{ color: '#9ca3af' }}>
+        {historyRows.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+            <Truck className="w-7 h-7 mx-auto mb-2" style={{ color: '#d1d5db' }} />
+            <p style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: 600 }}>
               {lang === 'am' ? 'መዝገብ የለም' : 'No entries yet'}
             </p>
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: 4 }}>
               {lang === 'am'
                 ? 'ከዚህ አቅራቢ ግዢዎችን ይመዝግቡ።'
                 : 'Record what you buy on credit from this supplier.'}
             </p>
           </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {historyRows.map((tx) => (
+              <HistoryRow
+                key={tx.id}
+                tx={tx}
+                lang={lang}
+                expanded={!!expandedRows[tx.id]}
+                onToggleExpand={() => setExpandedRows(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                onLongPress={longPress}
+                onOpenActions={() => setActionSheet({ tx })}
+              />
+            ))}
+          </div>
         )}
+      </div>
+
+      <p style={{ fontSize: '0.65rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic', padding: '4px 0' }}>
+        🔒 {lang === 'am' ? 'መረጃው በዚህ ስልክ ብቻ ይቀመጣል' : 'Saved on this phone only'}
+      </p>
+
+      {/* Action sheet — Edit / Delete / Cancel */}
+      {actionSheet && (
+        <ActionSheet
+          tx={actionSheet.tx}
+          lang={lang}
+          onClose={() => setActionSheet(null)}
+          onEdit={() => {
+            setActionSheet(null);
+            onEditSupplierTransaction?.(actionSheet.tx);
+          }}
+          onDelete={() => {
+            const ok = window.confirm(
+              lang === 'am'
+                ? 'መዝገብ ይሰረዝ? መልሰው ሊያገኙት አይችሉም።'
+                : 'Delete this entry? This cannot be undone.'
+            );
+            if (ok) {
+              setActionSheet(null);
+              onDeleteSupplierTransaction?.(actionSheet.tx.id);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── subcomponents ────────────────────────────────────────────────────
+
+function QuickAction({ icon, label, onClick, href, disabled, variant }) {
+  // Variants:
+  //   primary-red → solid red (Buy, the supplier-side primary)
+  //   green       → green (Pay, Mark paid)
+  //   amber       → amber outline (Call)
+  const palette = {
+    'primary-red': { bg: '#dc2626', color: '#fff', border: '#dc2626' },
+    green:         { bg: '#16a34a', color: '#fff', border: '#16a34a' },
+    amber:         { bg: '#fff',    color: '#b8842c', border: '#fbbf24' },
+  };
+  const p = palette[variant] || palette['primary-red'];
+  const styles = {
+    background: disabled ? '#f3f4f6' : p.bg,
+    color: disabled ? '#9ca3af' : p.color,
+    border: `1px solid ${disabled ? '#e5e7eb' : p.border}`,
+    borderRadius: 10,
+    padding: '10px 6px',
+    fontSize: '0.72rem', fontWeight: 700,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.55 : 1,
+    transition: 'all 0.12s',
+    textDecoration: 'none',
+  };
+  if (href && !disabled) {
+    return <a href={href} style={styles} className="press-scale">{icon}<span>{label}</span></a>;
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className="press-scale" style={styles}>
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function HistoryRow({ tx, lang, expanded, onToggleExpand, onLongPress, onOpenActions }) {
+  const isPayment = tx.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT;
+  const tagColor = isPayment ? '#166534' : '#991b1b';
+  const tagBg = isPayment ? '#d1fae5' : '#fee2e2';
+  const amountColor = isPayment ? '#166534' : '#991b1b';
+
+  return (
+    <div
+      onPointerDown={(e) => onLongPress.start(e, tx)}
+      onPointerUp={onLongPress.cancel}
+      onPointerLeave={onLongPress.cancel}
+      onPointerCancel={onLongPress.cancel}
+      style={{
+        background: isPayment ? '#f0fdf4' : '#fef2f2',
+        border: `1px solid ${isPayment ? '#bbf7d0' : '#fecaca'}`,
+        borderRadius: 10,
+        padding: '8px 10px',
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+      }}
+    >
+      {/* Photo thumbnail (purchase only) */}
+      {!isPayment && tx.photo && (
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          style={{
+            flexShrink: 0,
+            width: 36, height: 36,
+            borderRadius: 8,
+            overflow: 'hidden',
+            border: '1.5px solid rgba(0,0,0,0.08)',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        >
+          <img src={tx.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </button>
+      )}
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{
+          display: 'inline-block',
+          background: tagBg, color: tagColor,
+          padding: '1px 6px', borderRadius: 4,
+          fontSize: '0.58rem', fontWeight: 800,
+          letterSpacing: '0.06em',
+        }}>
+          {isPayment
+            ? (lang === 'am' ? 'ክፍያ' : 'PAYMENT')
+            : (lang === 'am' ? 'ግዢ' : 'PURCHASE')}
+        </span>
+        {tx.item_name && (
+          <p style={{ fontSize: '0.85rem', color: '#1f2937', fontWeight: 600, marginTop: 2 }}>
+            {tx.item_name}
+          </p>
+        )}
+        <p style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: 2, lineHeight: 1.3 }}>
+          {formatEthiopian(tx.created_at)}
+          {tx.actor_name_snapshot && <span> · {lang === 'am' ? 'በ' : 'by'} {tx.actor_name_snapshot}</span>}
+          {' · '}
+          <span>{lang === 'am' ? 'ቀሪ' : 'after'}: {fmt(tx.balance_after || 0)} {lang === 'am' ? 'ብር' : 'birr'}</span>
+        </p>
+        {/* Expanded photo preview */}
+        {expanded && tx.photo && (
+          <div style={{ marginTop: 6, borderRadius: 8, overflow: 'hidden', maxWidth: 180 }}>
+            <img src={tx.photo} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ flexShrink: 0, textAlign: 'right' }}>
+        <p style={{
+          fontSize: '0.95rem', fontWeight: 800,
+          color: amountColor,
+          fontFamily: 'Manrope, system-ui, sans-serif',
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {isPayment ? '−' : '+'}{fmt(tx.amount || 0)}
+        </p>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenActions?.(); }}
+          aria-label={lang === 'am' ? 'ተጨማሪ' : 'More'}
+          style={{
+            background: 'transparent', border: 'none', padding: 2,
+            color: '#9ca3af', cursor: 'pointer',
+            marginTop: 2,
+          }}
+          className="press-scale"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActionSheet({ tx, lang, onClose, onEdit, onDelete }) {
+  const isPayment = tx.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT;
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 80,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+    >
+      <div style={{
+        background: '#fff',
+        borderTopLeftRadius: 18, borderTopRightRadius: 18,
+        width: '100%', maxWidth: 480,
+        padding: '14px 16px 20px',
+        boxShadow: '0 -8px 24px -8px rgba(0,0,0,0.18)',
+      }}>
+        <div style={{ width: 36, height: 4, background: '#e5e7eb', borderRadius: 999, margin: '0 auto 12px' }} />
+        <p style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>
+          {isPayment
+            ? (lang === 'am' ? 'ክፍያ መዝገብ' : 'Payment entry')
+            : (lang === 'am' ? 'ግዢ መዝገብ' : 'Purchase entry')}
+          {' · '}
+          {fmt(tx.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+        </p>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="press-scale"
+          style={{
+            width: '100%', padding: 12, marginBottom: 6,
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: 10, fontSize: '0.9rem', fontWeight: 700,
+            color: '#991b1b', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <Pencil className="w-4 h-4" />
+          {lang === 'am' ? 'አስተካክል' : 'Edit'}
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="press-scale"
+          style={{
+            width: '100%', padding: 12, marginBottom: 6,
+            background: '#fff', border: '1px solid #fecaca',
+            borderRadius: 10, fontSize: '0.9rem', fontWeight: 700,
+            color: '#dc2626', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <Trash2 className="w-4 h-4" />
+          {lang === 'am' ? 'ሰርዝ' : 'Delete'}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="press-scale"
+          style={{
+            width: '100%', padding: 12,
+            background: 'transparent', border: '1px solid #e5e7eb',
+            borderRadius: 10, fontSize: '0.9rem', fontWeight: 700,
+            color: '#6b7280', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <X className="w-4 h-4" />
+          {lang === 'am' ? 'ይቅር' : 'Cancel'}
+        </button>
       </div>
     </div>
   );

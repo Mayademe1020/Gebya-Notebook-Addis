@@ -490,6 +490,13 @@ function AppInner() {
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierTransactionModal, setSupplierTransactionModal] = useState(null);
+  // Commit D: edit existing supplier (mirrors customerEditTarget pattern).
+  // When set, SupplierForm renders pre-filled with `existing={supplier}`.
+  const [supplierEditTarget, setSupplierEditTarget] = useState(null);
+  // Commit D: edit a single supplier_transaction row (mirror of
+  // customerTransactionEditTarget). When set, SupplierTransactionSheet
+  // renders with `editingTransaction={...}` so the user can adjust amount/note.
+  const [supplierTransactionEditTarget, setSupplierTransactionEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
@@ -1521,6 +1528,8 @@ function AppInner() {
       display_name: String(payload.display_name || '').trim(),
       phone_number: payload.phone_number ? String(payload.phone_number).trim() : null,
       note: payload.note ? String(payload.note).trim() : null,
+      // Commit D: supplier photo (base64 data URL, non-indexed Dexie property).
+      photo: payload.photo || null,
       active: payload.active !== false,
       created_at: payload.created_at || now,
       updated_at: now,
@@ -1529,7 +1538,9 @@ function AppInner() {
     if (!entry.display_name) return null;
 
     if (payload.id) {
-      await db.suppliers.update(payload.id, entry);
+      // Edit branch: preserve created_at if not provided explicitly
+      const { created_at, ...editEntry } = entry;
+      await db.suppliers.update(payload.id, editEntry);
       const saved = await db.suppliers.get(payload.id);
       setSuppliers(prev => prev.map(item => item.id === payload.id ? saved : item));
       return saved;
@@ -1542,6 +1553,49 @@ function AppInner() {
   };
 
   const handleSaveSupplierTransaction = async (payload) => {
+    // Commit D: EDIT branch — payload carries editing_id (mirror of
+    // handleSaveCustomerTransaction). Only allow amount + item_name + note +
+    // photo edits; type and supplier_id stay locked to the original row.
+    if (payload?.editing_id) {
+      const amount = Number(payload.amount) || 0;
+      if (amount <= 0) {
+        fireToast('Enter a valid amount', 2200);
+        return false;
+      }
+      const now = Date.now();
+      let updated = null;
+      await db.transaction('rw', db.supplier_transactions, db.suppliers, async () => {
+        const existing = await db.supplier_transactions.get(payload.editing_id);
+        if (!existing) return;
+        const supplierTx = await db.supplier_transactions
+          .where('supplier_id').equals(existing.supplier_id).toArray();
+        // Refuse a payment edit that would over-pay
+        if (existing.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT) {
+          const others = supplierTx.filter(t => t.id !== existing.id);
+          const otherBalance = Math.max(getSupplierBalance(others), 0);
+          if (amount > otherBalance) {
+            fireToast('Payment is more than remaining dubie', 2600);
+            return;
+          }
+        }
+        const nextEntry = {
+          ...existing,
+          amount,
+          item_name: payload.item_name || existing.item_name || null,
+          note: payload.note || existing.note || null,
+          photo: payload.photo || existing.photo || null,
+          updated_at: now,
+        };
+        await db.supplier_transactions.update(payload.editing_id, nextEntry);
+        updated = await db.supplier_transactions.get(payload.editing_id);
+        await db.suppliers.update(existing.supplier_id, { updated_at: now });
+      });
+      if (!updated) return false;
+      setSupplierTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+      fireToast(lang === 'am' ? 'ተስተካክሏል' : 'Entry updated', 1800);
+      return true;
+    }
+
     if (!isValidSupplierTransactionType(payload.type)) return false;
     const supplier = supplierSummaries.find(item => item.id === payload.supplier_id);
     if (!supplier) {
@@ -1584,6 +1638,8 @@ function AppInner() {
         quantity: payload.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD ? (Number(payload.quantity) || 1) : null,
         amount,
         note: payload.note || null,
+        // Commit D: product photo (base64 data URL, non-indexed Dexie property).
+        photo: payload.photo || null,
         created_at: now,
         updated_at: now,
         ...buildActorSnapshot(),
@@ -2510,6 +2566,12 @@ function AppInner() {
                       supplierId: s.id,
                       initialAmount: Number(s.balance || 0),
                     })}
+                    onEditSupplier={(s) => setSupplierEditTarget(s)}
+                    onEditSupplierTransaction={(tx) => setSupplierTransactionEditTarget({
+                      transaction: tx,
+                      supplierId: selectedSupplier.id,
+                    })}
+                    onDeleteSupplierTransaction={handleDeleteSupplierTransaction}
                   />
                 </Suspense>
               ) : (
@@ -2571,7 +2633,7 @@ function AppInner() {
       </main>
 
       {/* Action bar (Today only) — fixed above bottom nav for thumb reach */}
-      {activeTab === 'today' && !showForm && !showCustomerForm && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierTransactionModal && (
+      {activeTab === 'today' && !showForm && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
         <div
           className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
           style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
@@ -2747,6 +2809,21 @@ function AppInner() {
         </Suspense>
       )}
 
+      {/* Commit D: Edit supplier flow — reuses SupplierForm in edit mode. */}
+      {supplierEditTarget && (
+        <Suspense fallback={<ModalFallback label={t.loading} />}>
+          <SupplierForm
+            existing={supplierEditTarget}
+            onSave={async (payload) => {
+              const saved = await handleSaveSupplier({ ...payload, id: supplierEditTarget.id });
+              if (saved) setSupplierEditTarget(null);
+              return saved;
+            }}
+            onDone={() => setSupplierEditTarget(null)}
+          />
+        </Suspense>
+      )}
+
       {supplierTransactionModal && activeSupplierTransactionModal && (
         <Suspense fallback={<ModalFallback label={t.loading} />}>
           <SupplierTransactionSheet
@@ -2756,6 +2833,20 @@ function AppInner() {
             onSave={handleSaveSupplierTransaction}
             actorLabel={currentActorLabel}
             onDone={() => setSupplierTransactionModal(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Commit D: Edit supplier_transaction row — fired from SupplierDetail action sheet. */}
+      {supplierTransactionEditTarget?.transaction && (
+        <Suspense fallback={<ModalFallback label={t.loading} />}>
+          <SupplierTransactionSheet
+            supplier={supplierSummaries.find(s => s.id === supplierTransactionEditTarget.supplierId) || null}
+            mode={supplierTransactionEditTarget.transaction.type}
+            editingTransaction={supplierTransactionEditTarget.transaction}
+            onSave={handleSaveSupplierTransaction}
+            actorLabel={currentActorLabel}
+            onDone={() => setSupplierTransactionEditTarget(null)}
           />
         </Suspense>
       )}

@@ -1,11 +1,16 @@
 // SupplierTransactionSheet.jsx — record a purchase-on-credit or a payment-to-supplier
-// Mirror of CustomerTransactionSheet, with same v4 patterns (compact header,
-// hero amount, additive chips). No Telegram (suppliers don't get reminders here).
+//
+// Commit D: adds product photo (purchase only) + edit mode (editingTransaction prop).
+// Mirror of CustomerTransactionSheet patterns: compact header, hero amount,
+// additive chips, photo capture for the item bought. No Telegram (suppliers
+// don't get reminders) and no multi-item breakdown (supplier purchases are
+// typically batched: "5 bags coffee = 5000 birr").
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Save, X, Plus } from 'lucide-react';
+import { ArrowLeft, Save, X, Plus, Camera, Trash2 } from 'lucide-react';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { SUPPLIER_TRANSACTION_TYPES, isValidSupplierTransactionType } from '../utils/supplierLedger';
 import { useLang } from '../context/LangContext';
+import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -20,58 +25,100 @@ function SupplierTransactionSheet({
   supplier,
   mode = SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
   initialAmount,
+  editingTransaction = null,  // Commit D: when set, sheet enters edit mode
   onSave,
   onDone,
   actorLabel,
 }) {
   const { t, lang } = useLang();
-  const [amount, setAmount] = useState(
-    initialAmount != null && initialAmount > 0 ? String(initialAmount) : ''
-  );
-  const [itemName, setItemName] = useState('');
+  const editing = !!editingTransaction?.id;
+  const [amount, setAmount] = useState(() => {
+    if (editing) return String(editingTransaction.amount || '');
+    return initialAmount != null && initialAmount > 0 ? String(initialAmount) : '';
+  });
+  const [itemName, setItemName] = useState(editing ? (editingTransaction.item_name || '') : '');
   const [saving, setSaving] = useState(false);
   const [showCustomAmount, setShowCustomAmount] = useState(false);
   const [customAmountValue, setCustomAmountValue] = useState('');
+  // Commit D: product photo for purchases (base64 data URL, ~80KB JPEG)
+  const [photo, setPhoto] = useState(editing ? (editingTransaction.photo || null) : null);
+  const [photoError, setPhotoError] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   const transactionType = useMemo(() => {
+    if (editing) return editingTransaction.type;
     if (mode === SUPPLIER_TRANSACTION_TYPES.PAYMENT) return SUPPLIER_TRANSACTION_TYPES.PAYMENT;
     return SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD;
-  }, [mode]);
+  }, [mode, editing, editingTransaction]);
 
   const isPayment = transactionType === SUPPLIER_TRANSACTION_TYPES.PAYMENT;
   const parsedAmount = parseFloat(parseInput(amount)) || 0;
   const currentBalance = Math.max(Number(supplier?.balance) || 0, 0);
-  const hasOutstanding = !isPayment || currentBalance > 0;
+  // In edit mode, the row's existing amount is already part of currentBalance —
+  // for over-payment check, compare against (balance + originalAmount) to allow
+  // adjusting an existing payment without false "exceeds owed" errors.
+  const originalAmount = editing ? Number(editingTransaction.amount || 0) : 0;
+  const balanceForCompare = editing && isPayment ? currentBalance + originalAmount : currentBalance;
+  const hasOutstanding = !isPayment || balanceForCompare > 0;
   const updatedBalance = isPayment
-    ? Math.max(currentBalance - parsedAmount, 0)
-    : currentBalance + parsedAmount;
-  const overPayment = isPayment && parsedAmount > currentBalance;
+    ? Math.max(balanceForCompare - parsedAmount, 0)
+    : currentBalance + (editing ? (parsedAmount - originalAmount) : parsedAmount);
+  const overPayment = isPayment && parsedAmount > balanceForCompare;
   const canSave = parsedAmount > 0 && !overPayment && hasOutstanding && !saving;
 
-  const accentColor = isPayment ? '#16a34a' : '#C4883A';
-  const headerLabel = isPayment
-    ? (lang === 'am' ? '− ክፍያ' : '− Payment')
-    : (lang === 'am' ? '+ ግዢ' : '+ Buy');
-  const saveButtonText = isPayment
-    ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save payment')
-    : (lang === 'am' ? 'ግዢ አስቀምጥ' : 'Save purchase');
+  const accentColor = isPayment ? '#16a34a' : '#dc2626'; // Commit D: red for purchase (supplier side)
+  const headerLabel = editing
+    ? (isPayment
+        ? (lang === 'am' ? '✏️ ክፍያ አስተካክል' : '✏️ Edit payment')
+        : (lang === 'am' ? '✏️ ግዢ አስተካክል' : '✏️ Edit purchase'))
+    : (isPayment
+        ? (lang === 'am' ? '− ክፍያ' : '− Payment')
+        : (lang === 'am' ? '+ ግዢ' : '+ Buy'));
+  const saveButtonText = editing
+    ? (lang === 'am' ? 'አስተካክል' : 'Update')
+    : isPayment
+      ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save payment')
+      : (lang === 'am' ? 'ግዢ አስቀምጥ' : 'Save purchase');
+
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoLoading(true);
+    try {
+      const dataUrl = await compressPhoto(file);
+      setPhoto(dataUrl);
+    } catch (err) {
+      setPhotoError(err.message || 'Photo capture failed');
+    } finally {
+      setPhotoLoading(false);
+      e.target.value = '';
+    }
+  };
 
   const handleSave = async () => {
     if (!canSave) return;
     if (!isValidSupplierTransactionType(transactionType)) return;
     setSaving(true);
     try {
-      const didSave = await onSave?.({
+      const payload = {
         supplier_id: supplier?.id,
         type: transactionType,
         amount: parsedAmount,
         item_name: itemName.trim() || null,
-      });
+        // Commit D: photo (purchase only — payments don't get product photos)
+        photo: !isPayment ? (photo || null) : null,
+      };
+      if (editing) payload.editing_id = editingTransaction.id;
+      const didSave = await onSave?.(payload);
       if (didSave) onDone?.();
     } finally {
       setSaving(false);
     }
   };
+
+  const photoBytes = photo ? photoSizeBytes(photo) : 0;
+  const photoKb = photoBytes ? Math.round(photoBytes / 1024) : 0;
 
   const applyCustomAmount = () => {
     const val = parseFloat(parseInput(customAmountValue));
@@ -275,20 +322,69 @@ function SupplierTransactionSheet({
           )}
         </div>
 
-        {/* Item / note (only for purchases) */}
+        {/* Item / note + product photo (only for purchases — Commit D) */}
         {!isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
               {lang === 'am' ? 'ምን ገዙ (አማራጭ)' : 'What did you buy (optional)'}
             </label>
-            <input
-              type="text"
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
-              placeholder={lang === 'am' ? 'ለምሳሌ 5 ቦርሳ ቡና' : 'e.g. 5 bags coffee'}
-              className="w-full p-3 border-2 focus:outline-none text-base"
-              style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-            />
+            <div className="flex gap-2 items-stretch">
+              <input
+                type="text"
+                value={itemName}
+                onChange={(e) => setItemName(e.target.value)}
+                placeholder={lang === 'am' ? 'ለምሳሌ 5 ቦርሳ ቡና' : 'e.g. 5 bags coffee'}
+                className="flex-1 p-3 border-2 focus:outline-none text-base"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
+              />
+              {/* 56px inline photo button — mirror of CustomerTransactionSheet */}
+              <label
+                className="flex items-center justify-center press-scale cursor-pointer"
+                style={{
+                  width: 56, height: 56,
+                  borderRadius: 'var(--radius-md)',
+                  border: photo ? '2px solid #dc2626' : '2px dashed #c9bfa8',
+                  background: photo ? '#fff' : '#fef2f2',
+                  flexShrink: 0,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+                aria-label={lang === 'am' ? 'ፎቶ ይውሰዱ' : 'Take photo'}
+              >
+                {photo ? (
+                  <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Camera className="w-5 h-5" style={{ color: '#dc2626' }} />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                  disabled={photoLoading}
+                />
+              </label>
+            </div>
+            {photo && (
+              <div className="flex items-center justify-between gap-2 mt-2 px-1">
+                <p style={{ fontSize: '0.7rem', color: '#047857', fontWeight: 600 }}>
+                  ✓ {lang === 'am' ? `ፎቶ · ~${photoKb} KB` : `Photo · ~${photoKb} KB`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPhoto(null)}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold press-scale"
+                  style={{ color: '#dc2626', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                  {lang === 'am' ? 'አስወግድ' : 'Remove'}
+                </button>
+              </div>
+            )}
+            {photoError && (
+              <p style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: 4 }}>{photoError}</p>
+            )}
           </div>
         )}
       </div>
