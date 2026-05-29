@@ -480,6 +480,8 @@ function AppInner() {
   const [reminderTarget, setReminderTarget] = useState(null);
   // Bulk reminder · queue of customer ids to remind in sequence
   const [bulkReminderQueue, setBulkReminderQueue] = useState([]);
+  // Edit a single customer_transaction · opens CustomerTransactionSheet pre-filled
+  const [customerTransactionEditTarget, setCustomerTransactionEditTarget] = useState(null);
   // Supplier credit ("I owe") — Khatabook-style second ledger
   const [creditView, setCreditView] = useState('customers'); // 'customers' | 'suppliers'
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
@@ -757,6 +759,10 @@ function AppInner() {
             catalog_entry_id: transaction.catalog_entry_id || null,
             item_kind: transaction.item_kind || null,
             due_date: null,
+            // Settlement breadcrumb · so CustomerDetail can show a "from sale"
+            // or "pay-later" badge on this credit row. Non-indexed, no schema
+            // migration needed.
+            settlement_mode: transaction.settlement_mode || null,
             reference_code: null,
             telegram_delivery_state: null,
             telegram_delivery_attempted_at: null,
@@ -1706,7 +1712,76 @@ function AppInner() {
     }
   };
 
+  // EDIT-mode branch · if payload carries editing_id, update that row instead
+  // of inserting a new one. Used by CustomerDetail long-press → Edit.
+  const updateCustomerTransactionRecord = async (editingId, draft) => {
+    try {
+      const existing = await db.customer_transactions.get(editingId);
+      if (!existing) {
+        fireToast(t.customerNotFound || 'Entry not found', 2200);
+        return false;
+      }
+      const updates = {
+        type: draft.type,
+        amount: draft.amount,
+        item_note: draft.item_note,
+        catalog_entry_id: draft.catalog_entry_id || null,
+        item_kind: draft.item_kind || null,
+        due_date: draft.due_date || null,
+        updated_at: Date.now(),
+      };
+      await db.customer_transactions.update(editingId, updates);
+      const updated = await db.customer_transactions.get(editingId);
+      setLedgerTransactions(prev => prev.map(t2 => (t2.id === editingId ? updated : t2)));
+      fireToast(lang === 'am' ? 'ተስተካክሏል' : 'Entry updated', 1800);
+      return true;
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Edit customer_transaction failed:', err);
+      fireToast(lang === 'am' ? 'ማስተካከል አልተሳካም' : 'Could not update entry', 2400);
+      return false;
+    }
+  };
+
+  // DELETE handler · soft-undo via toast for 4 seconds, then permanent.
+  const handleDeleteCustomerTransaction = async (tx) => {
+    if (!tx?.id) return;
+    // Optimistic remove from state
+    setLedgerTransactions(prev => prev.filter(t2 => t2.id !== tx.id));
+    try {
+      await db.customer_transactions.delete(tx.id);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Delete customer_transaction failed:', err);
+      // Roll back optimistic remove
+      setLedgerTransactions(prev => prev.find(t2 => t2.id === tx.id) ? prev : [tx, ...prev]);
+      fireToast(lang === 'am' ? 'ሰርዝ አልተሳካም' : 'Could not delete entry', 2400);
+      return;
+    }
+    // Undo toast — restores the row if user taps Undo within 4 seconds
+    const msg = lang === 'am' ? 'ተሰርዟል' : 'Entry deleted';
+    fireToast(msg, 4000, async () => {
+      try {
+        const restored = { ...tx, updated_at: Date.now() };
+        // Use put (not add) so the original id is preserved
+        await db.customer_transactions.put(restored);
+        setLedgerTransactions(prev => insertCustomerTransaction(prev, restored));
+        fireToast(t.undone || 'Undone', 1800);
+      } catch (err) {
+        if (import.meta.env.DEV) console.error('Undo delete customer_transaction failed:', err);
+      }
+    });
+  };
+
   const handleSaveCustomerTransaction = async (payload) => {
+    // EDIT branch — payload carries editing_id
+    if (payload?.editing_id) {
+      const draftForEdit = normalizeCustomerTransactionDraft(payload);
+      if (!draftForEdit) {
+        fireToast(t.validAmountRequired, 2200);
+        return false;
+      }
+      return updateCustomerTransactionRecord(payload.editing_id, draftForEdit);
+    }
+
     const draft = normalizeCustomerTransactionDraft(payload);
     if (!draft) {
       fireToast(t.validAmountRequired, 2200);
@@ -2283,6 +2358,11 @@ function AppInner() {
                     onOpenTelegramConnect={() => setTelegramConnectCustomerId(selectedCustomer.id)}
                     onResendTelegramUpdate={() => handleResendCustomerTelegramUpdate(selectedCustomer)}
                     onRemind={(c) => setReminderTarget(c)}
+                    onEditCustomerTransaction={(tx) => setCustomerTransactionEditTarget({
+                      transaction: tx,
+                      customerId: selectedCustomer.id,
+                    })}
+                    onDeleteCustomerTransaction={handleDeleteCustomerTransaction}
                   />
                 </Suspense>
               ) : (
@@ -2387,7 +2467,7 @@ function AppInner() {
       </main>
 
       {/* Action bar (Today only) — fixed above bottom nav for thumb reach */}
-      {activeTab === 'today' && !showForm && !showCustomerForm && !customerTransactionModal && !showSupplierForm && !supplierTransactionModal && (
+      {activeTab === 'today' && !showForm && !showCustomerForm && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierTransactionModal && (
         <div
           className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
           style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
@@ -2451,6 +2531,7 @@ function AppInner() {
                   setShowCustomerForm(false);
                   setShowSupplierForm(false);
                   setCustomerTransactionModal(null);
+                  setCustomerTransactionEditTarget(null);
                   setSupplierTransactionModal(null);
                   setReminderTarget(null);
                   setActiveTab(tab.id);
@@ -2515,6 +2596,21 @@ function AppInner() {
             actorLabel={currentActorLabel}
             catalogEntries={activeCatalogEntries}
             onDone={() => setCustomerTransactionModal(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Edit a single customer_transaction row — fired from CustomerDetail long-press */}
+      {customerTransactionEditTarget?.transaction && (
+        <Suspense fallback={<ModalFallback label={t.loading} />}>
+          <CustomerTransactionSheet
+            customer={enrichedCustomerSummaries.find(c => c.id === customerTransactionEditTarget.customerId) || null}
+            mode={customerTransactionEditTarget.transaction.type}
+            editingTransaction={customerTransactionEditTarget.transaction}
+            onSave={handleSaveCustomerTransaction}
+            actorLabel={currentActorLabel}
+            catalogEntries={activeCatalogEntries}
+            onDone={() => setCustomerTransactionEditTarget(null)}
           />
         </Suspense>
       )}

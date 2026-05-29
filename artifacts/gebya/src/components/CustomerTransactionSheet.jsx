@@ -27,49 +27,68 @@ function CustomerTransactionSheet({
   customer,
   mode = CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
   initialAmount,
+  editingTransaction,   // NEW · pre-fills form for edit mode; save → update record
   onSave,
   onDone,
   actorLabel,
   catalogEntries = [],
 }) {
   const { t, lang } = useLang();
-  // initialAmount lets callers pre-fill the field — e.g. "Mark fully paid"
-  // passes the customer's current balance so the shopkeeper just confirms.
-  const [amount, setAmount] = useState(
-    initialAmount != null && initialAmount > 0 ? String(initialAmount) : ''
-  );
-  const [itemNote, setItemNote] = useState('');
+  const isEditing = !!editingTransaction;
+
+  // Initial values: editing mode loads from the existing record;
+  // otherwise mark-fully-paid passes initialAmount.
+  const initInitialAmount = isEditing
+    ? String(editingTransaction.amount || '')
+    : (initialAmount != null && initialAmount > 0 ? String(initialAmount) : '');
+  const initInitialNote = isEditing ? (editingTransaction.item_note || '') : '';
+  const initInitialDue = isEditing && editingTransaction.due_date
+    ? new Date(editingTransaction.due_date).toISOString().slice(0, 10)
+    : '';
+
+  const [amount, setAmount] = useState(initInitialAmount);
+  const [itemNote, setItemNote] = useState(initInitialNote);
   const [catalogEntryId, setCatalogEntryId] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(initInitialDue);
   const [saving, setSaving] = useState(false);
   const [showCustomAmount, setShowCustomAmount] = useState(false);
   const [customAmountValue, setCustomAmountValue] = useState('');
 
+  // In edit mode, derive type from the record; otherwise from the mode prop.
   const transactionType = useMemo(() => {
+    if (isEditing) return editingTransaction.type;
     if (mode === CUSTOMER_TRANSACTION_TYPES.PAYMENT) return CUSTOMER_TRANSACTION_TYPES.PAYMENT;
     return CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD;
-  }, [mode]);
+  }, [mode, isEditing, editingTransaction]);
 
   const isPayment = transactionType === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
   const selectedCatalogEntry = catalogEntries.find(entry => String(entry.id) === String(catalogEntryId)) || null;
   const parsedAmount = parseFloat(parseInput(amount)) || 0;
   const currentBalance = Math.max(Number(customer?.balance) || 0, 0);
-  const hasCollectableBalance = !isPayment || currentBalance > 0;
+  // In edit mode, the existing row is already in `balance`; relax validation so
+  // the shopkeeper can correct typos without spurious overpayment errors.
+  const hasCollectableBalance = isEditing || !isPayment || currentBalance > 0;
   const updatedBalance = isPayment
     ? Math.max(currentBalance - parsedAmount, 0)
     : currentBalance + parsedAmount;
   const dueDateOptions = useMemo(() => getDueDateOptions(), []);
-  const overPayment = isPayment && parsedAmount > currentBalance;
+  const overPayment = isPayment && !isEditing && parsedAmount > currentBalance;
   const canSave = parsedAmount > 0 && !overPayment && hasCollectableBalance && !saving;
 
   // Color accent: credit-add (amber for liability) vs payment (green for settled)
   const accentColor = isPayment ? '#16a34a' : '#C4883A';
-  const headerLabel = isPayment
-    ? (lang === 'am' ? '− ክፍያ' : '− Payment')
-    : (lang === 'am' ? '+ ዱቤ' : '+ Credit');
-  const saveButtonText = isPayment
-    ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save Payment')
-    : (lang === 'am' ? 'ዱቤ አስቀምጥ' : 'Save Credit');
+  const headerLabel = isEditing
+    ? (lang === 'am'
+        ? (isPayment ? '✏️ ክፍያ ማስተካከያ' : '✏️ ዱቤ ማስተካከያ')
+        : (isPayment ? '✏️ Edit payment' : '✏️ Edit credit'))
+    : isPayment
+      ? (lang === 'am' ? '− ክፍያ' : '− Payment')
+      : (lang === 'am' ? '+ ዱቤ' : '+ Credit');
+  const saveButtonText = isEditing
+    ? (lang === 'am' ? 'አስተካክል' : 'Update')
+    : isPayment
+      ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save Payment')
+      : (lang === 'am' ? 'ዱቤ አስቀምጥ' : 'Save Credit');
 
   const topCatalogItems = catalogEntries
     .filter(e => e && e.active !== false && e.name)
@@ -89,6 +108,8 @@ function CustomerTransactionSheet({
         item_kind: selectedCatalogEntry?.kind || null,
         item_note: itemNote.trim() || selectedCatalogEntry?.name || null,
         due_date: !isPayment && dueDate ? new Date(dueDate).getTime() : null,
+        // Edit mode: tell App.jsx to UPDATE this row instead of inserting.
+        editing_id: editingTransaction?.id || null,
       });
       if (didSave) onDone?.();
     } finally {
