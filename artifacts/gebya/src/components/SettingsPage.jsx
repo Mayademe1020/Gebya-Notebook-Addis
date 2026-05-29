@@ -622,6 +622,10 @@ function SettingsPage({
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [cleared, setCleared] = useState(false);
+  // Commit E: backup + restore state
+  const [lastBackupAt, setLastBackupAt] = useState(null);
+  const [restoreTarget, setRestoreTarget] = useState(null);
+  const [restoreConfirmStep2, setRestoreConfirmStep2] = useState(false);
   const [catalogForm, setCatalogForm] = useState({
     id: null,
     name: '',
@@ -698,6 +702,18 @@ function SettingsPage({
     };
 
     loadVoiceQuality();
+  }, []);
+
+  // Commit E: load the last-backup timestamp on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await db.settings.get('gebya_last_backup_at');
+        if (!cancelled && row?.value) setLastBackupAt(Number(row.value));
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const [recurring, setRecurring] = useState(recurringExpenses || []);
@@ -896,6 +912,183 @@ function SettingsPage({
     setCleared(true);
     setShowClearConfirm(false);
     setTimeout(() => window.location.reload(), 800);
+  };
+
+  // ─── Commit E: JSON backup + restore ────────────────────────────────────
+  //
+  // Full-fidelity Dexie dump (photos included as base64). Single JSON file
+  // restorable on the same device or a new phone after reinstall.
+  //
+  // Shape:
+  //   {
+  //     gebya_backup_version: 1,
+  //     exported_at: ISO timestamp,
+  //     tables: {
+  //       transactions, customers, customer_transactions, catalog_entries,
+  //       suppliers, supplier_transactions, staff_members, settings, analytics
+  //     }
+  //   }
+
+  const buildBackupJSON = async () => {
+    const [
+      transactionsRows, customerRows, customerTxRows, catalogRows,
+      supplierRows, supplierTxRows, staffRows, settingsRows, analyticsRows,
+    ] = await Promise.all([
+      db.transactions.toArray(),
+      db.customers.toArray(),
+      db.customer_transactions.toArray(),
+      db.catalog_entries?.toArray?.() || [],
+      db.suppliers?.toArray?.() || [],
+      db.supplier_transactions?.toArray?.() || [],
+      db.staff_members?.toArray?.() || [],
+      db.settings?.toArray?.() || [],
+      db.analytics?.toArray?.() || [],
+    ]);
+    return {
+      gebya_backup_version: 1,
+      exported_at: new Date().toISOString(),
+      app_version: '1.0',
+      counts: {
+        transactions: transactionsRows.length,
+        customers: customerRows.length,
+        customer_transactions: customerTxRows.length,
+        suppliers: supplierRows.length,
+        supplier_transactions: supplierTxRows.length,
+        catalog_entries: catalogRows.length,
+        staff_members: staffRows.length,
+      },
+      tables: {
+        transactions: transactionsRows,
+        customers: customerRows,
+        customer_transactions: customerTxRows,
+        catalog_entries: catalogRows,
+        suppliers: supplierRows,
+        supplier_transactions: supplierTxRows,
+        staff_members: staffRows,
+        settings: settingsRows,
+        analytics: analyticsRows,
+      },
+    };
+  };
+
+  const exportToJSON = async () => {
+    try {
+      const data = await buildBackupJSON();
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gebya-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      // Record last backup timestamp
+      try { await db.settings.put({ key: 'gebya_last_backup_at', value: Date.now() }); } catch { /* ignore */ }
+      setLastBackupAt(Date.now());
+      fireToast(lang === 'am' ? '✓ ምትኬ ወረደ' : '✓ Backup downloaded', 1800);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('JSON backup failed:', err);
+      fireToast(lang === 'am' ? 'ምትኬ አልተሳካም' : 'Backup failed', 2400);
+    }
+  };
+
+  const shareBackup = async () => {
+    try {
+      const data = await buildBackupJSON();
+      const json = JSON.stringify(data, null, 2);
+      const filename = `gebya-backup-${new Date().toISOString().split('T')[0]}.json`;
+      // navigator.share with files — supported on most mobile browsers
+      if (navigator.canShare && typeof File === 'function') {
+        try {
+          const file = new File([json], filename, { type: 'application/json' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Gebya backup',
+              text: lang === 'am'
+                ? `Gebya ምትኬ · ${new Date().toLocaleDateString()}`
+                : `Gebya backup · ${new Date().toLocaleDateString()}`,
+            });
+            try { await db.settings.put({ key: 'gebya_last_backup_at', value: Date.now() }); } catch { /* ignore */ }
+            setLastBackupAt(Date.now());
+            return;
+          }
+        } catch (shareErr) {
+          if (import.meta.env.DEV) console.warn('File share failed, falling back:', shareErr);
+        }
+      }
+      // Fallback: download
+      await exportToJSON();
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Share backup failed:', err);
+      fireToast(lang === 'am' ? 'ማጋራት አልተሳካም' : 'Share failed', 2400);
+    }
+  };
+
+  const handleImportFileSelected = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data?.gebya_backup_version !== 1) {
+          throw new Error('Not a valid Gebya backup file');
+        }
+        setRestoreTarget(data);
+      } catch (err) {
+        fireToast(lang === 'am' ? 'የተበላሸ ምትኬ ፋይል' : 'Invalid backup file', 2400);
+        if (import.meta.env.DEV) console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // allow re-selecting the same file later
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restoreTarget?.tables) return;
+    const { tables } = restoreTarget;
+    try {
+      // Wipe everything first, then bulk-add. Wrap in a single Dexie transaction.
+      await db.transaction('rw',
+        db.transactions, db.customers, db.customer_transactions, db.catalog_entries,
+        db.suppliers, db.supplier_transactions, db.staff_members, db.settings, db.analytics,
+        async () => {
+          await Promise.all([
+            db.transactions.clear(),
+            db.customers.clear(),
+            db.customer_transactions.clear(),
+            db.catalog_entries.clear(),
+            db.suppliers.clear(),
+            db.supplier_transactions.clear(),
+            db.staff_members?.clear?.() || Promise.resolve(),
+            db.settings.clear(),
+            db.analytics?.clear?.() || Promise.resolve(),
+          ]);
+          // Restore in dependency order (parents first)
+          if (Array.isArray(tables.customers))             await db.customers.bulkAdd(tables.customers);
+          if (Array.isArray(tables.suppliers))             await db.suppliers.bulkAdd(tables.suppliers);
+          if (Array.isArray(tables.catalog_entries))       await db.catalog_entries.bulkAdd(tables.catalog_entries);
+          if (Array.isArray(tables.staff_members))         await db.staff_members.bulkAdd(tables.staff_members);
+          if (Array.isArray(tables.transactions))          await db.transactions.bulkAdd(tables.transactions);
+          if (Array.isArray(tables.customer_transactions)) await db.customer_transactions.bulkAdd(tables.customer_transactions);
+          if (Array.isArray(tables.supplier_transactions)) await db.supplier_transactions.bulkAdd(tables.supplier_transactions);
+          if (Array.isArray(tables.settings))              await db.settings.bulkAdd(tables.settings);
+          if (Array.isArray(tables.analytics))             await db.analytics.bulkAdd(tables.analytics);
+        }
+      );
+      setRestoreTarget(null);
+      setRestoreConfirmStep2(false);
+      fireToast(lang === 'am' ? '✓ መልሶ ተመለሰ — በመጫን ላይ…' : '✓ Restored — reloading…', 1800);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Restore failed:', err);
+      fireToast(lang === 'am' ? 'መልሶ ማስቀመጥ አልተሳካም' : 'Restore failed', 2600);
+      setRestoreTarget(null);
+      setRestoreConfirmStep2(false);
+    }
   };
 
   // Commit C.4: All bank/wallet toggling + custom add now flows through the
@@ -1718,39 +1911,166 @@ function SettingsPage({
             </div>
             <div className="flex-1">
               <div className="font-bold text-gray-800">{t.storedOnDevice}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{totalEntries} entries - {totalCustomersWithLedger} customers in Dubie ledger</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {totalEntries} {lang === 'am' ? 'መዝገብ' : 'entries'} · {totalCustomersWithLedger} {lang === 'am' ? 'ደንበኞች' : 'customers in dubie'}
+              </div>
             </div>
           </div>
 
-          <div className="px-5 py-3 text-xs text-gray-500" style={{ background: '#fcfbf8' }}>
-            Owner controls on this phone: export, profile changes, payment setup, and reset actions.
-          </div>
-
-          <button
-            onClick={exportToCSV}
-            disabled={totalEntries === 0}
-            className="w-full flex items-center gap-4 px-5 py-4 active:bg-green-50 transition-colors min-h-[64px] disabled:opacity-40"
+          {/* Last backup indicator · Commit E */}
+          <div
+            className="px-5 py-3"
+            style={{
+              background: lastBackupAt
+                ? (Date.now() - lastBackupAt < 7 * 86400000 ? '#f0fdf4' : '#fef3c7')
+                : '#fef2f2',
+              borderTop: '1px solid rgba(0,0,0,0.04)',
+              borderBottom: '1px solid rgba(0,0,0,0.04)',
+            }}
           >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#eff6ff' }}>
-              <Download className="w-5 h-5 text-blue-700" />
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: '0.95rem' }}>
+                {lastBackupAt
+                  ? (Date.now() - lastBackupAt < 7 * 86400000 ? '✓' : '⏰')
+                  : '⚠️'}
+              </span>
+              <div className="flex-1">
+                <p className="text-xs font-bold" style={{
+                  color: lastBackupAt
+                    ? (Date.now() - lastBackupAt < 7 * 86400000 ? '#065f46' : '#92400e')
+                    : '#991b1b',
+                }}>
+                  {(() => {
+                    if (!lastBackupAt) {
+                      return lang === 'am' ? 'ምንም ምትኬ የለም' : 'No backup yet';
+                    }
+                    const days = Math.floor((Date.now() - lastBackupAt) / 86400000);
+                    if (days === 0) return lang === 'am' ? 'ምትኬ ዛሬ ተወስዷል' : 'Backed up today';
+                    if (days === 1) return lang === 'am' ? 'ምትኬ ትናንት ተወስዷል' : 'Backed up yesterday';
+                    return lang === 'am' ? `ምትኬ ከ ${days} ቀን በፊት` : `Backed up ${days} days ago`;
+                  })()}
+                </p>
+                <p className="text-[11px]" style={{ color: '#6b7280' }}>
+                  {lang === 'am'
+                    ? 'በስልክዎ ላይ ብቻ ይቀመጣል — እርስዎ ይያዙት'
+                    : 'Stored on your phone only — you own it'}
+                </p>
+              </div>
             </div>
-            <div className="flex-1 text-left">
-              <div className="font-bold text-gray-800">Owner backup export</div>
-              <div className="text-xs text-gray-500 mt-0.5">Download this phone's notebook as a backup file for the shop owner.</div>
+          </div>
+
+          {/* Download JSON backup · Commit E */}
+          <button
+            onClick={exportToJSON}
+            disabled={totalEntries === 0 && totalCustomersWithLedger === 0}
+            className="w-full flex items-center gap-4 px-5 py-4 active:bg-green-50 transition-colors min-h-[64px] disabled:opacity-40 text-left"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dcfce7' }}>
+              <Download className="w-5 h-5" style={{ color: '#15803d' }} />
+            </div>
+            <div className="flex-1">
+              <div className="font-bold text-gray-800">
+                {lang === 'am' ? 'JSON ምትኬ አውጣ' : 'Download backup (JSON)'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {lang === 'am'
+                  ? 'ሁሉም መረጃ ከፎቶ ጋር · ለመመለስ ይጠቅማል'
+                  : 'Full data + photos · restorable on new phone'}
+              </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
           </button>
 
+          {/* Share via OS share sheet (Telegram saved messages, email, etc.) · Commit E */}
+          {typeof navigator !== 'undefined' && (navigator.canShare || navigator.share) && (
+            <button
+              onClick={shareBackup}
+              disabled={totalEntries === 0 && totalCustomersWithLedger === 0}
+              className="w-full flex items-center gap-4 px-5 py-4 active:bg-blue-50 transition-colors min-h-[64px] disabled:opacity-40 text-left"
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dbeafe' }}>
+                <Share2 className="w-5 h-5" style={{ color: '#1d4ed8' }} />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-gray-800">
+                  {lang === 'am' ? 'ምትኬ አጋራ' : 'Share backup'}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {lang === 'am'
+                    ? 'ቴሌግራም Saved Messages፣ ኢሜል፣ ወዘተ'
+                    : 'Send to Telegram Saved Messages, email, etc.'}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+            </button>
+          )}
+
+          {/* Restore from JSON file · Commit E */}
+          <label
+            className="w-full flex items-center gap-4 px-5 py-4 active:bg-amber-50 transition-colors min-h-[64px] cursor-pointer"
+            style={{ background: '#fff' }}
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fef3c7' }}>
+              <RefreshCw className="w-5 h-5" style={{ color: '#92400e' }} />
+            </div>
+            <div className="flex-1">
+              <div className="font-bold text-gray-800">
+                {lang === 'am' ? 'ከምትኬ ፋይል መልሰው ይጫኑ' : 'Restore from backup file'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {lang === 'am'
+                  ? 'ሁሉንም መረጃ ይተካል · ሁለት ጊዜ ማረጋገጫ ያስፈልጋል'
+                  : 'Replaces all data on this phone · two-step confirm'}
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportFileSelected}
+              className="hidden"
+            />
+          </label>
+
+          {/* Owner CSV export (existing flat spreadsheet for accountants) */}
+          <button
+            onClick={exportToCSV}
+            disabled={totalEntries === 0}
+            className="w-full flex items-center gap-4 px-5 py-4 active:bg-gray-50 transition-colors min-h-[64px] disabled:opacity-40 text-left"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#f3f4f6' }}>
+              <Download className="w-5 h-5 text-gray-600" />
+            </div>
+            <div className="flex-1">
+              <div className="font-bold text-gray-800">
+                {lang === 'am' ? 'CSV አውጣ (ለሂሳብ ቤት)' : 'Export CSV (for accountant)'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {lang === 'am'
+                  ? 'ጠፍጣፋ ስፕሬድሺት · ፎቶ የለም'
+                  : 'Flat spreadsheet · no photos'}
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+          </button>
+
+          {/* Start over · two-step confirm (Commit S) */}
           <button
             onClick={() => setShowClearConfirm(true)}
-            className="w-full flex items-center gap-4 px-5 py-4 active:bg-red-50 transition-colors min-h-[64px]"
+            className="w-full flex items-center gap-4 px-5 py-4 active:bg-red-50 transition-colors min-h-[64px] text-left"
           >
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fff1f2' }}>
               <Trash2 className="w-5 h-5 text-red-600" />
             </div>
-            <div className="flex-1 text-left">
-              <div className="font-bold text-red-600">Start over on this phone</div>
-              <div className="text-xs text-gray-500 mt-0.5">Deletes your notebook records, owner profile, and saved setup on this phone.</div>
+            <div className="flex-1">
+              <div className="font-bold text-red-600">
+                {lang === 'am' ? 'መልሰው ጀምር' : 'Start over on this phone'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {lang === 'am'
+                  ? 'ሁሉንም ይሰርዛል — መልሶ ማግኘት አይቻልም'
+                  : 'Deletes everything — cannot be undone'}
+              </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
           </button>
@@ -1906,6 +2226,91 @@ function SettingsPage({
       )}
 
       {/* supplier-delete modal removed in Commit S */}
+
+      {/* ─── Commit E: Restore-from-backup confirm modals ────────────── */}
+      {restoreTarget && !restoreConfirmStep2 && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="text-4xl text-center mb-3">⚠️</div>
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+              {lang === 'am' ? 'ምትኬ ይመለስ?' : 'Restore from backup?'}
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-3">
+              {lang === 'am'
+                ? `ፋይል ${new Date(restoreTarget.exported_at).toLocaleDateString()} የተወሰደ ምትኬ ይዟል።`
+                : `Backup file from ${new Date(restoreTarget.exported_at).toLocaleDateString()}`}
+            </p>
+            <div className="rounded-xl p-3 mb-4 text-xs" style={{ background: '#fafaf5', border: '1px solid #ece6d6' }}>
+              <p className="font-bold text-gray-700 mb-1">
+                {lang === 'am' ? 'በዚህ ምትኬ ውስጥ' : 'Backup contains'}:
+              </p>
+              <div className="space-y-0.5 text-gray-600">
+                <div>{restoreTarget.counts?.transactions || 0} {lang === 'am' ? 'ሽያጭ + ወጪ' : 'sales + expenses'}</div>
+                <div>{restoreTarget.counts?.customers || 0} {lang === 'am' ? 'ደንበኞች' : 'customers'} · {restoreTarget.counts?.customer_transactions || 0} {lang === 'am' ? 'የዱቤ መዝገብ' : 'dubie entries'}</div>
+                <div>{restoreTarget.counts?.suppliers || 0} {lang === 'am' ? 'አቅራቢዎች' : 'suppliers'} · {restoreTarget.counts?.supplier_transactions || 0} {lang === 'am' ? 'የአቅራቢ መዝገብ' : 'supplier entries'}</div>
+                <div>{restoreTarget.counts?.catalog_entries || 0} {lang === 'am' ? 'ዕቃዎች' : 'catalog items'} · {restoreTarget.counts?.staff_members || 0} {lang === 'am' ? 'ሰራተኞች' : 'staff'}</div>
+              </div>
+            </div>
+            <p className="text-sm font-bold text-red-600 text-center mb-4">
+              {lang === 'am'
+                ? '⚠️ በዚህ ስልክ ላይ ያለው ሁሉም መረጃ ይተካል'
+                : '⚠️ All current data on this phone will be replaced'}
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => setRestoreConfirmStep2(true)}
+                className="w-full p-4 rounded-2xl text-white font-bold min-h-[52px]"
+                style={{ background: '#C4883A' }}
+              >
+                {lang === 'am' ? 'ቀጥል →' : 'Continue →'}
+              </button>
+              <button
+                onClick={() => setRestoreTarget(null)}
+                className="w-full p-4 rounded-2xl font-bold min-h-[52px]"
+                style={{ background: '#f5f5f5', color: '#374151' }}
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {restoreTarget && restoreConfirmStep2 && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border-2" style={{ borderColor: '#dc2626' }}>
+            <div className="text-4xl text-center mb-3">🔄</div>
+            <h3 className="text-xl font-black text-red-600 text-center mb-2">
+              {lang === 'am' ? 'እርግጠኛ ነዎት?' : 'Are you sure?'}
+            </h3>
+            <p className="text-sm text-gray-700 text-center mb-2 font-bold">
+              {lang === 'am'
+                ? 'የአሁኑን መረጃ ሁሉ ይተካል — መልሶ ማግኘት አይቻልም።'
+                : 'This replaces all current data — cannot be undone.'}
+            </p>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              {lang === 'am'
+                ? 'ከመመለስ በፊት የአሁኑን መረጃ ምትኬ ይውሰዱ።'
+                : 'Tip: download a backup of current data first.'}
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={handleRestoreConfirm}
+                className="w-full p-4 bg-red-600 text-white rounded-2xl font-bold min-h-[52px]"
+              >
+                {lang === 'am' ? 'አዎ፣ መልሰው ጫን' : 'Yes, restore now'}
+              </button>
+              <button
+                onClick={() => { setRestoreConfirmStep2(false); setRestoreTarget(null); }}
+                className="w-full p-4 rounded-2xl font-bold min-h-[52px]"
+                style={{ background: '#1B4332', color: '#fff' }}
+              >
+                {lang === 'am' ? 'አይ፣ ይተወው' : 'No, keep current data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {staffDeactivateTarget && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">
