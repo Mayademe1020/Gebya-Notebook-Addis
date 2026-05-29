@@ -98,7 +98,20 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent }) {
   const [customMessage, setCustomMessage] = useState(null); // null = use generated text
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
-  const [includePayLink, setIncludePayLink] = useState(false);
+  // Commit C.5: Pay-it-now defaults to ON when the shop has at least one
+  // configured payment channel (telebirr defaulting to shop phone counts).
+  // Reduces friction — most reminders should include the link.
+  const initialPayLinkDefault = (() => {
+    const pmt = shopProfile?.payments;
+    if (!pmt) return false;
+    return !!(
+      pmt.telebirr || pmt.cbe_phone || pmt.cbe_account ||
+      pmt.awash_phone || pmt.bank_account ||
+      // Telebirr-from-shop-phone counts as configured even when pmt.telebirr is empty
+      shopProfile?.phone
+    );
+  })();
+  const [includePayLink, setIncludePayLink] = useState(initialPayLinkDefault);
 
   const available = useMemo(() => getAvailableChannels(customer), [customer]);
   const effectiveChannel = channel || available[0] || null;

@@ -172,23 +172,45 @@ function SupplierDetail({
           </div>
         </div>
 
-        {/* Identity row · avatar + name + phone */}
+        {/* Identity row · avatar + name + phone.
+            Commit C.5: avatar becomes a tappable button when no photo is set —
+            opens edit form so shopkeeper can add a photo retroactively. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            position: 'relative', flexShrink: 0, overflow: 'hidden',
-          }}>
-            {supplier.photo ? (
+          {supplier.photo ? (
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              position: 'relative', flexShrink: 0, overflow: 'hidden',
+            }}>
               <img src={supplier.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{
-                width: '100%', height: '100%',
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onEditSupplier?.(supplier)}
+              aria-label={lang === 'am' ? 'ፎቶ ይጨምሩ' : 'Add photo'}
+              className="press-scale"
+              style={{
+                width: 44, height: 44, borderRadius: '50%',
+                position: 'relative', flexShrink: 0, overflow: 'hidden',
+                border: '2px dashed rgba(255,255,255,0.35)',
                 background: grad,
+                padding: 0, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontSize: '1rem', fontWeight: 800,
-              }}>{initials}</div>
-            )}
-          </div>
+              }}
+            >
+              {initials}
+              <span style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#fff',
+                border: '1.5px solid #1a1a1a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.55rem',
+                color: '#1a1a1a',
+              }}>📷</span>
+            </button>
+          )}
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.15 }}>
@@ -382,17 +404,60 @@ function SupplierDetail({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {historyRows.map((tx) => (
-              <HistoryRow
-                key={tx.id}
-                tx={tx}
-                lang={lang}
-                expanded={!!expandedRows[tx.id]}
-                onToggleExpand={() => setExpandedRows(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
-                onLongPress={longPress}
-                onOpenActions={() => setActionSheet({ tx })}
-              />
-            ))}
+            {/* Commit C.5: Same-day grouping — emit a date header when the
+                row's date changes from the previous one. Mirrors CustomerDetail. */}
+            {(() => {
+              const elements = [];
+              let lastDate = null;
+              historyRows.forEach((tx, idx) => {
+                const txDate = formatEthiopian(tx.created_at);
+                if (txDate !== lastDate) {
+                  const sameDayCount = historyRows.filter(
+                    r => formatEthiopian(r.created_at) === txDate
+                  ).length;
+                  elements.push(
+                    <div
+                      key={`date_${txDate}_${idx}`}
+                      style={{
+                        background: '#fff5f5',
+                        border: '1px solid #fecaca',
+                        borderRadius: 8,
+                        padding: '5px 10px',
+                        fontSize: '0.62rem',
+                        fontWeight: 800,
+                        color: '#991b1b',
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginTop: idx === 0 ? 0 : 4,
+                      }}
+                    >
+                      <span>📅 {txDate}</span>
+                      {sameDayCount > 1 && (
+                        <span style={{ color: '#9ca3af', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
+                          {sameDayCount} {lang === 'am' ? 'መዝገብ' : 'entries'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                  lastDate = txDate;
+                }
+                elements.push(
+                  <HistoryRow
+                    key={tx.id}
+                    tx={tx}
+                    lang={lang}
+                    expanded={!!expandedRows[tx.id]}
+                    onToggleExpand={() => setExpandedRows(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                    onLongPress={longPress}
+                    onOpenActions={() => setActionSheet({ tx })}
+                  />
+                );
+              });
+              return elements;
+            })()}
           </div>
         )}
       </div>
