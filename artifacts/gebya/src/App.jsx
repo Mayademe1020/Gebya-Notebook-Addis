@@ -33,30 +33,56 @@ import {
   normalizeChannelsForSave,
 } from './utils/paymentChannels';
 
-const TransactionForm = lazy(() => import('./components/TransactionForm'));
-const EditTransactionSheet = lazy(() => import('./components/EditTransactionSheet'));
-const ReminderSheet = lazy(() => import('./components/ReminderSheet'));
-const SupplierList = lazy(() => import('./components/SupplierList'));
-const SupplierDetail = lazy(() => import('./components/SupplierDetail'));
-const SupplierForm = lazy(() => import('./components/SupplierForm'));
-const SupplierTransactionSheet = lazy(() => import('./components/SupplierTransactionSheet'));
-const CustomerDetail = lazy(() => import('./components/CustomerDetail'));
-const CustomerForm = lazy(() => import('./components/CustomerForm'));
-const CustomerTransactionSheet = lazy(() => import('./components/CustomerTransactionSheet'));
-const CustomerTelegramConnectSheet = lazy(() => import('./components/CustomerTelegramConnectSheet'));
-const HistoryView = lazy(() => import('./components/HistoryView'));
-const ReportView = lazy(() => import('./components/ReportView'));
-const SettingsPage = lazy(() => import('./components/SettingsPage'));
-const DailySuggestions = lazy(() => import('./components/DailySuggestions'));
+// Stale-chunk self-heal. After a new deploy, Vite emits new hashed chunk
+// filenames. A browser still running the previous index.html (or a stale
+// service-worker shell) requests an old chunk URL that now 404s, throwing
+// "Failed to fetch dynamically imported module". We retry once via a hard
+// reload (which pulls the fresh index.html + new hashes); a per-chunk
+// sessionStorage guard prevents reload loops if the asset is truly missing.
+function lazyWithRetry(importer, name) {
+  return lazy(async () => {
+    const flag = `gebya_chunk_reload_${name}`;
+    const getFlag = () => { try { return sessionStorage.getItem(flag); } catch { return null; } };
+    const setFlag = (on) => { try { on ? sessionStorage.setItem(flag, '1') : sessionStorage.removeItem(flag); } catch { /* storage blocked */ } };
+    try {
+      const mod = await importer();
+      setFlag(false);
+      return mod;
+    } catch (err) {
+      if (!getFlag()) {
+        setFlag(true);
+        window.location.reload();
+        return new Promise(() => {}); // hold the render until the reload lands
+      }
+      throw err;
+    }
+  });
+}
+
+const TransactionForm = lazyWithRetry(() => import('./components/TransactionForm'), 'TransactionForm');
+const EditTransactionSheet = lazyWithRetry(() => import('./components/EditTransactionSheet'), 'EditTransactionSheet');
+const ReminderSheet = lazyWithRetry(() => import('./components/ReminderSheet'), 'ReminderSheet');
+const SupplierList = lazyWithRetry(() => import('./components/SupplierList'), 'SupplierList');
+const SupplierDetail = lazyWithRetry(() => import('./components/SupplierDetail'), 'SupplierDetail');
+const SupplierForm = lazyWithRetry(() => import('./components/SupplierForm'), 'SupplierForm');
+const SupplierTransactionSheet = lazyWithRetry(() => import('./components/SupplierTransactionSheet'), 'SupplierTransactionSheet');
+const CustomerDetail = lazyWithRetry(() => import('./components/CustomerDetail'), 'CustomerDetail');
+const CustomerForm = lazyWithRetry(() => import('./components/CustomerForm'), 'CustomerForm');
+const CustomerTransactionSheet = lazyWithRetry(() => import('./components/CustomerTransactionSheet'), 'CustomerTransactionSheet');
+const CustomerTelegramConnectSheet = lazyWithRetry(() => import('./components/CustomerTelegramConnectSheet'), 'CustomerTelegramConnectSheet');
+const HistoryView = lazyWithRetry(() => import('./components/HistoryView'), 'HistoryView');
+const ReportView = lazyWithRetry(() => import('./components/ReportView'), 'ReportView');
+const SettingsPage = lazyWithRetry(() => import('./components/SettingsPage'), 'SettingsPage');
+const DailySuggestions = lazyWithRetry(() => import('./components/DailySuggestions'), 'DailySuggestions');
 
 // Voice subsystem hidden per D-027 (Amharic/Oromifa STT quality insufficient today).
 // Files preserved (VoiceButton, VoiceRecordScreen, VoiceResultScreen, VoiceFixScreen,
 // hooks/useSpeechRecognition); flip VOICE_ENABLED to true to re-enable when local-language
 // voice tech improves.
 const VOICE_ENABLED = false;
-const VoiceRecordScreen = lazy(() => import('./components/VoiceRecordScreen'));
-const VoiceResultScreen = lazy(() => import('./components/VoiceResultScreen'));
-const VoiceFixScreen = lazy(() => import('./components/VoiceFixScreen'));
+const VoiceRecordScreen = lazyWithRetry(() => import('./components/VoiceRecordScreen'), 'VoiceRecordScreen');
+const VoiceResultScreen = lazyWithRetry(() => import('./components/VoiceResultScreen'), 'VoiceResultScreen');
+const VoiceFixScreen = lazyWithRetry(() => import('./components/VoiceFixScreen'), 'VoiceFixScreen');
 
 const P = {
   bg: 'var(--color-bg)',
@@ -2553,12 +2579,12 @@ function AppInner() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '0.8rem', fontWeight: 800, color: neverBackedUp ? '#991b1b' : '#92400e' }}>
                       {neverBackedUp
-                        ? (lang === 'am' ? 'ምትኬ ይውሰዱ' : 'Back up your notebook')
-                        : (lang === 'am' ? 'ምትኬ ጊዜው አልፎበታል' : 'Backup is overdue')}
+                        ? (lang === 'am' ? 'የማስታወሻ ደብተርዎን ያስቀምጡ' : 'Back up your notebook')
+                        : (lang === 'am' ? 'ደብተርዎን ለማስቀመጥ ጊዜው አልፏል' : 'Backup is overdue')}
                     </p>
                     <p style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: 1, lineHeight: 1.35 }}>
                       {lang === 'am'
-                        ? 'መረጃው በዚህ ስልክ ላይ ብቻ ነው። ስልክ ቢጠፋ እንዳይጠፋ ምትኬ ይያዙ።'
+                        ? 'የእርስዎ መረጃ የሚገኘው በዚህ ስልክ ላይ ብቻ ነው። ስልክዎ ቢጠፋ መረጃዎ እንዳይጠፋ አሁኑኑ ያስቀምጡት።'
                         : 'Your data lives only on this phone. Back it up so a lost phone doesn’t mean lost records.'}
                     </p>
                   </div>
@@ -2575,7 +2601,7 @@ function AppInner() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {lang === 'am' ? 'ምትኬ ይያዙ' : 'Back up'}
+                      {lang === 'am' ? 'ያስቀምጡ' : 'Back up'}
                     </button>
                     <button
                       type="button"
@@ -2586,7 +2612,7 @@ function AppInner() {
                         cursor: 'pointer', padding: '2px',
                       }}
                     >
-                      {lang === 'am' ? 'ኋላ' : 'Later'}
+                      {lang === 'am' ? 'በኋላ' : 'Later'}
                     </button>
                   </div>
                 </div>
