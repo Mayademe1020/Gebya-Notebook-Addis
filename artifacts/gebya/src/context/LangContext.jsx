@@ -1437,7 +1437,9 @@ const AM_OVERRIDES = {
 const LangContext = createContext(null);
 
 export function LangProvider({ children }) {
-  const [lang, setLang] = useState(() => localStorage.getItem('gebya_lang') || 'en');
+  // Default to Amharic for new users (most Gebya shopkeepers are Amharic-first).
+  // Existing users who've toggled keep their saved choice via localStorage.
+  const [lang, setLang] = useState(() => localStorage.getItem('gebya_lang') || 'am');
 
   useEffect(() => {
     document.documentElement.lang = lang;

@@ -6,7 +6,7 @@ function isValidPhone(digits) {
   return /^[79]\d{8}$/.test(digits);
 }
 
-const BUSINESS_TYPE_OPTIONS = [
+const BUSINESS_TYPE_OPTIONS_EN = [
   { value: 'retail-shop', label: 'Retail shop' },
   { value: 'shoe-market', label: 'Shoe market' },
   { value: 'flower-shop', label: 'Flower shop' },
@@ -17,8 +17,20 @@ const BUSINESS_TYPE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
+const BUSINESS_TYPE_OPTIONS_AM = [
+  { value: 'retail-shop', label: 'የችርቻሮ ሱቅ' },
+  { value: 'shoe-market', label: 'የጫማ መሸጫ' },
+  { value: 'flower-shop', label: 'የአበባ ሱቅ' },
+  { value: 'women-dress-shop', label: 'የሴቶች ልብስ ሱቅ' },
+  { value: 'grocery', label: 'ግሮሰሪ / ሚኒማርኬት' },
+  { value: 'electronics', label: 'ኤሌክትሮኒክስ / መለዋወጫ' },
+  { value: 'pharmacy', label: 'ፋርማሲ / መዋቢያ' },
+  { value: 'other', label: 'ሌላ' },
+];
+
 function OnboardingScreen({ onComplete }) {
-  const { t } = useLang();
+  const { t, lang, toggleLang } = useLang();
+  const businessTypeOptions = lang === 'am' ? BUSINESS_TYPE_OPTIONS_AM : BUSINESS_TYPE_OPTIONS_EN;
   const phoneOptionalLabel = t.onboardPhoneOptional || '(optional)';
   const phoneHelper = t.onboardPhoneHelper || 'You can add your phone later in Settings.';
   const onboardingPromises = [
@@ -59,6 +71,29 @@ function OnboardingScreen({ onComplete }) {
       style={{ background: '#1B4332' }}
     >
       <div className="w-full max-w-sm">
+        {/* Language toggle — new users default to Amharic; this is the escape
+            hatch for English speakers right on the first screen. */}
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={toggleLang}
+            className="press-scale"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: 999,
+              padding: '6px 12px',
+              color: '#fff',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+            aria-label={lang === 'am' ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
+          >
+            🌐 {lang === 'am' ? 'English' : 'አማርኛ'}
+          </button>
+        </div>
         <div className="text-center mb-6 animate-elastic">
           <div className="text-4xl mb-3 font-black text-white" aria-hidden="true">GB</div>
           <h1 className="text-4xl font-black text-white tracking-tight mb-1 font-serif">Gebya</h1>
@@ -158,7 +193,7 @@ function OnboardingScreen({ onComplete }) {
 
             <div>
               <label className="block font-semibold text-gray-700 mb-1.5 text-sm font-sans">
-                What type of business do you run?
+                {lang === 'am' ? 'ምን ዓይነት ንግድ ይሰራሉ?' : 'What type of business do you run?'}
               </label>
               <select
                 value={businessType}
@@ -169,12 +204,14 @@ function OnboardingScreen({ onComplete }) {
                   borderColor: '#e8e2d8',
                 }}
               >
-                {BUSINESS_TYPE_OPTIONS.map((option) => (
+                {businessTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
               <p className="text-xs mt-1 font-medium font-sans" style={{ color: '#9ca3af' }}>
-                This helps voice understand the kinds of items and customers your shop sees most.
+                {lang === 'am'
+                  ? 'ይህ ለሱቅዎ ተስማሚ የሆኑ ዕቃዎችንና ደንበኞችን ለመረዳት ይረዳል።'
+                  : 'This helps voice understand the kinds of items and customers your shop sees most.'}
               </p>
             </div>
           </div>
