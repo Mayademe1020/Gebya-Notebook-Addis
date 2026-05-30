@@ -479,6 +479,10 @@ function AppInner() {
   const [activeStaffMemberId, setActiveStaffMemberId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
+  // Launch-critical data-loss prevention: nudge the shopkeeper to back up
+  // when they've never backed up or it's been >7 days. Dismissable per session.
+  const [lastBackupAt, setLastBackupAt] = useState(undefined); // undefined = not loaded yet
+  const [backupNudgeDismissed, setBackupNudgeDismissed] = useState(false);
   const [showForm, setShowForm] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [telegramConnectCustomerId, setTelegramConnectCustomerId] = useState(null);
@@ -751,6 +755,21 @@ function AppInner() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Launch-critical: load the last-backup timestamp once on mount so we can
+  // decide whether to surface the data-loss nudge on the Today tab.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const row = await db.settings.get('gebya_last_backup_at');
+        if (!cancelled) setLastBackupAt(row?.value ? Number(row.value) : null);
+      } catch {
+        if (!cancelled) setLastBackupAt(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const trackSession = useCallback(async () => {
     try {
@@ -2510,6 +2529,69 @@ function AppInner() {
         {activeTab === 'today' && (
           <div className="space-y-4">
             <ProfitCard transactions={todayTransactions} yesterdayNet={yesterdayNet} />
+
+            {/* Launch-critical data-loss nudge. Shows when there's real data to
+                protect AND (never backed up OR >7 days stale). Dismissable. */}
+            {(() => {
+              if (backupNudgeDismissed || lastBackupAt === undefined) return null;
+              const hasData = (transactions.length + ledgerTransactions.length) >= 5;
+              if (!hasData) return null;
+              const stale = lastBackupAt === null || (Date.now() - lastBackupAt) > 7 * 86400000;
+              if (!stale) return null;
+              const neverBackedUp = lastBackupAt === null;
+              return (
+                <div
+                  style={{
+                    background: neverBackedUp ? '#fef2f2' : '#fffbeb',
+                    border: `1px solid ${neverBackedUp ? '#fecaca' : '#fde68a'}`,
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{neverBackedUp ? '⚠️' : '⏰'}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: neverBackedUp ? '#991b1b' : '#92400e' }}>
+                      {neverBackedUp
+                        ? (lang === 'am' ? 'ምትኬ ይውሰዱ' : 'Back up your notebook')
+                        : (lang === 'am' ? 'ምትኬ ጊዜው አልፎበታል' : 'Backup is overdue')}
+                    </p>
+                    <p style={{ fontSize: '0.68rem', color: '#6b7280', marginTop: 1, lineHeight: 1.35 }}>
+                      {lang === 'am'
+                        ? 'መረጃው በዚህ ስልክ ላይ ብቻ ነው። ስልክ ቢጠፋ እንዳይጠፋ ምትኬ ይያዙ።'
+                        : 'Your data lives only on this phone. Back it up so a lost phone doesn’t mean lost records.'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('settings')}
+                      className="press-scale"
+                      style={{
+                        background: neverBackedUp ? '#dc2626' : '#C4883A',
+                        color: '#fff', border: 'none',
+                        borderRadius: 8, padding: '6px 12px',
+                        fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {lang === 'am' ? 'ምትኬ ይያዙ' : 'Back up'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBackupNudgeDismissed(true)}
+                      style={{
+                        background: 'transparent', border: 'none',
+                        color: '#9ca3af', fontSize: '0.66rem', fontWeight: 600,
+                        cursor: 'pointer', padding: '2px',
+                      }}
+                    >
+                      {lang === 'am' ? 'ኋላ' : 'Later'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             <Suspense fallback={<PanelFallback label={t.loading} />}>
               <DailySuggestions
