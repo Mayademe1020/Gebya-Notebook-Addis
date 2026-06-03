@@ -16,7 +16,7 @@
 //   ☀️ midday   — "How's today going?"
 //   🌆 evening  — "What did I make? Did anyone pay back?"
 
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown, ArrowUp, ChevronDown, ChevronUp, Download, Share2,
   Wallet, Users, Truck, TrendingUp, Calendar as CalendarIcon, Crown, Package, Bell,
@@ -760,7 +760,16 @@ function CompactRow({ rank, name, value, sub, hidden }) {
 }
 
 function AllHistoryCollapsible({ transactions, onEdit, lang }) {
-  const [open, setOpen] = useState(false);
+  const hasPhotoTransactions = useMemo(
+    () => transactions.some(tx => !!tx.photo),
+    [transactions]
+  );
+  const [open, setOpen] = useState(() => hasPhotoTransactions);
+
+  useEffect(() => {
+    if (hasPhotoTransactions) setOpen(true);
+  }, [hasPhotoTransactions]);
+
   return (
     <SectionCard>
       <button
@@ -777,7 +786,9 @@ function AllHistoryCollapsible({ transactions, onEdit, lang }) {
         <SectionLabel
           icon="📜"
           label={lang === 'am' ? 'ሁሉም መዝገብ' : 'All history'}
-          sub={lang === 'am' ? 'ሽያጭ + ወጪ ሙሉ ዝርዝር' : 'Full sales + expenses log'}
+          sub={hasPhotoTransactions
+            ? (lang === 'am' ? 'ፎቶ ያላቸው መዝገቦች እዚህ ይታያሉ' : 'Photo records shown here')
+            : (lang === 'am' ? 'ሽያጭ + ወጪ ሙሉ ዝርዝር' : 'Full sales + expenses log')}
         />
         {open ? <ChevronUp className="w-4 h-4" style={{ color: '#6b7280' }} />
               : <ChevronDown className="w-4 h-4" style={{ color: '#6b7280' }} />}

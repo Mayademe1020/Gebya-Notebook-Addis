@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil, Plus } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil, Plus, Camera, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import VoiceButton from './VoiceButton';
 import PaymentTypeChips from './PaymentTypeChips';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput } from '../utils/numformat';
+import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -19,8 +20,10 @@ const ACCENT = {
   credit:  { btn: '#C4883A', shadow: '#96662b' },
 };
 
+const EDIT_VOICE_ENABLED = false;
+
 function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const type = transaction.type;
   const isCredit = type === 'credit';
   const accent = ACCENT[type] || ACCENT.sale;
@@ -36,6 +39,10 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
   const initPProvider = transaction.payment_provider || '';
   const [paymentType, setPaymentType] = useState(initPType);
   const [paymentProvider, setPaymentProvider] = useState(initPProvider);
+  const [photo, setPhoto] = useState(transaction.photo || null);
+  const [photoError, setPhotoError] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoChanged, setPhotoChanged] = useState(false);
   const lastProviderByType = {
     bank:   initPType === 'bank'   ? initPProvider : '',
     wallet: initPType === 'wallet' ? initPProvider : '',
@@ -86,6 +93,29 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
       { id: `new-${Date.now()}-${Math.random()}`, name: '', amount: '' },
     ]);
 
+  const handlePhotoCapture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoLoading(true);
+    setPhotoError(null);
+    try {
+      const dataUrl = await compressPhoto(file);
+      setPhoto(dataUrl);
+      setPhotoChanged(true);
+    } catch (err) {
+      setPhotoError(err.message || 'Photo capture failed');
+    } finally {
+      setPhotoLoading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhoto(null);
+    setPhotoError(null);
+    setPhotoChanged(true);
+  };
+
   const validBreakdown = editableItems
     .filter(l => l.name.trim() && parseFloat(l.amount) > 0)
     .map(l => ({ name: l.name.trim(), amount: parseFloat(l.amount) }));
@@ -114,6 +144,8 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
         customer_phone: isCredit ? (phoneEntered && phoneValid ? '+251' + phoneDigits : null) : null,
         direction: isCredit ? direction : null,
         due_date: isCredit ? getEffectiveDueDate() : null,
+        photo: isCredit ? null : (photo || null),
+        photo_taken_at: isCredit ? null : (photo ? (photoChanged ? Date.now() : transaction.photo_taken_at || null) : null),
         ...(useBreakdown ? { items: validBreakdown.length > 0 ? validBreakdown : null } : {}),
       };
       await onUpdate(transaction.id, updates);
@@ -283,8 +315,66 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                 className="flex-1 p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
               />
-              <VoiceButton onResult={setItem} />
+              {!isCredit && (
+                <label
+                  className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: 56,
+                    minHeight: 52,
+                    border: '2px solid #e8e2d8',
+                    borderRadius: 'var(--radius-md)',
+                    background: photo ? '#f0fdf4' : '#fafaf6',
+                  }}
+                  aria-label={lang === 'am' ? 'ፎቶ ያንሱ' : 'Take photo'}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                    disabled={photoLoading}
+                  />
+                  {photoLoading
+                    ? <span className="text-sm">...</span>
+                    : photo
+                      ? <CheckCircle2 className="w-6 h-6" style={{ color: '#16a34a' }} />
+                      : <Camera className="w-6 h-6" style={{ color: '#6b7280' }} />
+                  }
+                </label>
+              )}
+              {EDIT_VOICE_ENABLED && <VoiceButton onResult={setItem} />}
             </div>
+            {!isCredit && photoError && (
+              <p className="text-xs mt-1" style={{ color: '#dc2626' }}>
+                {photoError}
+              </p>
+            )}
+            {!isCredit && photo && (
+              <div
+                className="mt-2 flex items-center gap-2 p-2"
+                style={{ background: '#fafaf6', border: '1px solid #e8e2d8', borderRadius: 'var(--radius-sm)' }}
+              >
+                <img src={photo} alt="" className="w-12 h-12 object-cover" style={{ borderRadius: 6 }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>
+                    {lang === 'am' ? 'ፎቶ ተጨምሯል' : 'Photo attached'}
+                  </p>
+                  <p className="text-[10px]" style={{ color: '#9ca3af' }}>
+                    {Math.round(photoSizeBytes(photo) / 1024)} KB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="press-scale flex items-center justify-center"
+                  style={{ minWidth: 44, minHeight: 44 }}
+                  aria-label={lang === 'am' ? 'ፎቶ አስወግድ' : 'Remove photo'}
+                >
+                  <X className="w-4 h-4" style={{ color: '#6b7280' }} />
+                </button>
+              </div>
+            )}
           </div>
 
           {!isCredit && (

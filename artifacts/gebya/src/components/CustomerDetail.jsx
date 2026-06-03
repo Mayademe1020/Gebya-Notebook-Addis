@@ -24,6 +24,7 @@ import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
 import { daysAgoLabel } from '../utils/reminders';
+import PhotoAttachment from './PhotoAttachment';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LONG_PRESS_MS = 500;
@@ -754,6 +755,13 @@ function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, 
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        {!isPayment && tx.photo && (
+          <PhotoAttachment
+            photo={tx.photo}
+            lang={lang}
+            label={lang === 'am' ? 'የዕቃ ፎቶ ይመልከቱ' : 'View item photo'}
+          />
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Tag row · CREDIT/PAYMENT + settlement breadcrumb */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4, alignItems: 'center' }}>
@@ -847,7 +855,7 @@ function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, 
                 background: expanded ? '#1a1a1a' : '#f3f4f6',
                 padding: '2px 8px', borderRadius: 999,
                 cursor: 'pointer', border: 'none',
-                minHeight: 24,
+                minHeight: 32,
               }}
             >
               🧺 {items.length} {lang === 'am' ? 'ዕቃ' : 'items'}
@@ -896,7 +904,7 @@ function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, 
             aria-label={lang === 'am' ? 'ምርጫዎች · ለማስተካከል ወይም ለመሰረዝ' : 'More · edit or delete'}
             className="press-scale"
             style={{
-              width: 36, height: 36, borderRadius: 10,
+              width: 44, height: 44, borderRadius: 10,
               background: '#f5f1ea',
               border: '1px solid #ece6d6',
               color: '#1B4332',

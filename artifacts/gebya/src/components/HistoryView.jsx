@@ -3,6 +3,7 @@ import { Calendar, ChevronDown, ChevronUp, Pencil, Search, X } from 'lucide-reac
 import { useLang } from '../context/LangContext';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt } from '../utils/numformat';
+import PhotoAttachment from './PhotoAttachment';
 
 function groupByDay(transactions) {
   const groups = {};
@@ -301,6 +302,13 @@ function TxRow({ tx, onEdit, t, lang }) {
             {tx.updated_at && <p className="text-xs" style={{ color: '#C4883A' }}>{t.edited}</p>}
           </div>
         </button>
+        {tx.photo && (
+          <PhotoAttachment
+            photo={tx.photo}
+            lang={lang}
+            label={lang === 'am' ? 'የግብይት ፎቶ ይመልከቱ' : 'View transaction photo'}
+          />
+        )}
         {hasBreakdown && (
           <button
             type="button"
@@ -324,6 +332,7 @@ function TxRow({ tx, onEdit, t, lang }) {
         <button
           onClick={() => onEdit(tx)}
           className="flex items-center gap-1 flex-shrink-0 ml-2 press-scale"
+          style={{ minHeight: 44, minWidth: 44, justifyContent: 'flex-end' }}
         >
           <div className="text-right">
             <span className="font-semibold text-sm" style={{ color: amountColor }}>
