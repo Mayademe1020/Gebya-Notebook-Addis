@@ -755,9 +755,10 @@ function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, 
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-        {!isPayment && tx.photo && (
+        {!isPayment && (tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)) && (
           <PhotoAttachment
             photo={tx.photo}
+            photos={tx.photos}
             lang={lang}
             label={lang === 'am' ? 'የዕቃ ፎቶ ይመልከቱ' : 'View item photo'}
           />

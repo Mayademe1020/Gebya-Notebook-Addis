@@ -15,7 +15,8 @@ import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { formatEthiopian, getDueDateOptions } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES, isValidCustomerTransactionType } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
-import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { photoSizeBytes } from '../utils/photoCapture';
+import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS, normalizePhotos } from '../utils/photoProof';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -83,25 +84,34 @@ function CustomerTransactionSheet({
     && editingTransaction.items.length > 0
   );
   // Product photo · the goods/items being credited. Pre-fills from edit target.
-  const [photo, setPhoto] = useState(isEditing ? (editingTransaction.photo || null) : null);
+  const [photos, setPhotos] = useState(() => (isEditing ? normalizePhotos(editingTransaction) : []));
   const [photoError, setPhotoError] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false); // B2: rear-camera capture modal
+  const [replacePhotoId, setReplacePhotoId] = useState(null);
 
-  const handlePhotoCapture = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoLoading(true);
-    setPhotoError(null);
-    try {
-      const dataUrl = await compressPhoto(file);
-      setPhoto(dataUrl);
-    } catch (err) {
-      setPhotoError(err.message || 'Photo capture failed');
-    } finally {
-      setPhotoLoading(false);
+  const handleCameraPhoto = (dataUrl) => {
+    const proof = createPhotoProof(dataUrl);
+    if (!proof) return;
+    if (replacePhotoId) {
+      setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? proof : entry)));
+    } else {
+      setPhotos(prev => [...prev, proof].slice(0, MAX_PROOF_PHOTOS));
     }
-    e.target.value = '';
+    setReplacePhotoId(null);
+    setShowCamera(false);
+    setPhotoError(null);
+  };
+
+  const openPhotoCapture = (photoId = null) => {
+    if (!photoId && photos.length >= MAX_PROOF_PHOTOS) return;
+    setReplacePhotoId(photoId);
+    setShowCamera(true);
+  };
+
+  const handleRemovePhoto = (photoId) => {
+    setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+    setPhotoError(null);
   };
 
   // In edit mode, derive type from the record; otherwise from the mode prop.
@@ -203,6 +213,7 @@ function CustomerTransactionSheet({
         ? parsedQty
         : null;
 
+      const photoFields = !isPayment ? buildPhotoFields(photos) : { photos: [], photo: null, photo_taken_at: null };
       const didSave = await onSave?.({
         customer_id: customer?.id,
         type: transactionType,
@@ -215,7 +226,7 @@ function CustomerTransactionSheet({
         item_note: itemNoteForSave,
         due_date: !isPayment && dueDate ? new Date(dueDate).getTime() : null,
         items: cleanedItems.length > 0 ? cleanedItems : null,  // multi-item breakdown
-        photo: !isPayment ? (photo || null) : null,             // product photo
+        ...photoFields,                                      // product proof photos
         editing_id: editingTransaction?.id || null,
       });
       if (didSave) onDone?.();
@@ -524,24 +535,25 @@ function CustomerTransactionSheet({
               className="flex-1 min-w-0 p-3 border-2 focus:outline-none text-base"
               style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
             />
-            {/* Product photo · credits only (payments don't carry items).
-                B2: opens the rear-camera capture modal instead of a file input. */}
+            {/* Product proof photos - credits only (payments stay photo-free). */}
             {!isPayment && (
               <button
                 type="button"
-                onClick={() => setShowCamera(true)}
+                onClick={() => openPhotoCapture(null)}
+                disabled={photos.length >= MAX_PROOF_PHOTOS || photoLoading}
                 className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
                 style={{
                   width: 56,
                   border: '2px solid #e8e2d8',
                   borderRadius: 'var(--radius-md)',
-                  background: photo ? '#f0fdf4' : '#fafaf6',
+                  background: photos.length > 0 ? '#f0fdf4' : '#fafaf6',
+                  opacity: photos.length >= MAX_PROOF_PHOTOS ? 0.55 : 1,
                 }}
-                aria-label={lang === 'am' ? 'የዕቃ ፎቶ' : 'Item photo'}
+                aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
               >
                 {photoLoading
-                  ? <span className="text-sm">…</span>
-                  : photo
+                  ? <span className="text-sm">...</span>
+                  : photos.length > 0
                     ? <CheckCircle2 className="w-6 h-6" style={{ color: '#16a34a' }} />
                     : <Camera className="w-6 h-6" style={{ color: '#6b7280' }} />
                 }
@@ -549,28 +561,60 @@ function CustomerTransactionSheet({
             )}
           </div>
 
-          {/* Photo preview · credits only */}
-          {!isPayment && photo && (
-            <div className="mt-2 flex items-center gap-2 p-2"
+          {!isPayment && (
+            <div className="mt-2 p-2"
               style={{ background: '#fafaf6', border: '1px solid #e8e2d8', borderRadius: 'var(--radius-sm)' }}
             >
-              <img src={photo} alt="" className="w-12 h-12 object-cover" style={{ borderRadius: 6, flexShrink: 0 }} />
-              <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>
-                  {lang === 'am' ? 'የዕቃ ፎቶ ተጨምሯል' : 'Item photo attached'}
+                  {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
                 </p>
-                <p className="text-[10px]" style={{ color: '#9ca3af' }}>
-                  {Math.round(photoSizeBytes(photo) / 1024)} KB
+                <p className="text-[10px] font-bold" style={{ color: '#6b7280' }}>
+                  {photos.length}/{MAX_PROOF_PHOTOS}
                 </p>
               </div>
-              <button
-                onClick={() => setPhoto(null)}
-                className="press-scale flex items-center justify-center"
-                style={{ minWidth: 32, minHeight: 32 }}
-                aria-label={lang === 'am' ? 'ፎቶ አስወግድ' : 'Remove photo'}
-              >
-                <X className="w-4 h-4" style={{ color: '#6b7280' }} />
-              </button>
+              {photos.length > 0 ? (
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                  {photos.map((entry, index) => (
+                    <div key={entry.id} className="relative flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openPhotoCapture(entry.id)}
+                        className="press-scale block"
+                        style={{ padding: 0, border: 'none', background: 'transparent' }}
+                        aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
+                      >
+                        <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(entry.id)}
+                        className="press-scale flex items-center justify-center"
+                        style={{
+                          position: 'absolute',
+                          top: -6,
+                          right: -6,
+                          minWidth: 28,
+                          minHeight: 28,
+                          borderRadius: 999,
+                          border: '1px solid #e8e2d8',
+                          background: '#fff',
+                        }}
+                        aria-label={lang === 'am' ? '\u134E\u1276 \u12A0\u1235\u12C8\u130D\u12F5' : `Remove photo ${index + 1}`}
+                      >
+                        <X className="w-3.5 h-3.5" style={{ color: '#6b7280' }} />
+                      </button>
+                      <p className="text-[10px] text-center mt-1" style={{ color: '#9ca3af' }}>
+                        {Math.round(photoSizeBytes(entry.dataUrl) / 1024)} KB
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>
+                  {lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take / choose photo'}
+                </p>
+              )}
             </div>
           )}
           {!isPayment && photoError && (
@@ -883,8 +927,8 @@ function CustomerTransactionSheet({
       {/* B2: rear-camera capture modal (product photo) */}
       <CameraCapture
         open={showCamera}
-        onCapture={(dataUrl) => { setPhoto(dataUrl); setShowCamera(false); }}
-        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraPhoto}
+        onClose={() => { setShowCamera(false); setReplacePhotoId(null); }}
         lang={lang}
       />
     </div>

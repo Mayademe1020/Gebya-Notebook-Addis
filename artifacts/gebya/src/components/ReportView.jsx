@@ -761,7 +761,7 @@ function CompactRow({ rank, name, value, sub, hidden }) {
 
 function AllHistoryCollapsible({ transactions, onEdit, lang }) {
   const hasPhotoTransactions = useMemo(
-    () => transactions.some(tx => !!tx.photo),
+    () => transactions.some(tx => !!tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)),
     [transactions]
   );
   const [open, setOpen] = useState(() => hasPhotoTransactions);

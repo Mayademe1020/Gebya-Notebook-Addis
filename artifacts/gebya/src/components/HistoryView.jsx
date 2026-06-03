@@ -302,9 +302,10 @@ function TxRow({ tx, onEdit, t, lang }) {
             {tx.updated_at && <p className="text-xs" style={{ color: '#C4883A' }}>{t.edited}</p>}
           </div>
         </button>
-        {tx.photo && (
+        {(tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)) && (
           <PhotoAttachment
             photo={tx.photo}
+            photos={tx.photos}
             lang={lang}
             label={lang === 'am' ? 'የግብይት ፎቶ ይመልከቱ' : 'View transaction photo'}
           />
