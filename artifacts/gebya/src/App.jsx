@@ -24,6 +24,7 @@ import { enrichCustomerSummaries, buildCreditMetrics } from './utils/customerMet
 import { usePwaInstall } from './hooks/usePwaInstall.js';
 import { resendLatestTelegramUpdate, syncTelegramCustomerState } from './utils/telegramBotClient';
 import { countPendingTelegramSync, drainTelegramSyncQueue, enqueueTelegramLedgerUpdate } from './utils/syncQueue';
+import { createCloudProofFields, enqueueCloudProofUpsert } from './utils/cloudProof';
 import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from './utils/staffMembers';
 import {
   buildDefaultChannels,
@@ -238,6 +239,24 @@ function runAfterFirstPaint(callback) {
 function buildSavedOnDeviceMessage(message, isOnline) {
   const baseMessage = String(message || 'Saved').trim() || 'Saved';
   return isOnline ? baseMessage : (baseMessage + ' - saved on this phone');
+}
+
+function getTransactionCloudProofRecordType(transaction) {
+  if (transaction?.type === 'sale') return 'sale';
+  if (transaction?.type === 'expense') return 'expense';
+  return null;
+}
+
+function getCustomerCloudProofRecordType(transaction) {
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT) return 'customer_payment';
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) return 'customer_credit';
+  return null;
+}
+
+function getSupplierCloudProofRecordType(transaction) {
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT) return 'supplier_payment';
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD) return 'supplier_purchase';
+  return null;
 }
 
 function OfflineStatusStrip({
@@ -1113,16 +1132,27 @@ function AppInner() {
     try {
       const isOnlineNow = isBrowserOnline();
       const now = new Date(transaction.created_at);
+      const cloudProofFields = await createCloudProofFields();
       // Preserve customer_name from the payload (set by Partial/Pay-later flow); fall back to null
       const newTxn = {
         ...transaction,
         ethiopian_date: formatEthiopian(now),
         customer_name: transaction.customer_name || null,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.transactions.add(newTxn);
       const saved = await db.transactions.get(id);
+      const transactionRecordType = getTransactionCloudProofRecordType(saved);
+      if (transactionRecordType) {
+        await enqueueCloudProofUpsert({
+          recordTable: 'transactions',
+          recordId: id,
+          recordType: transactionRecordType,
+          record: saved,
+        });
+      }
       await rememberLastSave({
         type: transaction.type,
         label: saved?.item_name || transaction.item_name || null,
@@ -1143,6 +1173,7 @@ function AppInner() {
       if (transaction.customer_id && Number(transaction.credit_amount) > 0) {
         try {
           const createdAt = transaction.created_at || Date.now();
+          const customerCloudProofFields = await createCloudProofFields();
           const customerTxEntry = {
             customer_id: transaction.customer_id,
             type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
@@ -1169,11 +1200,20 @@ function AppInner() {
             created_at: createdAt,
             updated_at: Date.now(),
             ...buildActorSnapshot(),
+            ...customerCloudProofFields,
           };
           const cid = await db.customer_transactions.add(customerTxEntry);
           const referenceCode = createCustomerTransactionReference(cid, createdAt);
           await db.customer_transactions.update(cid, { reference_code: referenceCode });
           const savedCustomerTx = await db.customer_transactions.get(cid);
+          if (savedCustomerTx) {
+            await enqueueCloudProofUpsert({
+              recordTable: 'customer_transactions',
+              recordId: cid,
+              recordType: 'customer_credit',
+              record: savedCustomerTx,
+            });
+          }
           if (savedCustomerTx) {
             setLedgerTransactions(prev => insertCustomerTransaction(prev, savedCustomerTx));
             const customerRecord = await db.customers.get(transaction.customer_id);
@@ -2047,6 +2087,7 @@ function AppInner() {
     }
 
     const now = Date.now();
+    const cloudProofFields = await createCloudProofFields();
     let supplierMissing = false;
     let staleOverPayment = false;
     let saved = null;
@@ -2080,6 +2121,7 @@ function AppInner() {
         created_at: now,
         updated_at: now,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.supplier_transactions.add(entry);
@@ -2099,6 +2141,12 @@ function AppInner() {
 
     setSupplierTransactions(prev => [saved, ...prev]);
     setSuppliers(prev => prev.map(item => item.id === payload.supplier_id ? { ...item, updated_at: now } : item));
+    await enqueueCloudProofUpsert({
+      recordTable: 'supplier_transactions',
+      recordId: saved.id,
+      recordType: getSupplierCloudProofRecordType(saved),
+      record: saved,
+    });
     return true;
   };
 
@@ -2386,6 +2434,8 @@ function AppInner() {
     }
 
     const now = Date.now();
+    const isOnlineNow = isBrowserOnline();
+    const cloudProofFields = await createCloudProofFields();
     let customerMissing = false;
     let staleOverPayment = false;
     let saved = null;
@@ -2425,6 +2475,7 @@ function AppInner() {
         created_at: now,
         updated_at: now,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.customer_transactions.add(entry);
@@ -2458,6 +2509,12 @@ function AppInner() {
     setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
     setLedgerCustomers(prev => prev.map(c => c.id === draft.customer_id ? { ...c, updated_at: now } : c));
     setCustomerTransactionModal(null);
+    await enqueueCloudProofUpsert({
+      recordTable: 'customer_transactions',
+      recordId: saved.id,
+      recordType: getCustomerCloudProofRecordType(saved),
+      record: saved,
+    });
     await rememberLastSave({
       type: draft.type,
       label: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT
