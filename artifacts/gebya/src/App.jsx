@@ -1011,7 +1011,7 @@ function AppInner() {
     setRetryingTelegram(true);
     try {
       const result = await refreshQueuedTelegramRecords();
-      const sentCount = result.records?.filter(record => record.telegram_sync_status === 'sent').length || 0;
+      const sentCount = result.records?.filter(record => record.telegram_delivery_state === 'bot_sent').length || 0;
       fireToast(sentCount > 0 ? `Telegram sent: ${sentCount}` : 'Telegram queue checked', 2200);
     } catch {
       fireToast('Telegram retry failed - will keep waiting', 2600);

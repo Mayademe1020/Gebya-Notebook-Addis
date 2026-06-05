@@ -30,12 +30,15 @@ function isSlowConnection() {
   return Boolean(connection?.saveData) || ['slow-2g', '2g', '3g'].includes(connection?.effectiveType);
 }
 
+const FRONTEND_BOT_USERNAME = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '').trim();
+
 function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, onResendUpdate }) {
   const { t, lang } = useLang();
+  const frontendBotUsername = FRONTEND_BOT_USERNAME || null;
   const [manualTelegram, setManualTelegram] = useState(customer?.telegram_username || '');
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
-  const [botStatus, setBotStatus] = useState({ configured: false, bot_username: null });
+  const [botStatus, setBotStatus] = useState({ configured: Boolean(frontendBotUsername), bot_username: frontendBotUsername });
   const [linkSession, setLinkSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [telegramServiceAvailable, setTelegramServiceAvailable] = useState(true);
@@ -46,7 +49,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
 
   const safeBotStatus = botStatus && typeof botStatus === 'object'
     ? botStatus
-    : { configured: false, bot_username: null };
+    : { configured: Boolean(frontendBotUsername), bot_username: frontendBotUsername };
   const normalizedTelegram = normalizeTelegram(manualTelegram);
   const telegramValid = !manualTelegram.trim() || !!normalizedTelegram;
   const hasLinkedBorrower = Boolean(customer?.telegram_chat_id || linkSession?.chat_id);
@@ -85,10 +88,14 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
         const status = await fetchTelegramBotStatus().catch(() => null);
         if (!active) return;
         if (status && typeof status === 'object') {
-          setBotStatus(status);
+          setBotStatus({
+            ...status,
+            configured: Boolean(status.configured || frontendBotUsername),
+            bot_username: status.bot_username || frontendBotUsername,
+          });
           setTelegramServiceAvailable(true);
         } else {
-          setBotStatus({ configured: false, bot_username: null });
+          setBotStatus({ configured: Boolean(frontendBotUsername), bot_username: frontendBotUsername });
           setTelegramServiceAvailable(false);
         }
 
@@ -188,6 +195,16 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
       onDone?.();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!onResendUpdate || resending) return;
+    setResending(true);
+    try {
+      await onResendUpdate();
+    } finally {
+      setResending(false);
     }
   };
 
