@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const configDir = path.dirname(fileURLToPath(import.meta.url));
+const e2ePort = Number(process.env.GEBYA_E2E_PORT || 4174);
+const e2eBaseURL = `http://127.0.0.1:${e2ePort}`;
 
 export default defineConfig({
   testDir: './tests',
@@ -10,7 +12,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: e2eBaseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -21,9 +23,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm serve',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: true,
+    command: `node ./node_modules/vite/bin/vite.js preview --config vite.config.ts --host 127.0.0.1 --port ${e2ePort} --strictPort`,
+    url: e2eBaseURL,
+    reuseExistingServer: false,
     timeout: 120000,
     cwd: configDir,
   },

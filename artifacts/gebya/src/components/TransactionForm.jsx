@@ -51,6 +51,11 @@ function handleNumericInput(e, setter) {
 
 const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
+function extractItemCode(value) {
+  const match = String(value || '').match(/\b[A-Z]{1,8}[-_/]?\d{1,8}\b/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
 function TransactionForm({
   type,
   onSave,
@@ -242,6 +247,7 @@ function TransactionForm({
     const itemNameForSave = (!isCredit && cleanedItems.length > 0)
       ? cleanedItems.map(li => li.name).join(', ').substring(0, 200)
       : item.trim();
+    const itemCodeForSave = !isCredit ? extractItemCode(itemNameForSave || item) : null;
 
     // Cash actually received from this sale (drives Today's cash tally vs gross sales)
     const cashReceived = !isCredit
@@ -255,6 +261,8 @@ function TransactionForm({
     const data = {
       type,
       item_name: itemNameForSave,
+      item_note: !isCredit ? (itemNameForSave || null) : null,
+      item_code: itemCodeForSave,
       catalog_entry_id: catalogEntryId ? Number(catalogEntryId) : null,
       item_kind: selectedCatalogEntry?.kind || null,
       quantity: isCredit ? 1 : qty,

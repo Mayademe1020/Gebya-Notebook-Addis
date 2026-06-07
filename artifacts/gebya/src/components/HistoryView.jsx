@@ -125,14 +125,32 @@ function filterCurrentMonth(transactions) {
   return transactions.filter(tx => tx.created_at >= ms && tx.created_at <= me);
 }
 
-function matchesSearch(tx, query) {
+export function matchesSearch(tx, query) {
   if (!query) return true;
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return (
-    (tx.item_name || '').toLowerCase().includes(q) ||
-    (tx.customer_name || '').toLowerCase().includes(q)
-  );
+  const compactQuery = q.replace(/[,\s]/g, '');
+  const date = tx.created_at ? new Date(tx.created_at) : null;
+  const dateText = date ? [
+    date.toLocaleDateString(),
+    date.toISOString().slice(0, 10),
+    formatEthiopian(tx.created_at),
+  ].join(' ') : '';
+  const itemsText = Array.isArray(tx.items)
+    ? tx.items.map(item => `${item.name || ''} ${item.code || ''} ${item.amount || ''}`).join(' ')
+    : '';
+  const haystack = [
+    tx.item_name,
+    tx.item_note,
+    tx.item_code,
+    tx.customer_name,
+    tx.actor_name_snapshot,
+    tx.note,
+    tx.amount,
+    dateText,
+    itemsText,
+  ].map(value => String(value || '').toLowerCase()).join(' ');
+  return haystack.includes(q) || haystack.replace(/[,\s]/g, '').includes(compactQuery);
 }
 
 function matchesActor(tx, actorFilter) {

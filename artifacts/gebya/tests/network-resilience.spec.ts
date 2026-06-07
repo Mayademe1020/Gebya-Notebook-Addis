@@ -27,6 +27,9 @@ async function seedShopProfile(page: Page, shopName = 'Tigist Shop') {
 
 test('core notebook actions still work while offline', async ({ browser }) => {
   const context = await browser.newContext();
+  await context.addInitScript(() => {
+    window.localStorage.setItem('gebya_lang', 'en');
+  });
   const page = await context.newPage();
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -41,8 +44,8 @@ test('core notebook actions still work while offline', async ({ browser }) => {
     window.dispatchEvent(new Event('offline'));
   });
 
-  await page.getByRole('button', { name: /type sale/i }).click();
-  await page.getByPlaceholder(/e\.g\./i).fill('Offline sale');
+  await page.getByRole('button', { name: /^sale$/i }).click();
+  await page.getByPlaceholder(/add details|bread|sugar|e\.g\./i).fill('Offline sale');
   await page.getByPlaceholder('0').fill('120');
   await page.getByRole('button', { name: /save sale/i }).click();
 
@@ -52,30 +55,35 @@ test('core notebook actions still work while offline', async ({ browser }) => {
   await context.close();
 });
 
-test('slow-network guidance shows before voice and telegram flows', async ({ browser }) => {
+test('slow-network guidance shows before telegram linking flow', async ({ browser }) => {
   const context = await browser.newContext();
+  await context.addInitScript(() => {
+    window.localStorage.setItem('gebya_lang', 'en');
+    Object.defineProperty(window.navigator, 'connection', {
+      configurable: true,
+      value: {
+        effectiveType: '2g',
+        saveData: false,
+        addEventListener() {},
+        removeEventListener() {},
+      },
+    });
+  });
   const page = await context.newPage();
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await seedShopProfile(page);
-  await page.evaluate(() => {
-    window.localStorage.setItem('gebya_test_connection', JSON.stringify({
-      effectiveType: '2g',
-      saveData: false,
-    }));
-  });
   await page.reload({ waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText(/voice may take longer/i)).toBeVisible();
-
-  await page.locator('nav').getByRole('button', { name: /dubie/i }).click();
-  await page.getByRole('button', { name: /add customer/i }).click();
-  await page.getByPlaceholder(/name, nickname, relation, place, or vehicle clue/i).fill('Slow Network Buyer');
-  await page.getByRole('button', { name: /more \(optional\)/i }).click();
+  await page.locator('nav').getByRole('button', { name: /credit/i }).click();
+  await page.getByRole('button', { name: /add (your first )?customer/i }).click();
+  await page.getByPlaceholder(/e\.g\. tigist/i).fill('Slow Network Buyer');
   await page.getByPlaceholder(/@username, t\.me/i).fill('@slowbuyer');
   await page.getByRole('button', { name: /save customer/i }).click();
 
   await expect(page.getByText(/slow network buyer/i)).toBeVisible();
-  await expect(page.getByText(/use refresh after the borrower opens telegram/i)).toBeVisible();
+  await page.getByRole('button', { name: /manual telegram/i }).click();
+  await expect(page.getByText(/open telegram & link/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /or enter manually/i })).toBeVisible();
 
   await context.close();
 });

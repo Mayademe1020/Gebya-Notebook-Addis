@@ -13,6 +13,9 @@ import ProfitCard from './components/ProfitCard';
 import OnboardingScreen from './components/OnboardingScreen';
 import { ToastContainer, fireToast } from './components/Toast';
 import PhotoAttachment from './components/PhotoAttachment';
+import QuickNoteSheet from './components/QuickNoteSheet';
+import QuickNotesList from './components/QuickNotesList';
+import TransactionForm from './components/TransactionForm';
 import { getCurrentEthiopianDate, formatEthiopian } from './utils/ethiopianCalendar';
 import { fmt } from './utils/numformat';
 import { buildCustomerSummaries, getCustomerBalance, insertCustomerTransaction, sortCustomerTransactions } from './utils/customerLedger';
@@ -24,7 +27,19 @@ import { enrichCustomerSummaries, buildCreditMetrics } from './utils/customerMet
 import { usePwaInstall } from './hooks/usePwaInstall.js';
 import { resendLatestTelegramUpdate, syncTelegramCustomerState } from './utils/telegramBotClient';
 import { countPendingTelegramSync, drainTelegramSyncQueue, enqueueTelegramLedgerUpdate } from './utils/syncQueue';
+import { createCloudProofFields, enqueueCloudProofUpsert } from './utils/cloudProof';
+import { createAndQueueStaffSaleEvent, drainStaffSaleSyncQueue } from './utils/staffSalesSync';
 import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from './utils/staffMembers';
+import { buildQuickNoteDueActions, normalizeQuickNoteDraft, QUICK_NOTE_STATUSES, sortQuickNotes } from './utils/quickNotes';
+import {
+  DEFAULT_OWNER_ALERT_SETTINGS,
+  OWNER_ALERT_MODES,
+  buildOwnerSaleAlert,
+  normalizeOwnerAlertSettings,
+  shouldCreateOwnerSaleAlert,
+  sortOwnerAlerts,
+} from './utils/ownerAlerts';
+import { buildCustomerDueActions } from './utils/todaySummary';
 import {
   buildDefaultChannels,
   migrateLegacyToChannels,
@@ -36,6 +51,13 @@ const DEFAULT_PROVIDERS = {
   banks: ['CBE', 'Dashen', 'Awash', 'Abyssinia'],
   wallets: ['telebirr', 'CBE Birr'],
 };
+
+function canHardDeleteLocalTransaction(tx) {
+  // Phase 2A keeps existing local-only undo/delete behavior. Once a transaction
+  // itself becomes pending_sync or synced, future sync work should emit
+  // sale_voided/correction events instead of hard-deleting history.
+  return !tx?.sync_status || tx.sync_status === 'local_only';
+}
 
 // Stale-chunk self-heal. After a new deploy, Vite emits new hashed chunk
 // filenames. A browser still running the previous index.html (or a stale
@@ -68,7 +90,6 @@ function lazyWithRetry(importer, name) {
   });
 }
 
-const importTransactionForm = () => import('./components/TransactionForm');
 const importEditTransactionSheet = () => import('./components/EditTransactionSheet');
 const importReminderSheet = () => import('./components/ReminderSheet');
 const importSupplierList = () => import('./components/SupplierList');
@@ -85,7 +106,6 @@ const importReportView = () => import('./components/ReportView');
 const importSettingsPage = () => import('./components/SettingsPage');
 const importDailySuggestions = () => import('./components/DailySuggestions');
 
-const TransactionForm = lazyWithRetry(importTransactionForm, 'TransactionForm');
 const EditTransactionSheet = lazyWithRetry(importEditTransactionSheet, 'EditTransactionSheet');
 const ReminderSheet = lazyWithRetry(importReminderSheet, 'ReminderSheet');
 const SupplierList = lazyWithRetry(importSupplierList, 'SupplierList');
@@ -238,6 +258,86 @@ function runAfterFirstPaint(callback) {
 function buildSavedOnDeviceMessage(message, isOnline) {
   const baseMessage = String(message || 'Saved').trim() || 'Saved';
   return isOnline ? baseMessage : (baseMessage + ' - saved on this phone');
+}
+
+function getTransactionCloudProofRecordType(transaction) {
+  if (transaction?.type === 'sale') return 'sale';
+  if (transaction?.type === 'expense') return 'expense';
+  return null;
+}
+
+function getCustomerCloudProofRecordType(transaction) {
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT) return 'customer_payment';
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) return 'customer_credit';
+  return null;
+}
+
+function TodayStaffSalesSummary({ rows = [], lang }) {
+  if (!rows.length) return null;
+
+  return (
+    <div className="px-4 py-3 border" style={{ background: '#fff', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+          {lang === 'am' ? 'የሰራተኛ ሽያጭ' : 'Staff sales today'}
+        </h3>
+      </div>
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gray-900 truncate">{row.name}</p>
+              <p className="text-xs text-gray-500">{row.count} {row.count === 1 ? 'sale' : 'sales'}</p>
+            </div>
+            <p className="text-sm font-black text-green-700 flex-shrink-0">{fmt(row.total)} {lang === 'am' ? 'ብር' : 'birr'}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OwnerAlertFeed({ alerts = [], settings, lang }) {
+  const visibleAlerts = alerts.slice(0, 4);
+  if (!visibleAlerts.length) return null;
+
+  return (
+    <div className="px-4 py-3 border" style={{ background: '#fffbeb', borderColor: '#fde68a', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#92400e' }}>
+          {lang === 'am' ? 'የባለቤት ማሳወቂያ' : 'Owner alerts'}
+        </h3>
+        {settings?.mode === OWNER_ALERT_MODES.HIGH_VALUE && (
+          <span className="text-[11px] font-bold" style={{ color: '#92400e' }}>
+            {fmt(settings.threshold_amount)}+
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {visibleAlerts.map((alert) => (
+          <div key={alert.id} className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold truncate" style={{ color: '#1f2937' }}>
+                {alert.item_name || (lang === 'am' ? 'ሽያጭ' : 'Sale')}
+              </p>
+              <p className="text-xs" style={{ color: '#92400e' }}>
+                {alert.actor_name_snapshot || 'Owner'} · {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <p className="text-sm font-black flex-shrink-0" style={{ color: '#92400e' }}>
+              {fmt(alert.amount || 0)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getSupplierCloudProofRecordType(transaction) {
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT) return 'supplier_payment';
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD) return 'supplier_purchase';
+  return null;
 }
 
 function OfflineStatusStrip({
@@ -668,6 +768,9 @@ function AppInner() {
   const [catalogEntries, setCatalogEntries] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [supplierTransactions, setSupplierTransactions] = useState([]);
+  const [quickNotes, setQuickNotes] = useState([]);
+  const [ownerAlerts, setOwnerAlerts] = useState([]);
+  const [ownerAlertSettings, setOwnerAlertSettings] = useState(DEFAULT_OWNER_ALERT_SETTINGS);
   const [staffMembers, setStaffMembers] = useState([]);
   const [activeStaffMemberId, setActiveStaffMemberId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -701,6 +804,7 @@ function AppInner() {
   // customerTransactionEditTarget). When set, SupplierTransactionSheet
   // renders with `editingTransaction={...}` so the user can adjust amount/note.
   const [supplierTransactionEditTarget, setSupplierTransactionEditTarget] = useState(null);
+  const [quickNoteTarget, setQuickNoteTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
@@ -748,6 +852,193 @@ function AppInner() {
       await db.settings.delete('last_saved_snapshot');
     } catch { /* non-critical */ }
   }, []);
+
+  const handleSaveOwnerAlertSettings = useCallback(async (nextSettings) => {
+    const normalized = normalizeOwnerAlertSettings(nextSettings);
+    setOwnerAlertSettings(normalized);
+    await db.settings.put({ key: 'owner_alert_settings', value: JSON.stringify(normalized) });
+    fireToast('Owner alert setting saved', 1600);
+    return normalized;
+  }, []);
+
+  const maybeCreateOwnerSaleAlert = useCallback(async (transaction) => {
+    if (!shouldCreateOwnerSaleAlert(transaction, ownerAlertSettings)) return null;
+    const alert = buildOwnerSaleAlert(transaction, ownerAlertSettings);
+    const id = await db.owner_alerts.add(alert);
+    const savedAlert = await db.owner_alerts.get(id);
+    setOwnerAlerts(prev => sortOwnerAlerts([savedAlert, ...prev]));
+    return savedAlert;
+  }, [ownerAlertSettings]);
+
+  const handleSaveQuickNote = useCallback(async (payload) => {
+    const draft = normalizeQuickNoteDraft(payload);
+    if (!draft.raw_text) return false;
+
+    const now = Date.now();
+    if (payload?.id) {
+      const existing = await db.quick_notes.get(payload.id);
+      if (!existing) {
+        fireToast('Memory note not found', 2200);
+        return false;
+      }
+      const updates = {
+        ...draft,
+        updated_at: now,
+      };
+      await db.quick_notes.update(payload.id, updates);
+      const saved = await db.quick_notes.get(payload.id);
+      setQuickNotes(prev => sortQuickNotes(prev.map(item => item.id === payload.id ? saved : item)));
+      fireToast('Memory updated', 1800);
+      return true;
+    }
+
+    const cloudProofFields = await createCloudProofFields();
+    const entry = {
+      ...draft,
+      ...buildActorSnapshot(),
+      ...cloudProofFields,
+      created_at: now,
+      updated_at: now,
+    };
+    const id = await db.quick_notes.add(entry);
+    const saved = await db.quick_notes.get(id);
+    setQuickNotes(prev => sortQuickNotes([saved, ...prev]));
+    await rememberLastSave({
+      type: 'quick_note',
+      label: saved.raw_text,
+      amount: saved.amount || null,
+      created_at: saved.created_at,
+    });
+    fireToast('Memory saved on this phone', 2200);
+    return true;
+  }, [buildActorSnapshot, rememberLastSave]);
+
+  const handleDismissQuickNote = useCallback(async (note) => {
+    if (!note?.id) return false;
+    const now = Date.now();
+    await db.quick_notes.update(note.id, {
+      status: QUICK_NOTE_STATUSES.DISMISSED,
+      updated_at: now,
+    });
+    const saved = await db.quick_notes.get(note.id);
+    setQuickNotes(prev => sortQuickNotes(prev.map(item => item.id === note.id ? saved : item)));
+    fireToast('Memory dismissed', 1600);
+    return true;
+  }, []);
+
+  const handleDoneQuickNote = useCallback(async (note) => {
+    if (!note?.id) return false;
+    const now = Date.now();
+    await db.quick_notes.update(note.id, {
+      status: QUICK_NOTE_STATUSES.DONE,
+      updated_at: now,
+    });
+    const saved = await db.quick_notes.get(note.id);
+    setQuickNotes(prev => sortQuickNotes(prev.map(item => item.id === note.id ? saved : item)));
+    fireToast('Memory marked done', 1600);
+    return true;
+  }, []);
+
+  const handleConvertQuickNoteToDubie = useCallback(async (note) => {
+    if (!note?.id) return false;
+    const personName = String(note.person_name || '').trim();
+    const amount = Number(note.amount || 0);
+    if (!personName || amount <= 0) {
+      fireToast('Add person and amount before converting', 2400);
+      return false;
+    }
+
+    const now = Date.now();
+    const cloudProofFields = await createCloudProofFields();
+    let savedCustomer = null;
+    let savedCustomerTx = null;
+    let referenceCode = null;
+
+    await db.transaction('rw', db.customers, db.customer_transactions, db.quick_notes, async () => {
+      const existingCustomers = await db.customers.toArray();
+      savedCustomer = existingCustomers.find(customer =>
+        String(customer.display_name || '').trim().toLowerCase() === personName.toLowerCase()
+      ) || null;
+
+      if (!savedCustomer) {
+        const customerId = await db.customers.add({
+          display_name: personName,
+          note: null,
+          phone_number: null,
+          telegram_username: null,
+          telegram_notify_enabled: false,
+          telegram_chat_id: null,
+          telegram_link_token: createCustomerTelegramLinkToken(),
+          telegram_linked_at: null,
+          telegram_link_requested_at: null,
+          created_at: now,
+          updated_at: now,
+        });
+        savedCustomer = await db.customers.get(customerId);
+      }
+
+      const entry = {
+        customer_id: savedCustomer.id,
+        type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+        amount,
+        item_note: String(note.raw_text || '').trim() || null,
+        due_date: Number(note.due_date || 0) > 0 ? Number(note.due_date) : null,
+        reference_code: null,
+        telegram_delivery_state: null,
+        telegram_delivery_error: null,
+        telegram_delivery_attempted_at: null,
+        created_at: now,
+        updated_at: now,
+        ...buildActorSnapshot(),
+        ...cloudProofFields,
+        converted_from_quick_note_id: note.id,
+      };
+
+      const transactionId = await db.customer_transactions.add(entry);
+      referenceCode = createCustomerTransactionReference(transactionId, now);
+      await db.customer_transactions.update(transactionId, { reference_code: referenceCode });
+      savedCustomerTx = await db.customer_transactions.get(transactionId);
+      await db.customers.update(savedCustomer.id, { updated_at: now });
+      savedCustomer = await db.customers.get(savedCustomer.id);
+      await db.quick_notes.update(note.id, {
+        status: QUICK_NOTE_STATUSES.CONVERTED,
+        converted_customer_id: savedCustomer.id,
+        converted_transaction_id: transactionId,
+        updated_at: now,
+      });
+    });
+
+    if (!savedCustomer || !savedCustomerTx) {
+      fireToast('Could not convert memory', 2400);
+      return false;
+    }
+
+    setLedgerCustomers(prev => {
+      const exists = prev.some(customer => customer.id === savedCustomer.id);
+      return exists
+        ? prev.map(customer => customer.id === savedCustomer.id ? { ...customer, ...savedCustomer } : customer)
+        : [...prev, savedCustomer];
+    });
+    setLedgerTransactions(prev => insertCustomerTransaction(prev, savedCustomerTx));
+    const savedNote = await db.quick_notes.get(note.id);
+    setQuickNotes(prev => sortQuickNotes(prev.map(item => item.id === note.id ? savedNote : item)));
+
+    await enqueueCloudProofUpsert({
+      recordTable: 'customer_transactions',
+      recordId: savedCustomerTx.id,
+      recordType: 'customer_credit',
+      record: savedCustomerTx,
+    });
+    await rememberLastSave({
+      type: 'customer_credit',
+      label: savedCustomerTx.item_note || personName,
+      amount,
+      created_at: now,
+    });
+
+    fireToast('Memory converted to Dubie', 2200);
+    return true;
+  }, [buildActorSnapshot, rememberLastSave]);
 
   const appendVoiceQualityEvent = useCallback(async (event) => {
     try {
@@ -816,9 +1107,9 @@ function AppInner() {
   const loadData = useCallback(async () => {
     try {
       const [
-        txns, customerRows, customerTxRows, catalogRows, supplierRows, supplierTxRows, staffRows,
+        txns, customerRows, customerTxRows, catalogRows, supplierRows, supplierTxRows, quickNoteRows, ownerAlertRows, staffRows,
         nameRow, phoneRow, businessTypeRow, epRow, reRow, customQuickAmountsRow, telegramRow,
-        snapshotRow, activeStaffRow,
+        snapshotRow, activeStaffRow, ownerAlertSettingsRow,
         // Payment receiving accounts — used by Pay-it-now /pay URLs (legacy, C.1)
         payTelebirrRow, payCbePhoneRow, payCbeAccountRow, payAwashPhoneRow,
         payBankNameRow, payBankAccountRow,
@@ -831,6 +1122,8 @@ function AppInner() {
         db.catalog_entries?.toArray?.() || [],
         db.suppliers?.toArray?.() || [],
         db.supplier_transactions?.toArray?.() || [],
+        db.quick_notes?.toArray?.() || [],
+        db.owner_alerts?.toArray?.() || [],
         db.staff_members?.toArray?.() || [],
         db.settings.get('shop_name'),
         db.settings.get('shop_phone'),
@@ -841,6 +1134,7 @@ function AppInner() {
         db.settings.get('shop_telegram'),
         db.settings.get('last_saved_snapshot'),
         db.settings.get('active_staff_member_id'),
+        db.settings.get('owner_alert_settings'),
         db.settings.get('shop_pay_telebirr'),
         db.settings.get('shop_pay_cbe_phone'),
         db.settings.get('shop_pay_cbe_account'),
@@ -900,6 +1194,9 @@ function AppInner() {
       setCatalogEntries(catalogRows || []);
       setSuppliers(supplierRows || []);
       setSupplierTransactions(supplierTxRows || []);
+      setQuickNotes(sortQuickNotes(quickNoteRows || []));
+      setOwnerAlerts(sortOwnerAlerts(ownerAlertRows || []));
+      setOwnerAlertSettings(normalizeOwnerAlertSettings(ownerAlertSettingsRow?.value));
       setStaffMembers((staffRows || []).sort((a, b) => {
         if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
         return String(a.display_name || '').localeCompare(String(b.display_name || ''));
@@ -1004,6 +1301,14 @@ function AppInner() {
     return result;
   }, [refreshPendingTelegramCount]);
 
+  const refreshQueuedStaffSaleEvents = useCallback(async () => {
+    try {
+      return await drainStaffSaleSyncQueue({ limit: 5 });
+    } catch {
+      return { processed: 0, records: [] };
+    }
+  }, []);
+
   const handleRetryQueuedTelegram = useCallback(async () => {
     if (retryingTelegram || !isBrowserOnline()) return;
     setRetryingTelegram(true);
@@ -1025,17 +1330,19 @@ function AppInner() {
       runAfterFirstPaint(() => {
         if (cancelled) return;
         refreshQueuedTelegramRecords().catch(() => {});
+        refreshQueuedStaffSaleEvents().catch(() => {});
       });
     }
     const handleOnline = () => {
       refreshQueuedTelegramRecords().catch(() => {});
+      refreshQueuedStaffSaleEvents().catch(() => {});
     };
     window.addEventListener('online', handleOnline);
     return () => {
       cancelled = true;
       window.removeEventListener('online', handleOnline);
     };
-  }, [loading, refreshQueuedTelegramRecords]);
+  }, [loading, refreshQueuedStaffSaleEvents, refreshQueuedTelegramRecords]);
 
   // Launch-critical: load the last-backup timestamp once on mount so we can
   // decide whether to surface the data-loss nudge on the Today tab.
@@ -1113,16 +1420,30 @@ function AppInner() {
     try {
       const isOnlineNow = isBrowserOnline();
       const now = new Date(transaction.created_at);
+      const cloudProofFields = await createCloudProofFields();
       // Preserve customer_name from the payload (set by Partial/Pay-later flow); fall back to null
       const newTxn = {
         ...transaction,
         ethiopian_date: formatEthiopian(now),
         customer_name: transaction.customer_name || null,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.transactions.add(newTxn);
       const saved = await db.transactions.get(id);
+      const transactionRecordType = getTransactionCloudProofRecordType(saved);
+      if (transactionRecordType) {
+        await enqueueCloudProofUpsert({
+          recordTable: 'transactions',
+          recordId: id,
+          recordType: transactionRecordType,
+          record: saved,
+        });
+      }
+      if (saved?.type === 'sale') {
+        await createAndQueueStaffSaleEvent(saved);
+      }
       await rememberLastSave({
         type: transaction.type,
         label: saved?.item_name || transaction.item_name || null,
@@ -1135,6 +1456,12 @@ function AppInner() {
         return updated;
       });
 
+      if (saved?.type === 'sale') {
+        try {
+          await maybeCreateOwnerSaleAlert(saved);
+        } catch { /* alert feed must never block local sale recording */ }
+      }
+
       // Paid · Partial · Pay Later — when a sale has a credit portion, also
       // record a customer_transaction so the customer's running balance updates.
       // Sale record keeps amount = full value sold; customer_transaction tracks
@@ -1143,6 +1470,7 @@ function AppInner() {
       if (transaction.customer_id && Number(transaction.credit_amount) > 0) {
         try {
           const createdAt = transaction.created_at || Date.now();
+          const customerCloudProofFields = await createCloudProofFields();
           const customerTxEntry = {
             customer_id: transaction.customer_id,
             type: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
@@ -1169,11 +1497,20 @@ function AppInner() {
             created_at: createdAt,
             updated_at: Date.now(),
             ...buildActorSnapshot(),
+            ...customerCloudProofFields,
           };
           const cid = await db.customer_transactions.add(customerTxEntry);
           const referenceCode = createCustomerTransactionReference(cid, createdAt);
           await db.customer_transactions.update(cid, { reference_code: referenceCode });
           const savedCustomerTx = await db.customer_transactions.get(cid);
+          if (savedCustomerTx) {
+            await enqueueCloudProofUpsert({
+              recordTable: 'customer_transactions',
+              recordId: cid,
+              recordType: 'customer_credit',
+              record: savedCustomerTx,
+            });
+          }
           if (savedCustomerTx) {
             setLedgerTransactions(prev => insertCustomerTransaction(prev, savedCustomerTx));
             const customerRecord = await db.customers.get(transaction.customer_id);
@@ -1266,6 +1603,11 @@ function AppInner() {
       const safeToastMsg = buildSavedOnDeviceMessage(toastMsg, isOnlineNow);
       fireToast(safeToastMsg, isOnlineNow ? 4000 : 4500, async () => {
         try {
+          const current = await db.transactions.get(id);
+          if (!canHardDeleteLocalTransaction(current)) {
+            fireToast('Synced records need a void or correction entry.', 2400);
+            return;
+          }
           await db.transactions.delete(id);
           setTransactions(prev => prev.filter(t2 => t2.id !== id));
           fireToast(t.undone, 2000);
@@ -1363,6 +1705,12 @@ function AppInner() {
 
   const handleDeleteTransaction = async (id) => {
     try {
+      const current = await db.transactions.get(id);
+      if (!canHardDeleteLocalTransaction(current)) {
+        fireToast('Synced records need a void or correction entry.', 2400);
+        setDeleteTarget(null);
+        return;
+      }
       await db.transactions.delete(id);
       const remainingTransactions = transactions.filter(t2 => t2.id !== id);
       setTransactions(remainingTransactions);
@@ -1540,6 +1888,11 @@ function AppInner() {
 
   // Alias for backward-compat in renders below. (Already enriched up top.)
   const enrichedCustomerSummaries = enrichedCustomerSummariesEarly;
+
+  const todayCreditActions = useMemo(
+    () => buildCustomerDueActions(enrichedCustomerSummaries),
+    [enrichedCustomerSummaries]
+  );
 
   // Composite credit-page metrics (hero card numbers, streak, top customer).
   // Streak draws on ALL transactions across types so it reflects real shop use.
@@ -2047,6 +2400,7 @@ function AppInner() {
     }
 
     const now = Date.now();
+    const cloudProofFields = await createCloudProofFields();
     let supplierMissing = false;
     let staleOverPayment = false;
     let saved = null;
@@ -2080,6 +2434,7 @@ function AppInner() {
         created_at: now,
         updated_at: now,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.supplier_transactions.add(entry);
@@ -2099,6 +2454,12 @@ function AppInner() {
 
     setSupplierTransactions(prev => [saved, ...prev]);
     setSuppliers(prev => prev.map(item => item.id === payload.supplier_id ? { ...item, updated_at: now } : item));
+    await enqueueCloudProofUpsert({
+      recordTable: 'supplier_transactions',
+      recordId: saved.id,
+      recordType: getSupplierCloudProofRecordType(saved),
+      record: saved,
+    });
     return true;
   };
 
@@ -2386,6 +2747,8 @@ function AppInner() {
     }
 
     const now = Date.now();
+    const isOnlineNow = isBrowserOnline();
+    const cloudProofFields = await createCloudProofFields();
     let customerMissing = false;
     let staleOverPayment = false;
     let saved = null;
@@ -2425,6 +2788,7 @@ function AppInner() {
         created_at: now,
         updated_at: now,
         ...buildActorSnapshot(),
+        ...cloudProofFields,
       };
 
       const id = await db.customer_transactions.add(entry);
@@ -2458,6 +2822,12 @@ function AppInner() {
     setLedgerTransactions(prev => insertCustomerTransaction(prev, saved));
     setLedgerCustomers(prev => prev.map(c => c.id === draft.customer_id ? { ...c, updated_at: now } : c));
     setCustomerTransactionModal(null);
+    await enqueueCloudProofUpsert({
+      recordTable: 'customer_transactions',
+      recordId: saved.id,
+      recordType: getCustomerCloudProofRecordType(saved),
+      record: saved,
+    });
     await rememberLastSave({
       type: draft.type,
       label: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT
@@ -2603,8 +2973,19 @@ function AppInner() {
     [ledgerTransactions, todayDateStr]
   );
 
-  const persistedEntryCount = transactions.length + ledgerTransactions.length;
-  const persistedTodayCount = todayTransactions.length + todayLedgerTransactions.length;
+  const pendingQuickNotes = useMemo(
+    () => quickNotes.filter(note => note.status === QUICK_NOTE_STATUSES.PENDING),
+    [quickNotes]
+  );
+
+  const todayQuickNoteActions = useMemo(
+    () => buildQuickNoteDueActions(pendingQuickNotes),
+    [pendingQuickNotes]
+  );
+
+  const persistedEntryCount = transactions.length + ledgerTransactions.length + quickNotes.length;
+  const persistedTodayCount = todayTransactions.length + todayLedgerTransactions.length
+    + quickNotes.filter(note => new Date(note.created_at).toDateString() === todayDateStr).length;
 
   const todaySales = useMemo(
     () => todayTransactions.filter(t2 => t2.type === 'sale'),
@@ -2622,6 +3003,22 @@ function AppInner() {
     () => todayExpenses.reduce((s, t2) => s + (t2.amount || 0), 0),
     [todayExpenses]
   );
+  const todayStaffSalesRows = useMemo(() => {
+    const byActor = new Map();
+    todaySales.forEach((tx) => {
+      const key = tx.actor_staff_member_id ? String(tx.actor_staff_member_id) : '__owner__';
+      const existing = byActor.get(key) || {
+        id: key,
+        name: tx.actor_name_snapshot || (key === '__owner__' ? 'Owner' : 'Unknown'),
+        total: 0,
+        count: 0,
+      };
+      existing.total += Number(tx.amount || 0);
+      existing.count += 1;
+      byActor.set(key, existing);
+    });
+    return Array.from(byActor.values()).sort((a, b) => b.total - a.total);
+  }, [todaySales]);
 
   // Yesterday derived state — used by TodaySummary's trend indicator (▲/▼ vs yesterday)
   const yesterdayDateStr = useMemo(() => {
@@ -2881,6 +3278,25 @@ function AppInner() {
         {activeTab === 'today' && (
           <div className="space-y-4">
             <ProfitCard transactions={todayTransactions} yesterdayNet={yesterdayNet} />
+
+            <TodayStaffSalesSummary rows={todayStaffSalesRows} lang={lang} />
+
+            <OwnerAlertFeed alerts={ownerAlerts} settings={ownerAlertSettings} lang={lang} />
+
+            <QuickNotesList
+              notes={pendingQuickNotes}
+              dueToday={[...todayCreditActions.dueToday, ...todayQuickNoteActions.dueToday]}
+              overdue={[...todayCreditActions.overdue, ...todayQuickNoteActions.overdue]}
+              onAddNote={() => setQuickNoteTarget({})}
+              onEditNote={(note) => setQuickNoteTarget(note)}
+              onDoneNote={handleDoneQuickNote}
+              onDismissNote={handleDismissQuickNote}
+              onConvertToDubie={handleConvertQuickNoteToDubie}
+              onOpenCredit={() => {
+                setActiveTab('credit');
+                setCreditView('customers');
+              }}
+            />
 
             {/* Launch-critical data-loss nudge. Shows when there's real data to
                 protect AND (never backed up OR >7 days stale). Dismissable. */}
@@ -3143,6 +3559,9 @@ function AppInner() {
                 setCreditView('customers');
               }}
               onShareReport={handleShareCustomReport}
+              ownerAlerts={ownerAlerts}
+              ownerAlertSettings={ownerAlertSettings}
+              todayStaffSalesRows={todayStaffSalesRows}
             />
           </Suspense>
         )}
@@ -3159,12 +3578,14 @@ function AppInner() {
               staffMembers={staffMembers}
               activeStaffMemberId={activeStaffMemberId}
               currentActorLabel={currentActorLabel}
+              ownerAlertSettings={ownerAlertSettings}
               onProfileSave={handleProfileSave}
               onSaveStaffMember={handleSaveStaffMember}
               onUpdateStaffMember={handleUpdateStaffMember}
               onDeactivateStaffMember={handleDeactivateStaffMember}
               onReactivateStaffMember={handleReactivateStaffMember}
               onSetActiveStaffMember={handleSetActiveStaffMember}
+              onSaveOwnerAlertSettings={handleSaveOwnerAlertSettings}
               enabledProviders={enabledProviders}
               onProvidersChange={setEnabledProviders}
               paymentChannels={shopProfile?.paymentChannels || []}
@@ -3186,7 +3607,7 @@ function AppInner() {
       </main>
 
       {/* Action bar (Today only) — fixed above bottom nav for thumb reach */}
-      {activeTab === 'today' && !showForm && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
+      {activeTab === 'today' && !showForm && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && !quickNoteTarget && (
         <div
           className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
           style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
@@ -3196,6 +3617,7 @@ function AppInner() {
               { type: 'sale',    label: lang === 'am' ? 'ሽያጭ' : 'Sale',    color: '#16a34a', icon: Plus    },
               { type: 'expense', label: lang === 'am' ? 'ወጪ'  : 'Expense', color: '#dc2626', icon: Minus   },
               { type: 'credit',  label: lang === 'am' ? 'ዱቤ'  : 'Credit',  color: '#2563eb', icon: RotateCw },
+              { type: 'memory',  label: 'Memory', color: '#1B4332', icon: BookOpen },
             ].map(b => {
               const pressed = pressedBtn === b.type;
               const Icon = b.icon;
@@ -3210,6 +3632,10 @@ function AppInner() {
                       if (!customerSummaries || customerSummaries.length === 0) {
                         setShowCustomerForm(true);
                       }
+                      return;
+                    }
+                    if (b.type === 'memory') {
+                      setQuickNoteTarget({});
                       return;
                     }
                     setShowForm(b.type);
@@ -3252,6 +3678,7 @@ function AppInner() {
                   setCustomerTransactionModal(null);
                   setCustomerTransactionEditTarget(null);
                   setSupplierTransactionModal(null);
+                  setQuickNoteTarget(null);
                   setReminderTarget(null);
                   setActiveTab(tab.id);
                   setSelectedCustomerId(null);
@@ -3269,6 +3696,14 @@ function AppInner() {
           })}
         </div>
       </nav>
+
+      {quickNoteTarget && (
+        <QuickNoteSheet
+          note={quickNoteTarget.id ? quickNoteTarget : null}
+          onSave={handleSaveQuickNote}
+          onDone={() => setQuickNoteTarget(null)}
+        />
+      )}
 
       {showForm && (
         <Suspense fallback={<ModalFallback label={t.loading} />}>

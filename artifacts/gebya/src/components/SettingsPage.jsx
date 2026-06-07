@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
-import { Eye, EyeOff, Download, Trash2, Info, Shield, ChevronRight, Store, Phone, Check, CreditCard, RefreshCw, Plus, MessageCircle, X, TrendingUp, TrendingDown, Share2, Sun, Moon, Users, Building2, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Download, Trash2, Info, Shield, ChevronRight, Store, Phone, Check, CreditCard, RefreshCw, Plus, MessageCircle, X, TrendingUp, TrendingDown, Share2, Sun, Moon, Users, Building2, Sparkles, Bell } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { useLang } from '../context/LangContext';
 import { useTheme } from '../context/ThemeContext';
@@ -591,12 +591,14 @@ function SettingsPage({
   staffMembers,
   activeStaffMemberId,
   currentActorLabel,
+  ownerAlertSettings,
   onProfileSave,
   onSaveStaffMember,
   onUpdateStaffMember,
   onDeactivateStaffMember,
   onReactivateStaffMember,
   onSetActiveStaffMember,
+  onSaveOwnerAlertSettings,
   enabledProviders,
   onProvidersChange,
   // Commit C.4 — unified payment channels
@@ -640,6 +642,15 @@ function SettingsPage({
   const [staffDeactivateTarget, setStaffDeactivateTarget] = useState(null);
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [editingStaffName, setEditingStaffName] = useState('');
+  const [alertMode, setAlertMode] = useState(ownerAlertSettings?.mode || 'high_value');
+  const [alertThreshold, setAlertThreshold] = useState(String(ownerAlertSettings?.threshold_amount ?? 5000));
+  const [alertSummaryTime, setAlertSummaryTime] = useState(ownerAlertSettings?.summary_time || '20:00');
+
+  useEffect(() => {
+    setAlertMode(ownerAlertSettings?.mode || 'high_value');
+    setAlertThreshold(String(ownerAlertSettings?.threshold_amount ?? 5000));
+    setAlertSummaryTime(ownerAlertSettings?.summary_time || '20:00');
+  }, [ownerAlertSettings]);
 
   const [editName, setEditName] = useState(shopProfile?.name || '');
   const [editPhoneDigits, setEditPhoneDigits] = useState(() => {
@@ -744,6 +755,15 @@ function SettingsPage({
     const saved = await onSaveStaffMember?.({ display_name: staffName, role: 'staff', active: true });
     if (!saved) return;
     setStaffName('');
+  };
+
+  const handleSaveOwnerAlerts = async () => {
+    const threshold = Number(parseInput(alertThreshold));
+    await onSaveOwnerAlertSettings?.({
+      mode: alertMode,
+      threshold_amount: Number.isFinite(threshold) && threshold >= 0 ? threshold : 0,
+      summary_time: alertSummaryTime || '20:00',
+    });
   };
 
   const handleConfirmDeactivateStaff = async () => {
@@ -903,6 +923,8 @@ function SettingsPage({
       db.catalog_entries.clear(),
       db.suppliers.clear(),
       db.supplier_transactions.clear(),
+      db.quick_notes?.clear?.() || Promise.resolve(),
+      db.owner_alerts?.clear?.() || Promise.resolve(),
       db.staff_members?.clear?.() || Promise.resolve(),
       db.credit_records?.clear?.() || Promise.resolve(),
       db.credit_payment_logs?.clear?.() || Promise.resolve(),
@@ -925,14 +947,15 @@ function SettingsPage({
   //     exported_at: ISO timestamp,
   //     tables: {
   //       transactions, customers, customer_transactions, catalog_entries,
-  //       suppliers, supplier_transactions, staff_members, settings, analytics
+  //       suppliers, supplier_transactions, quick_notes, owner_alerts, staff_members,
+  //       staff_sale_events, settings, analytics
   //     }
   //   }
 
   const buildBackupJSON = async () => {
     const [
       transactionsRows, customerRows, customerTxRows, catalogRows,
-      supplierRows, supplierTxRows, staffRows, settingsRows, analyticsRows,
+      supplierRows, supplierTxRows, quickNoteRows, ownerAlertRows, staffRows, staffSaleEventRows, settingsRows, analyticsRows,
     ] = await Promise.all([
       db.transactions.toArray(),
       db.customers.toArray(),
@@ -940,7 +963,10 @@ function SettingsPage({
       db.catalog_entries?.toArray?.() || [],
       db.suppliers?.toArray?.() || [],
       db.supplier_transactions?.toArray?.() || [],
+      db.quick_notes?.toArray?.() || [],
+      db.owner_alerts?.toArray?.() || [],
       db.staff_members?.toArray?.() || [],
+      db.staff_sale_events?.toArray?.() || [],
       db.settings?.toArray?.() || [],
       db.analytics?.toArray?.() || [],
     ]);
@@ -954,8 +980,11 @@ function SettingsPage({
         customer_transactions: customerTxRows.length,
         suppliers: supplierRows.length,
         supplier_transactions: supplierTxRows.length,
+        quick_notes: quickNoteRows.length,
+        owner_alerts: ownerAlertRows.length,
         catalog_entries: catalogRows.length,
         staff_members: staffRows.length,
+        staff_sale_events: staffSaleEventRows.length,
       },
       tables: {
         transactions: transactionsRows,
@@ -964,7 +993,10 @@ function SettingsPage({
         catalog_entries: catalogRows,
         suppliers: supplierRows,
         supplier_transactions: supplierTxRows,
+        quick_notes: quickNoteRows,
+        owner_alerts: ownerAlertRows,
         staff_members: staffRows,
+        staff_sale_events: staffSaleEventRows,
         settings: settingsRows,
         analytics: analyticsRows,
       },
@@ -1054,7 +1086,7 @@ function SettingsPage({
       // Wipe everything first, then bulk-add. Wrap in a single Dexie transaction.
       await db.transaction('rw',
         db.transactions, db.customers, db.customer_transactions, db.catalog_entries,
-        db.suppliers, db.supplier_transactions, db.staff_members, db.settings, db.analytics,
+        db.suppliers, db.supplier_transactions, db.quick_notes, db.owner_alerts, db.staff_members, db.staff_sale_events, db.settings, db.analytics,
         async () => {
           await Promise.all([
             db.transactions.clear(),
@@ -1063,7 +1095,10 @@ function SettingsPage({
             db.catalog_entries.clear(),
             db.suppliers.clear(),
             db.supplier_transactions.clear(),
+            db.quick_notes?.clear?.() || Promise.resolve(),
+            db.owner_alerts?.clear?.() || Promise.resolve(),
             db.staff_members?.clear?.() || Promise.resolve(),
+            db.staff_sale_events?.clear?.() || Promise.resolve(),
             db.settings.clear(),
             db.analytics?.clear?.() || Promise.resolve(),
           ]);
@@ -1075,6 +1110,9 @@ function SettingsPage({
           if (Array.isArray(tables.transactions))          await db.transactions.bulkAdd(tables.transactions);
           if (Array.isArray(tables.customer_transactions)) await db.customer_transactions.bulkAdd(tables.customer_transactions);
           if (Array.isArray(tables.supplier_transactions)) await db.supplier_transactions.bulkAdd(tables.supplier_transactions);
+          if (Array.isArray(tables.quick_notes))           await db.quick_notes.bulkAdd(tables.quick_notes);
+          if (Array.isArray(tables.owner_alerts))          await db.owner_alerts.bulkAdd(tables.owner_alerts);
+          if (Array.isArray(tables.staff_sale_events))     await db.staff_sale_events.bulkAdd(tables.staff_sale_events);
           if (Array.isArray(tables.settings))              await db.settings.bulkAdd(tables.settings);
           if (Array.isArray(tables.analytics))             await db.analytics.bulkAdd(tables.analytics);
         }
@@ -1704,6 +1742,11 @@ function SettingsPage({
             <div className="rounded-xl px-4 py-3 text-xs font-medium" style={{ background: '#FAF8F5', color: '#5b6470', border: '1px solid #e8e2d8' }}>
               Owner-only area. Add staff for future attribution, choose who is currently entering records on this phone, and deactivate staff without deleting shop history.
             </div>
+            <div className="rounded-xl px-4 py-3 text-xs font-medium" style={{ background: '#ecfdf5', color: '#166534', border: '1px solid #bbf7d0' }}>
+              <div className="font-black text-gray-900">Current mode: Staff on this phone</div>
+              <div className="mt-1">Sales are saved on this device. Staff-phone sync is not enabled yet.</div>
+              <div className="mt-1">Future sync will let staff phones send sales to the owner when online.</div>
+            </div>
 
             <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
               <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Current record actor</div>
@@ -1845,6 +1888,89 @@ function SettingsPage({
                 ))
               )}
             </div>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="owner_alerts"
+        title={lang === 'am' ? 'የባለቤት ማሳወቂያ' : 'Owner alerts'}
+        icon="🔔"
+        status={alertMode === 'none' ? (lang === 'am' ? 'ጠፍቷል' : 'Off') : (alertMode === 'high_value' ? `${Number(parseInput(alertThreshold)) || 0}+` : alertMode)}
+        statusTone={alertMode === 'none' ? 'neutral' : 'ok'}
+        subtitle={lang === 'am' ? 'በዚህ ስልክ ላይ የሚቀመጥ የሽያጭ ማሳወቂያ' : 'Local sale alerts saved on this phone'}
+        openSection={openSection}
+        setOpenSection={setOpenSection}
+      >
+        <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
+          <div className="px-5 py-4 space-y-4">
+            <div className="rounded-xl px-4 py-3 text-xs font-medium flex items-start gap-2" style={{ background: '#FAF8F5', color: '#5b6470', border: '1px solid #e8e2d8' }}>
+              <Bell className="w-4 h-4 flex-shrink-0" style={{ color: '#C4883A' }} />
+              <span>Local owner alerts stay on this phone. Staff-phone sync and remote alerts are not enabled yet.</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'all', label: 'Every sale' },
+                { id: 'high_value', label: 'High value' },
+                { id: 'summary', label: 'Daily summary' },
+                { id: 'none', label: 'Off' },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setAlertMode(option.id)}
+                  className="px-3 py-3 rounded-xl text-sm font-bold min-h-[48px] transition-all"
+                  style={{
+                    background: alertMode === option.id ? '#1B4332' : '#f5f5f5',
+                    color: alertMode === option.id ? '#fff' : '#374151',
+                    border: alertMode === option.id ? '1px solid #1B4332' : '1px solid #e8e2d8',
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {alertMode === 'high_value' && (
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Alert when sale is at least</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={alertThreshold}
+                    onChange={e => setAlertThreshold(e.target.value.replace(/,/g, '').replace(/[^\d.]/g, ''))}
+                    placeholder="5000"
+                    className="w-full px-4 py-3 pr-14 border-2 rounded-xl text-sm focus:outline-none"
+                    style={{ borderColor: '#e8e2d8' }}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">birr</span>
+                </div>
+              </div>
+            )}
+
+            {alertMode === 'summary' && (
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Summary time</label>
+                <input
+                  type="time"
+                  value={alertSummaryTime}
+                  onChange={e => setAlertSummaryTime(e.target.value)}
+                  className="w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none"
+                  style={{ borderColor: '#e8e2d8' }}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveOwnerAlerts}
+              className="w-full py-3 rounded-xl font-bold text-sm min-h-[48px]"
+              style={{ background: '#1B4332', color: '#fff' }}
+            >
+              Save alert preference
+            </button>
           </div>
         </div>
       </SettingsSection>
