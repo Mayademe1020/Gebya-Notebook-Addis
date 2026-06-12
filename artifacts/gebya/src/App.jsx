@@ -8,6 +8,8 @@ import ProfitCard from './components/ProfitCard';
 import CustomerList from './components/CustomerList';
 import PwaInstallPanel from './components/PwaInstallPanel.jsx';
 import OnboardingScreen from './components/OnboardingScreen';
+import StaffJoinScreen from './components/StaffJoinScreen';
+import TopbarIdentity from './components/TopbarIdentity';
 import { ToastContainer, fireToast } from './components/Toast';
 import { DEFAULT_PROVIDERS } from './components/PaymentTypeChips';
 import { getCurrentEthiopianDate, formatEthiopian } from './utils/ethiopianCalendar';
@@ -325,6 +327,7 @@ function AppInner() {
   const [supplierTransactions, setSupplierTransactions] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
   const [activeStaffMemberId, setActiveStaffMemberId] = useState(null);
+  const [onboardingType, setOnboardingType] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
   const [showForm, setShowForm] = useState(null);
@@ -1752,13 +1755,22 @@ function AppInner() {
     );
   }
 
-  if (!shopProfile || !shopProfile.name) {
-    return (
-      <OnboardingScreen
-        onComplete={(profile) => setShopProfile({ ...profile, telegram: '', businessType: profile.businessType || 'retail-shop' })}
-      />
-    );
-  }
+  if (onboardingType === 'staff') {
+      return (
+        <StaffJoinScreen
+          onComplete={() => setOnboardingType(null)}
+        />
+      );
+    }
+
+    if (!shopProfile || !shopProfile.name) {
+      return (
+        <OnboardingScreen
+          onComplete={(profile) => setShopProfile({ ...profile, telegram: '', businessType: profile.businessType || 'retail-shop' })}
+          onStaffSelected={() => setOnboardingType('staff')}
+        />
+      );
+    }
 
   const tabs = [
     { id: 'today',    label: t.todayLabel, sub: t.today,   icon: BookOpen },
@@ -1810,17 +1822,13 @@ function AppInner() {
             </p>
           </div>
 
-          {/* Streak pill */}
-          {(usageStats?.streak || 0) > 0 && (
-            <span className="flex-shrink-0 text-xs font-black px-2 py-1" style={{
-              background: 'rgba(255,255,255,0.15)',
-              color: 'rgba(255,255,255,0.9)',
-              borderRadius: '8px',
-              whiteSpace: 'nowrap',
-            }}>
-              ðŸ”¥ {usageStats.streak}
-            </span>
-          )}
+          {/* Topbar identity chip (owner/staff role + actor switcher) */}
+                    <TopbarIdentity
+                      shopProfile={shopProfile}
+                      staffMembers={staffMembers}
+                      activeStaffMemberId={activeStaffMemberId}
+                      onSetActiveStaffMember={setActiveStaffMemberId}
+                    />
 
           {/* Language toggle */}
           <button

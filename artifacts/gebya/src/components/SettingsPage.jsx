@@ -938,156 +938,191 @@ function SettingsPage({
         </div>
       </SettingsSection>
 
-      <SettingsSection id="team" title="Team" openSection={openSection} setOpenSection={setOpenSection}>
-        <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
-          <div className="px-5 py-4 space-y-4">
-            <div className="rounded-xl px-4 py-3 text-xs font-medium" style={{ background: '#FAF8F5', color: '#5b6470', border: '1px solid #e8e2d8' }}>
-              Owner-only area. Add staff for future attribution, choose who is currently entering records on this phone, and deactivate staff without deleting shop history.
-            </div>
+      <SettingsSection id="team" title={t.teamStaffTitle} openSection={openSection} setOpenSection={setOpenSection}>
+              <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
+                <div className="px-5 py-4 space-y-4">
+                  {/* PR 1A-UI: Shop code + settings for owner, staff identity view for staff */}
+                  {!identity || identity.role === 'owner' ? (
+                    <>
+                      {/* Owner: shop code + team management */}
+                      <div className="rounded-xl px-4 py-3 text-xs font-medium" style={{ background: '#FAF8F5', color: '#5b6470', border: '1px solid #e8e2d8' }}>
+                        {t.teamStaffSubtitle}
+                      </div>
 
-            <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
-              <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Current record actor</div>
-              <div className="mt-1 text-sm font-black text-gray-900">{currentActorLabel || 'Owner'}</div>
-              <div className="mt-3">
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">Save new records as</label>
-                <select
-                  value={activeStaffMemberId || ''}
-                  onChange={(e) => onSetActiveStaffMember?.(e.target.value || null)}
-                  className="w-full px-4 py-3 border-2 rounded-xl text-sm focus:outline-none bg-white"
-                  style={{ borderColor: '#e8e2d8' }}
-                >
-                  <option value="">Owner ({shopProfile?.name || 'Owner'})</option>
-                  {(staffMembers || []).filter(member => member.active !== false).map(member => (
-                    <option key={member.id} value={member.id}>
-                      {member.display_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                      {/* Shop code display + copy */}
+                      {shopJoinCode && (
+                        <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
+                          <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">{t.teamStaffJoinCode}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-mono font-black text-lg tracking-widest text-gray-900 flex-1">{shopJoinCode}</div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(shopJoinCode).catch(() => {});
+                                fireToast(t.teamStaffCopied, { icon: <Check className="w-4 h-4" /> });
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                              style={{ background: '#f5f5f5', color: '#374151' }}
+                            >
+                              <Copy className="w-3 h-3" />{t.teamStaffCopyCode}
+                            </button>
+                            <button
+                              onClick={handleRotateJoinCode}
+                              disabled={rotating}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                              style={{ background: rotating ? '#f3f4f6' : '#fff1f2', color: rotating ? '#9ca3af' : '#b91c1c' }}
+                            >
+                              <RefreshCw className={`w-3 h-3 ${rotating ? 'animate-spin' : ''}`} />{t.teamStaffRotateCode}
+                            </button>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-400">Share this code with staff you want to invite</div>
+                        </div>
+                      )}
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1">
-                <Users className="w-3.5 h-3.5" /> Add staff member
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={staffName}
-                  onChange={e => setStaffName(e.target.value)}
-                  placeholder="Staff name"
-                  className="flex-1 px-4 py-3 border-2 rounded-xl text-sm focus:outline-none"
-                  style={{ borderColor: staffName.trim() ? '#C4883A' : '#e8e2d8' }}
-                />
-                <button
-                  onClick={handleAddStaffMember}
-                  disabled={!staffName.trim()}
-                  className="px-4 py-3 rounded-xl font-bold text-sm min-h-[48px]"
-                  style={{ background: staffName.trim() ? '#1B4332' : '#e5e7eb', color: staffName.trim() ? '#fff' : '#9ca3af' }}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Staff list</div>
-              {(staffMembers || []).length === 0 ? (
-                <div className="rounded-xl border px-4 py-3 text-sm text-gray-500" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
-                  No staff added yet. Owner remains the default actor for every record.
-                </div>
-              ) : (
-                (staffMembers || []).map(member => (
-                  <div key={member.id} className="rounded-xl border px-4 py-3 flex items-center justify-between gap-3" style={{ borderColor: '#e8e2d8', background: member.active === false ? '#f9fafb' : '#fff' }}>
-                    <div className="min-w-0 flex-1">
-                      {String(editingStaffId) === String(member.id) ? (
+                      {/* Staff join settings toggles */}
+                      {shopJoinSettings && (
                         <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editingStaffName}
-                            onChange={e => setEditingStaffName(e.target.value)}
-                            placeholder="Staff name"
-                            className="w-full px-3 py-2 border-2 rounded-xl text-sm focus:outline-none"
-                            style={{ borderColor: editingStaffName.trim() ? '#C4883A' : '#e8e2d8', background: '#fff' }}
-                          />
-                          <div className="text-xs text-gray-500">
-                            Update the display name for future attribution. Past saved records keep the original name snapshot.
+                          <div
+                            onClick={() => handleToggleStaffSetting('require_phone_on_join', !shopJoinSettings.require_phone_on_join)}
+                            className="rounded-xl border px-4 py-3 flex items-center justify-between cursor-pointer"
+                            style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}
+                          >
+                            <span className="text-sm font-medium text-gray-700">{t.teamStaffPhoneRequired}</span>
+                            <div className={`w-10 h-6 rounded-full transition-colors ${shopJoinSettings.require_phone_on_join ? 'bg-green-600' : 'bg-gray-300'}`}>
+                              <div className={`w-4 h-4 rounded-full bg-white shadow mt-1 transition-transform ${shopJoinSettings.require_phone_on_join ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </div>
+                          </div>
+                          <div
+                            onClick={() => handleToggleStaffSetting('require_approval', !shopJoinSettings.require_approval)}
+                            className="rounded-xl border px-4 py-3 flex items-center justify-between cursor-pointer"
+                            style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}
+                          >
+                            <span className="text-sm font-medium text-gray-700">{t.teamStaffApprovalRequired}</span>
+                            <div className={`w-10 h-6 rounded-full transition-colors ${shopJoinSettings.require_approval ? 'bg-green-600' : 'bg-gray-300'}`}>
+                              <div className={`w-4 h-4 rounded-full bg-white shadow mt-1 transition-transform ${shopJoinSettings.require_approval ? 'translate-x-5' : 'translate-x-1'}`} />
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <>
-                          <div className="font-bold text-sm text-gray-900">{member.display_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {member.active === false ? 'Inactive - past records stay attributed to this staff member.' : 'Active staff member'}
+                      )}
+
+                      {/* Staff list */}
+                      <div className="space-y-2">
+                        <div className="text-xs font-bold uppercase tracking-wide text-gray-500">{t.teamStaffStaffList}</div>
+                        {staffMembers?.length === 0 ? (
+                          <div className="rounded-xl border px-4 py-3 text-sm text-gray-500" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
+                            {t.teamStaffNoStaff}
                           </div>
-                        </>
+                        ) : (
+                          staffMembers.map(member => (
+                            <div key={member.id} className="rounded-xl border px-4 py-3 flex items-center justify-between gap-3" style={{ borderColor: '#e8e2d8', background: member.active === false ? '#f9fafb' : '#fff' }}>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-bold text-sm text-gray-900">{member.display_name}</div>
+                                <div className="text-xs text-gray-500 flex items-center gap-1">
+                                  {member.active === false ? (
+                                    <span style={{ color: '#b91c1c' }}>{t.teamStaffInactive}</span>
+                                  ) : member.pending ? (
+                                    <span style={{ color: '#d97706' }}>{t.teamStaffDevicePending}</span>
+                                  ) : (
+                                    <span style={{ color: '#16a34a' }}>{t.teamStaffActive}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                {member.pending && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApprovePendingDevice(member.staff_id)}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
+                                      style={{ background: '#16a34a', color: '#fff' }}
+                                    >
+                                      {t.teamStaffApprove}
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectPendingDevice(member.staff_id)}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
+                                      style={{ background: '#fff1f2', color: '#b91c1c' }}
+                                    >
+                                      {t.teamStaffReject}
+                                    </button>
+                                  </>
+                                )}
+                                {member.active !== false && !member.pending && (
+                                  <button
+                                    onClick={() => setStaffDeactivateTarget(member)}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
+                                    style={{ background: '#fff1f2', color: '#b91c1c' }}
+                                  >
+                                    {t.teamStaffDeactivate}
+                                  </button>
+                                )}
+                                {member.active === false && (
+                                  <button
+                                    onClick={() => handleReactivateStaff?.(member.id)}
+                                    className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
+                                    style={{ background: '#ecfdf5', color: '#166534' }}
+                                  >
+                                    {t.teamStaffReactivate}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Staff: see shop identity and leave option */}
+                      <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
+                        <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{t.staffJoinShopDetails}</div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">{t.topbarShop}</span>
+                            <span className="font-bold text-gray-900">{identity.shop_name}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">{t.staffJoinYourName}</span>
+                            <span className="font-bold text-gray-900">{identity.display_name}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">{t.topbarRole}</span>
+                            <span className="font-bold text-gray-900">{t[`role${identity.role.charAt(0).toUpperCase() + identity.role.slice(1)}`] || identity.role}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Allowed actions for staff */}
+                      {identity.permissions && (
+                        <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#e8e2d8', background: '#fcfbf8' }}>
+                          <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{t.topbarAllowedActions}</div>
+                          <div className="space-y-1">
+                            {Object.entries(identity.permissions).filter(([, v]) => v === true).map(([key]) => (
+                              <div key={key} className="text-sm text-gray-700">• {t[`perm${key.charAt(0).toUpperCase() + key.slice(1)}`] || key}</div>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                    <div className="flex gap-2">
-                      {String(editingStaffId) === String(member.id) ? (
-                        <>
-                          <button
-                            onClick={handleSaveEditedStaffMember}
-                            disabled={!editingStaffName.trim()}
-                            className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                            style={{ background: editingStaffName.trim() ? '#1B4332' : '#e5e7eb', color: editingStaffName.trim() ? '#fff' : '#9ca3af' }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={cancelEditingStaffMember}
-                            className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                            style={{ background: '#f5f5f5', color: '#374151' }}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
+
+                      {/* Leave shop */}
+                      <div className="pt-2 border-t" style={{ borderColor: '#e8e2d8' }}>
                         <button
-                          onClick={() => startEditingStaffMember(member)}
-                          className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                          style={{ background: '#f5f5f5', color: '#374151' }}
+                          onClick={() => setStaffDeactivateTarget({ id: 'leave', display_name: t.teamStaffLeaveShop })}
+                          className="w-full px-4 py-3 rounded-xl text-sm font-bold"
+                          style={{ background: '#fff1f2', color: '#b91c1c' }}
                         >
-                          Edit
+                          {t.teamStaffLeaveBtn}
                         </button>
-                      )}
-                      {member.active !== false && (
-                        <button
-                          onClick={() => onSetActiveStaffMember?.(member.id)}
-                          className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                          style={{ background: String(activeStaffMemberId) === String(member.id) ? '#1B4332' : '#f5f5f5', color: String(activeStaffMemberId) === String(member.id) ? '#fff' : '#374151' }}
-                        >
-                          {String(activeStaffMemberId) === String(member.id) ? 'Current' : 'Use'}
-                        </button>
-                      )}
-                      {member.active !== false && (
-                        <button
-                          onClick={() => setStaffDeactivateTarget(member)}
-                          disabled={String(editingStaffId) === String(member.id)}
-                          className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                          style={{ background: String(editingStaffId) === String(member.id) ? '#f3f4f6' : '#fff1f2', color: String(editingStaffId) === String(member.id) ? '#9ca3af' : '#b91c1c' }}
-                        >
-                          Inactivate
-                        </button>
-                      )}
-                      {member.active === false && (
-                        <button
-                          onClick={() => onReactivateStaffMember?.(member.id)}
-                          disabled={String(editingStaffId) === String(member.id)}
-                          className="px-3 py-2 rounded-xl text-xs font-bold min-h-[40px]"
-                          style={{ background: String(editingStaffId) === String(member.id) ? '#f3f4f6' : '#ecfdf5', color: String(editingStaffId) === String(member.id) ? '#9ca3af' : '#166534' }}
-                        >
-                          Reactivate
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Bank trust copy */}
+                  <div className="rounded-xl px-4 py-3 text-xs leading-relaxed" style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}>
+                    <Shield className="w-3.5 h-3.5 inline mr-1 mb-0.5" />
+                    {t.settingsAboutBankCopy}
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </SettingsSection>
+                </div>
+              </div>
+            </SettingsSection>
 
       <SettingsSection id="catalog" title="Items & Services" openSection={openSection} setOpenSection={setOpenSection}>
         <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">

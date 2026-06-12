@@ -392,11 +392,82 @@ db.version(14).stores({
   analytics: 'key, value',
 });
 
+// v15: PR 1A-UI — local identity cache for shop sync (owner + staff)
+// Single-row table keyed by 'me' to hold the synced identity.
+db.version(15).stores({
+  transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot',
+  customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
+  customer_transactions: '++id, customer_id, type, amount, due_date, reference_code, telegram_delivery_state, telegram_delivery_error, telegram_delivery_attempted_at, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot',
+  catalog_entries: '++id, name, kind, active, created_at, updated_at',
+  suppliers: '++id, display_name, phone_number, note, active, created_at, updated_at',
+  supplier_transactions: '++id, supplier_id, type, catalog_entry_id, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot',
+  staff_members: '++id, display_name, role, active, created_at, updated_at, deactivated_at',
+  credit_records: '++id, customer_id, customer_name, original_amount, paid_amount, remaining_amount, due_date, status, created_at, direction',
+  credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
+  settings: 'key, value',
+  analytics: 'key, value',
+  identity: 'key, shop_id, shop_name, device_id, device_token, staff_id, display_name, phone_number, role, permissions, device_status, phone_required, approval_required, updated_at',
+});
+
 db.on('ready', async () => {
   const privacySetting = await db.settings.get('privacy_mode');
   if (!privacySetting) {
     await db.settings.put({ key: 'privacy_mode', value: 'hidden' });
   }
 });
+
+// Identity cache helpers (PR 1A-UI)
+export async function getIdentity() {
+  return db.identity.get('me');
+}
+
+export async function setIdentity(identity) {
+  const now = Date.now();
+  return db.identity.put({ key: 'me', ...identity, updated_at: now });
+}
+
+export async function clearIdentity() {
+  return db.identity.delete('me');
+}
+
+export async function getDeviceToken() {
+  const ident = await db.identity.get('me');
+  return ident?.device_token ?? null;
+}
+
+export async function getShopId() {
+  const ident = await db.identity.get('me');
+  return ident?.shop_id ?? null;
+}
+
+export async function getStaffId() {
+  const ident = await db.identity.get('me');
+  return ident?.staff_id ?? null;
+}
+
+export async function getRole() {
+  const ident = await db.identity.get('me');
+  return ident?.role ?? null;
+}
+
+export async function getPermissions() {
+  const ident = await db.identity.get('me');
+  return ident?.permissions ?? {};
+}
+
+export async function canCreateEvent(eventType) {
+  const perms = await getPermissions();
+  // Map PR 1A event types to permission keys
+  const map = {
+    sale: 'can_create_sale',
+    customer_payment: 'can_create_customer_payment',
+    customer_credit: 'can_create_customer_credit',
+    note: 'can_create_note',
+    expense: 'can_create_expense',
+    supplier_transaction: 'can_create_supplier_transaction',
+  };
+  const key = map[eventType];
+  return key ? !!perms[key] : false;
+}
 
 export default db;
