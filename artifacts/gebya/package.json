@@ -9,7 +9,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:ledger": "node src/__tests__/ledger.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "perf:power-user": "node scripts/perf/measurePowerUserColdLoad.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

@@ -5,8 +5,6 @@ import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { LangProvider, useLang } from './context/LangContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProfitCard from './components/ProfitCard';
-import CustomerList from './components/CustomerList';
-import PwaInstallPanel from './components/PwaInstallPanel.jsx';
 import OnboardingScreen from './components/OnboardingScreen';
 import { ToastContainer, fireToast } from './components/Toast';
 import { DEFAULT_PROVIDERS } from './components/PaymentTypeChips';
@@ -23,6 +21,7 @@ import { resendLatestTelegramUpdate, sendTelegramLedgerUpdate, syncTelegramCusto
 import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from './utils/staffMembers';
 
 const TransactionForm = lazy(() => import('./components/TransactionForm'));
+const CustomerList = lazy(() => import('./components/CustomerList'));
 const EditTransactionSheet = lazy(() => import('./components/EditTransactionSheet'));
 const CustomerDetail = lazy(() => import('./components/CustomerDetail'));
 const CustomerForm = lazy(() => import('./components/CustomerForm'));
@@ -313,6 +312,171 @@ function ModalFallback({ label }) {
   );
 }
 
+const EMPTY_VOICE_WORKSPACE = Object.freeze({
+  recentSales: [],
+  commonItems: [],
+  recentCustomers: [],
+  itemPriceMemory: {},
+  customerItemPatterns: {},
+  lastSavedSnapshot: null,
+});
+
+function sortStaffMembersForDisplay(items = []) {
+  return [...items].sort((a, b) => {
+    if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
+    return String(a.display_name || '').localeCompare(String(b.display_name || ''));
+  });
+}
+
+function buildVoiceWorkspaceSnapshot(transactions = [], lastSavedSnapshot = null) {
+  if (!transactions.length) {
+    return { ...EMPTY_VOICE_WORKSPACE, lastSavedSnapshot };
+  }
+
+  const saleTransactions = [];
+  for (const tx of transactions) {
+    if (tx.type === 'sale') saleTransactions.push(tx);
+  }
+
+  const recentSales = saleTransactions.slice(0, 5).map((tx) => ({
+    id: tx.id,
+    label: tx.voice_note || tx.item_name || 'Voice sale',
+    amount: Number(tx.amount || 0),
+    customerName: tx.customer_name || '',
+    paymentType: tx.payment_type || 'cash',
+    paymentProvider: tx.payment_provider || '',
+    createdAt: tx.created_at,
+    draft: buildVoiceDraftFromTransaction(tx),
+    transcript: tx.raw_transcript || tx.voice_note || tx.item_name || '',
+  }));
+
+  const itemCounts = new Map();
+  const customerMap = new Map();
+  const customerPatternCounts = new Map();
+
+  for (const tx of saleTransactions) {
+    const itemName = String(tx.item_name || '').trim();
+    const amount = tx.amount != null ? Number(tx.amount) : null;
+    if (itemName) {
+      const existing = itemCounts.get(itemName) || { name: itemName, uses: 0, defaultPrice: null, prices: [] };
+      existing.uses += 1;
+      if (existing.defaultPrice == null && amount != null && amount > 0) {
+        existing.defaultPrice = amount;
+      }
+      if (amount != null && amount > 0) {
+        existing.prices.push(amount);
+      }
+      itemCounts.set(itemName, existing);
+    }
+
+    const customerName = String(tx.customer_name || '').trim();
+    if (!customerName) continue;
+
+    if (!customerMap.has(customerName)) {
+      customerMap.set(customerName, {
+        name: customerName,
+        lastAmount: amount,
+        lastItemName: itemName,
+        lastSeenAt: tx.created_at,
+      });
+    }
+
+    if (itemName) {
+      const customerPatterns = customerPatternCounts.get(customerName) || new Map();
+      customerPatterns.set(itemName, (customerPatterns.get(itemName) || 0) + 1);
+      customerPatternCounts.set(customerName, customerPatterns);
+    }
+  }
+
+  const commonItems = [...itemCounts.values()]
+    .map((item) => ({
+      ...item,
+      typicalPrice: item.prices.length
+        ? Math.round((item.prices.reduce((sum, price) => sum + price, 0) / item.prices.length) * 100) / 100
+        : item.defaultPrice,
+    }))
+    .sort((a, b) => (b.uses - a.uses) || String(a.name).localeCompare(String(b.name)))
+    .slice(0, 8);
+
+  const recentCustomers = [...customerMap.values()].slice(0, 6);
+
+  const itemPriceMemory = {};
+  for (const item of itemCounts.values()) {
+    const prices = item.prices.slice(-6);
+    const typicalPrice = prices.length
+      ? Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100
+      : item.defaultPrice;
+    itemPriceMemory[item.name] = {
+      typical_price: typicalPrice,
+      recent_prices: prices,
+      min_price: prices.length ? Math.min(...prices) : typicalPrice,
+      max_price: prices.length ? Math.max(...prices) : typicalPrice,
+    };
+  }
+
+  const customerItemPatterns = {};
+  for (const [customerName, itemMap] of customerPatternCounts.entries()) {
+    customerItemPatterns[customerName] = [...itemMap.entries()]
+      .sort((a, b) => (b[1] - a[1]) || String(a[0]).localeCompare(String(b[0])))
+      .slice(0, 3)
+      .map(([itemName]) => itemName);
+  }
+
+  return {
+    recentSales,
+    commonItems,
+    recentCustomers,
+    itemPriceMemory,
+    customerItemPatterns,
+    lastSavedSnapshot,
+  };
+}
+
+function buildTodaySnapshot(transactions = [], ledgerTransactions = [], todayDateStr) {
+  const todayTransactions = [];
+  const todayLedgerTransactions = [];
+  const todaySales = [];
+  const todayExpenses = [];
+  const topProductCounts = {};
+  let todaySalesTotal = 0;
+  let todayExpensesTotal = 0;
+
+  for (const tx of transactions) {
+    if (new Date(tx.created_at).toDateString() !== todayDateStr) continue;
+    todayTransactions.push(tx);
+    if (tx.type === 'sale') {
+      todaySales.push(tx);
+      todaySalesTotal += tx.amount || 0;
+      const name = tx.item_name || 'Unknown';
+      topProductCounts[name] = (topProductCounts[name] || 0) + (tx.quantity || 1);
+    } else if (tx.type === 'expense') {
+      todayExpenses.push(tx);
+      todayExpensesTotal += tx.amount || 0;
+    }
+  }
+
+  for (const entry of ledgerTransactions) {
+    if (new Date(entry.created_at).toDateString() === todayDateStr) {
+      todayLedgerTransactions.push(entry);
+    }
+  }
+
+  const topProducts = Object.entries(topProductCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name, qty]) => ({ name, qty }));
+
+  return {
+    todayTransactions,
+    todayLedgerTransactions,
+    todaySales,
+    todayExpenses,
+    todaySalesTotal,
+    todayExpensesTotal,
+    topProducts,
+  };
+}
+
 function AppInner() {
   const { hidden } = usePrivacy();
   const { lang, toggleLang, t } = useLang();
@@ -355,6 +519,7 @@ function AppInner() {
   const [voiceProvider, setVoiceProvider] = useState(null);
   const [voiceDraft, setVoiceDraft] = useState(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
+  const [deferredDataLoaded, setDeferredDataLoaded] = useState(false);
 
   const buildActorSnapshot = useCallback(() => (
     resolveActorSnapshot({ shopProfile, staffMembers, activeStaffMemberId })
@@ -443,16 +608,12 @@ function AppInner() {
     });
   }, [appendVoiceQualityEvent, updateVoiceQualityStats]);
 
-  const loadData = useCallback(async () => {
+  const loadCoreData = useCallback(async () => {
     try {
-      const [txns, customerRows, customerTxRows, catalogRows, supplierRows, supplierTxRows, staffRows, nameRow, phoneRow, businessTypeRow, epRow, reRow, telegramRow, snapshotRow, activeStaffRow] = await Promise.all([
+      const [txns, customerRows, customerTxRows, nameRow, phoneRow, businessTypeRow, epRow, reRow, telegramRow, snapshotRow, activeStaffRow] = await Promise.all([
         db.transactions.toArray(),
         db.customers.toArray(),
         db.customer_transactions.toArray(),
-        db.catalog_entries?.toArray?.() || [],
-        db.suppliers?.toArray?.() || [],
-        db.supplier_transactions?.toArray?.() || [],
-        db.staff_members?.toArray?.() || [],
         db.settings.get('shop_name'),
         db.settings.get('shop_phone'),
         db.settings.get('shop_business_type'),
@@ -466,14 +627,6 @@ function AppInner() {
       setTransactions(txns);
       setLedgerCustomers(customerRows);
       setLedgerTransactions(sortCustomerTransactions(customerTxRows));
-      setCatalogEntries(catalogRows || []);
-      setSuppliers(supplierRows || []);
-      setSupplierTransactions(supplierTxRows || []);
-      setStaffMembers((staffRows || []).sort((a, b) => {
-        if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
-        return String(a.display_name || '').localeCompare(String(b.display_name || ''));
-      }));
-      const hasName = !!nameRow?.value;
       setShopProfile({
         name: nameRow?.value || null,
         phone: phoneRow?.value || '',
@@ -482,9 +635,7 @@ function AppInner() {
       });
       try { setEnabledProviders(epRow ? JSON.parse(epRow.value) : DEFAULT_PROVIDERS); } catch { setEnabledProviders(DEFAULT_PROVIDERS); }
       try { setRecurringExpenses(reRow ? JSON.parse(reRow.value) : []); } catch { setRecurringExpenses([]); }
-      const requestedStaffId = activeStaffRow?.value ?? null;
-      const hasActiveStaff = (staffRows || []).some((member) => String(member.id) === String(requestedStaffId) && member.active !== false);
-      setActiveStaffMemberId(hasActiveStaff ? requestedStaffId : null);
+      setActiveStaffMemberId(activeStaffRow?.value ?? null);
       const hasSavedRecords = txns.length > 0 || customerTxRows.length > 0;
       if (!hasSavedRecords) {
         setLastSavedSnapshot(null);
@@ -499,7 +650,65 @@ function AppInner() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadDeferredData = useCallback(async () => {
+    try {
+      const [catalogRows, supplierRows, supplierTxRows, staffRows] = await Promise.all([
+        db.catalog_entries?.toArray?.() || [],
+        db.suppliers?.toArray?.() || [],
+        db.supplier_transactions?.toArray?.() || [],
+        db.staff_members?.toArray?.() || [],
+      ]);
+
+      setCatalogEntries(catalogRows || []);
+      setSuppliers(supplierRows || []);
+      setSupplierTransactions(supplierTxRows || []);
+
+      const sortedStaffMembers = sortStaffMembersForDisplay(staffRows || []);
+      setStaffMembers(sortedStaffMembers);
+
+      if (activeStaffMemberId != null) {
+        const hasActiveStaff = sortedStaffMembers.some((member) => String(member.id) === String(activeStaffMemberId) && member.active !== false);
+        if (!hasActiveStaff) {
+          setActiveStaffMemberId(null);
+          try {
+            await db.settings.put({ key: 'active_staff_member_id', value: null });
+          } catch { /* non-critical */ }
+        }
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('Failed to load deferred data:', err);
+    } finally {
+      setDeferredDataLoaded(true);
+    }
+  }, [activeStaffMemberId]);
+
+  useEffect(() => { loadCoreData(); }, [loadCoreData]);
+
+  useEffect(() => {
+    if (loading || deferredDataLoaded) return undefined;
+
+    let cancelled = false;
+    let timeoutId = null;
+    let idleId = null;
+    const run = async () => {
+      if (cancelled) return;
+      await loadDeferredData();
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(() => { void run(); }, { timeout: 800 });
+    } else {
+      timeoutId = window.setTimeout(() => { void run(); }, 120);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      if (idleId != null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, [deferredDataLoaded, loadDeferredData, loading]);
 
   const trackSession = useCallback(async () => {
     try {
@@ -777,10 +986,7 @@ function AppInner() {
     if (!normalized) return false;
     const id = await db.staff_members.add(normalized);
     const saved = await db.staff_members.get(id);
-    setStaffMembers(prev => [...prev, saved].sort((a, b) => {
-      if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
-      return String(a.display_name || '').localeCompare(String(b.display_name || ''));
-    }));
+    setStaffMembers(prev => sortStaffMembersForDisplay([...prev, saved]));
     return saved;
   };
 
@@ -793,12 +999,9 @@ function AppInner() {
     const now = Date.now();
     await db.staff_members.update(member.id, { display_name: displayName, updated_at: now });
     const updatedMember = { ...member, display_name: displayName, updated_at: now };
-    setStaffMembers(prev => prev
-      .map(item => item.id === member.id ? updatedMember : item)
-      .sort((a, b) => {
-        if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
-        return String(a.display_name || '').localeCompare(String(b.display_name || ''));
-      }));
+    setStaffMembers(prev => sortStaffMembersForDisplay(
+      prev.map(item => item.id === member.id ? updatedMember : item)
+    ));
     return updatedMember;
   };
 
@@ -813,12 +1016,9 @@ function AppInner() {
     if (!member) return false;
     const now = Date.now();
     await db.staff_members.update(member.id, { active: false, updated_at: now, deactivated_at: now });
-    setStaffMembers(prev => prev
-      .map(item => item.id === member.id ? { ...item, active: false, updated_at: now, deactivated_at: now } : item)
-      .sort((a, b) => {
-        if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
-        return String(a.display_name || '').localeCompare(String(b.display_name || ''));
-      }));
+    setStaffMembers(prev => sortStaffMembersForDisplay(
+      prev.map(item => item.id === member.id ? { ...item, active: false, updated_at: now, deactivated_at: now } : item)
+    ));
     if (String(activeStaffMemberId) === String(member.id)) {
       await db.settings.put({ key: 'active_staff_member_id', value: null });
       setActiveStaffMemberId(null);
@@ -831,12 +1031,9 @@ function AppInner() {
     if (!member) return false;
     const now = Date.now();
     await db.staff_members.update(member.id, { active: true, updated_at: now, deactivated_at: null });
-    setStaffMembers(prev => prev
-      .map(item => item.id === member.id ? { ...item, active: true, updated_at: now, deactivated_at: null } : item)
-      .sort((a, b) => {
-        if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
-        return String(a.display_name || '').localeCompare(String(b.display_name || ''));
-      }));
+    setStaffMembers(prev => sortStaffMembersForDisplay(
+      prev.map(item => item.id === member.id ? { ...item, active: true, updated_at: now, deactivated_at: null } : item)
+    ));
     return true;
   };
 
@@ -845,15 +1042,20 @@ function AppInner() {
     [ledgerCustomers, ledgerTransactions]
   );
 
+  const customerSummaryById = useMemo(
+    () => new Map(customerSummaries.map((customer) => [customer.id, customer])),
+    [customerSummaries]
+  );
+
   const selectedCustomer = useMemo(
-    () => customerSummaries.find(c => c.id === selectedCustomerId) || null,
-    [customerSummaries, selectedCustomerId]
+    () => customerSummaryById.get(selectedCustomerId) || null,
+    [customerSummaryById, selectedCustomerId]
   );
 
   const activeCustomerTransactionModal = useMemo(() => {
     if (!customerTransactionModal?.customerId) return null;
-    return customerSummaries.find(c => c.id === customerTransactionModal.customerId) || null;
-  }, [customerSummaries, customerTransactionModal]);
+    return customerSummaryById.get(customerTransactionModal.customerId) || null;
+  }, [customerSummaryById, customerTransactionModal]);
 
   const activeCatalogEntries = useMemo(
     () => catalogEntries.filter(entry => entry.active !== false).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
@@ -866,8 +1068,8 @@ function AppInner() {
   );
 
   const telegramConnectCustomer = useMemo(
-    () => customerSummaries.find(c => c.id === telegramConnectCustomerId) || null,
-    [customerSummaries, telegramConnectCustomerId]
+    () => customerSummaryById.get(telegramConnectCustomerId) || null,
+    [customerSummaryById, telegramConnectCustomerId]
   );
 
   const mergedVoiceDraft = useMemo(
@@ -875,101 +1077,19 @@ function AppInner() {
     [voiceDraft, voiceItems]
   );
 
+  const shouldPrepareVoiceWorkspace = activeTab === 'today' && (
+    voiceStep !== null ||
+    voiceItems.length > 0 ||
+    voiceDraft !== null ||
+    voiceTranscript.trim().length > 0
+  );
+
   const voiceWorkspace = useMemo(() => {
-    const saleTransactions = transactions.filter((tx) => tx.type === 'sale');
-    const recentSales = saleTransactions.slice(0, 5).map((tx) => ({
-      id: tx.id,
-      label: tx.voice_note || tx.item_name || 'Voice sale',
-      amount: Number(tx.amount || 0),
-      customerName: tx.customer_name || '',
-      paymentType: tx.payment_type || 'cash',
-      paymentProvider: tx.payment_provider || '',
-      createdAt: tx.created_at,
-      draft: buildVoiceDraftFromTransaction(tx),
-      transcript: tx.raw_transcript || tx.voice_note || tx.item_name || '',
-    }));
-
-    const itemCounts = new Map();
-    const customerMap = new Map();
-    const customerPatternCounts = new Map();
-
-    saleTransactions.forEach((tx) => {
-      const itemName = String(tx.item_name || '').trim();
-      const amount = tx.amount != null ? Number(tx.amount) : null;
-      if (itemName) {
-        const existing = itemCounts.get(itemName) || { name: itemName, uses: 0, defaultPrice: null, prices: [] };
-        existing.uses += 1;
-        if (existing.defaultPrice == null && amount != null && amount > 0) {
-          existing.defaultPrice = amount;
-        }
-        if (amount != null && amount > 0) {
-          existing.prices.push(amount);
-        }
-        itemCounts.set(itemName, existing);
-      }
-
-      const customerName = String(tx.customer_name || '').trim();
-      if (customerName) {
-        if (!customerMap.has(customerName)) {
-          customerMap.set(customerName, {
-            name: customerName,
-            lastAmount: amount,
-            lastItemName: itemName,
-            lastSeenAt: tx.created_at,
-          });
-        }
-
-        if (itemName) {
-          const customerPatterns = customerPatternCounts.get(customerName) || new Map();
-          customerPatterns.set(itemName, (customerPatterns.get(itemName) || 0) + 1);
-          customerPatternCounts.set(customerName, customerPatterns);
-        }
-      }
-    });
-
-    const commonItems = [...itemCounts.values()]
-      .map((item) => ({
-        ...item,
-        typicalPrice: item.prices.length
-          ? Math.round((item.prices.reduce((sum, price) => sum + price, 0) / item.prices.length) * 100) / 100
-          : item.defaultPrice,
-      }))
-      .sort((a, b) => (b.uses - a.uses) || String(a.name).localeCompare(String(b.name)))
-      .slice(0, 8);
-
-    const recentCustomers = [...customerMap.values()].slice(0, 6);
-
-    const itemPriceMemory = {};
-    for (const item of itemCounts.values()) {
-      const prices = item.prices.slice(-6);
-      const typicalPrice = prices.length
-        ? Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100
-        : item.defaultPrice;
-      itemPriceMemory[item.name] = {
-        typical_price: typicalPrice,
-        recent_prices: prices,
-        min_price: prices.length ? Math.min(...prices) : typicalPrice,
-        max_price: prices.length ? Math.max(...prices) : typicalPrice,
-      };
+    if (!shouldPrepareVoiceWorkspace) {
+      return { ...EMPTY_VOICE_WORKSPACE, lastSavedSnapshot };
     }
-
-    const customerItemPatterns = {};
-    for (const [customerName, itemMap] of customerPatternCounts.entries()) {
-      customerItemPatterns[customerName] = [...itemMap.entries()]
-        .sort((a, b) => (b[1] - a[1]) || String(a[0]).localeCompare(String(b[0])))
-        .slice(0, 3)
-        .map(([itemName]) => itemName);
-    }
-
-    return {
-      recentSales,
-      commonItems,
-      recentCustomers,
-      itemPriceMemory,
-      customerItemPatterns,
-      lastSavedSnapshot,
-    };
-  }, [lastSavedSnapshot, transactions]);
+    return buildVoiceWorkspaceSnapshot(transactions, lastSavedSnapshot);
+  }, [lastSavedSnapshot, shouldPrepareVoiceWorkspace, transactions]);
 
   const voiceContext = useMemo(() => ({
     business_type: BUSINESS_TYPE_PROMPT_LABELS[shopProfile?.businessType] || BUSINESS_TYPE_PROMPT_LABELS['retail-shop'],
@@ -1659,47 +1779,23 @@ function AppInner() {
     }
   }, [activeCustomerTransactionModal, customerTransactionModal]);
 
-  const todayTransactions = useMemo(
-    () => transactions.filter(t2 => new Date(t2.created_at).toDateString() === todayDateStr),
-    [transactions, todayDateStr]
+  const todaySummary = useMemo(
+    () => buildTodaySnapshot(transactions, ledgerTransactions, todayDateStr),
+    [ledgerTransactions, todayDateStr, transactions]
   );
 
-  const todayLedgerTransactions = useMemo(
-    () => ledgerTransactions.filter(entry => new Date(entry.created_at).toDateString() === todayDateStr),
-    [ledgerTransactions, todayDateStr]
-  );
+  const {
+    todayTransactions,
+    todayLedgerTransactions,
+    todaySales,
+    todayExpenses,
+    todaySalesTotal,
+    todayExpensesTotal,
+    topProducts,
+  } = todaySummary;
 
   const persistedEntryCount = transactions.length + ledgerTransactions.length;
   const persistedTodayCount = todayTransactions.length + todayLedgerTransactions.length;
-
-  const todaySales = useMemo(
-    () => todayTransactions.filter(t2 => t2.type === 'sale'),
-    [todayTransactions]
-  );
-  const todayExpenses = useMemo(
-    () => todayTransactions.filter(t2 => t2.type === 'expense'),
-    [todayTransactions]
-  );
-  const todaySalesTotal = useMemo(
-    () => todaySales.reduce((s, t2) => s + (t2.amount || 0), 0),
-    [todaySales]
-  );
-  const todayExpensesTotal = useMemo(
-    () => todayExpenses.reduce((s, t2) => s + (t2.amount || 0), 0),
-    [todayExpenses]
-  );
-
-  const topProducts = useMemo(() => {
-    const counts = {};
-    todaySales.forEach(t2 => {
-      const name = t2.item_name || 'Unknown';
-      counts[name] = (counts[name] || 0) + (t2.quantity || 1);
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name, qty]) => ({ name, qty }));
-  }, [todaySales]);
 
   const buildShareSummary = () => {
     const profit = todaySalesTotal - todayExpensesTotal;
@@ -2043,11 +2139,13 @@ function AppInner() {
               />
             </Suspense>
           ) : (
-            <CustomerList
-              customers={customerSummaries}
-              onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
-              onAddCustomer={() => setShowCustomerForm(true)}
-            />
+            <Suspense fallback={<PanelFallback label={t.loading} />}>
+              <CustomerList
+                customers={customerSummaries}
+                onSelectCustomer={(customer) => setSelectedCustomerId(customer.id)}
+                onAddCustomer={() => setShowCustomerForm(true)}
+              />
+            </Suspense>
           )
         )}
 
