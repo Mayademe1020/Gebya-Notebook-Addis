@@ -3,6 +3,7 @@ import { Calendar, ChevronDown, ChevronUp, Pencil, Search, X } from 'lucide-reac
 import { useLang } from '../context/LangContext';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt } from '../utils/numformat';
+import PhotoAttachment from './PhotoAttachment';
 
 function groupByDay(transactions) {
   const groups = {};
@@ -38,6 +39,34 @@ function calcStats(transactions) {
   const hasCost = sales.some(tx => tx.cost_price > 0);
   const profit = revenue - costOfGoods - expenseTotal;
   return { revenue, profit, hasCost, expenseTotal };
+}
+
+// ─── Fix C (Report scalability): month bucketing ──────────────────────────
+// As transaction count grows, rendering every day-group at once janks cheap
+// phones. We bucket day-groups under Ethiopian-month headers and only render
+// the day rows for EXPANDED months — so we never render more than one month's
+// rows at a time, no matter how much history exists.
+
+function monthLabelOf(ts) {
+  // formatEthiopian returns "DD MonthName YYYY"; month+year are tokens 1..2.
+  // Amharic month names are single tokens so this split is safe.
+  const parts = String(formatEthiopian(ts)).split(' ');
+  return parts.length >= 3 ? `${parts[1]} ${parts[2]}` : String(formatEthiopian(ts));
+}
+
+function groupDaysByMonth(dayGroups) {
+  const buckets = new Map();
+  for (const dg of dayGroups) {
+    const label = monthLabelOf(dg.date);
+    if (!buckets.has(label)) {
+      buckets.set(label, { label, date: dg.date, dayGroups: [], transactions: [] });
+    }
+    const b = buckets.get(label);
+    b.dayGroups.push(dg);
+    b.transactions.push(...dg.transactions);
+    if (dg.date > b.date) b.date = dg.date; // keep newest date for sort + current-month detection
+  }
+  return Array.from(buckets.values()).sort((a, b) => b.date - a.date);
 }
 
 function getTopProducts(transactions, limit = 5) {
@@ -96,14 +125,37 @@ function filterCurrentMonth(transactions) {
   return transactions.filter(tx => tx.created_at >= ms && tx.created_at <= me);
 }
 
-function matchesSearch(tx, query) {
+export function matchesSearch(tx, query) {
   if (!query) return true;
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return (
-    (tx.item_name || '').toLowerCase().includes(q) ||
-    (tx.customer_name || '').toLowerCase().includes(q)
-  );
+
+  const createdAt = tx.created_at ? new Date(tx.created_at) : null;
+  const gregorianDate = createdAt && !Number.isNaN(createdAt.getTime())
+    ? createdAt.toLocaleDateString('en-US')
+    : '';
+  const ethiopianDate = tx.created_at ? formatEthiopian(tx.created_at) : '';
+  const amount = Number(tx.amount || 0);
+  const amountText = [
+    String(tx.amount ?? ''),
+    String(amount),
+    fmt(amount),
+    fmt(amount).replace(/,/g, ''),
+  ];
+
+  return [
+    tx.item_name,
+    tx.item_note,
+    tx.item_code,
+    tx.customer_name,
+    tx.note,
+    tx.actor_name_snapshot,
+    tx.staff_name,
+    tx.type,
+    gregorianDate,
+    ethiopianDate,
+    ...amountText,
+  ].some(value => String(value || '').toLowerCase().includes(q));
 }
 
 function matchesActor(tx, actorFilter) {
@@ -252,41 +304,190 @@ function StatsSummary({ transactions }) {
   );
 }
 
-function TxRow({ tx, onEdit, t }) {
+function TxRow({ tx, onEdit, t, lang }) {
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const hasBreakdown = Array.isArray(tx.items) && tx.items.length > 0;
+  const amountColor = typeColor[tx.type];
+
   return (
-    <button
-      onClick={() => onEdit(tx)}
-      className="w-full px-4 py-3 flex justify-between items-center text-left transition-colors press-scale"
-      style={{ background: 'transparent' }}
-    >
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span className="text-base flex-shrink-0">{typeIcon[tx.type]}</span>
-        <div className="min-w-0">
-          <span className="font-medium text-gray-800 text-sm truncate block">{tx.item_name}</span>
-          {tx.quantity > 1 && <span className="text-xs text-gray-400">×{tx.quantity}</span>}
-          {tx.customer_name && <p className="text-xs text-gray-400">{tx.customer_name}</p>}
-          {tx.actor_name_snapshot && <p className="text-xs text-gray-500">Entered by {tx.actor_name_snapshot}</p>}
-          {tx.updated_at && <p className="text-xs" style={{ color: '#C4883A' }}>{t.edited}</p>}
-        </div>
+    <div className="w-full px-4 py-3" style={{ background: 'transparent' }}>
+      <div className="flex justify-between items-center gap-2">
+        <button
+          onClick={() => onEdit(tx)}
+          className="flex-1 flex items-center gap-2.5 min-w-0 text-left press-scale"
+        >
+          <span className="text-base flex-shrink-0">{typeIcon[tx.type]}</span>
+          <div className="min-w-0">
+            <span className="font-medium text-gray-800 text-sm truncate block">{tx.item_name}</span>
+            {tx.quantity > 1 && <span className="text-xs text-gray-400">×{tx.quantity}</span>}
+            {tx.customer_name && <p className="text-xs text-gray-400">{tx.customer_name}</p>}
+            {tx.actor_name_snapshot && <p className="text-xs text-gray-500">Entered by {tx.actor_name_snapshot}</p>}
+            {tx.updated_at && <p className="text-xs" style={{ color: '#C4883A' }}>{t.edited}</p>}
+          </div>
+        </button>
+        {(tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)) && (
+          <PhotoAttachment
+            photo={tx.photo}
+            photos={tx.photos}
+            lang={lang}
+            label={lang === 'am' ? 'የግብይት ፎቶ ይመልከቱ' : 'View transaction photo'}
+          />
+        )}
+        {hasBreakdown && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setBreakdownOpen(v => !v); }}
+            className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold border press-scale flex items-center gap-0.5"
+            style={{
+              borderColor: breakdownOpen ? '#1B4332' : '#e8e2d8',
+              borderRadius: '999px',
+              background: breakdownOpen ? 'rgba(27,67,50,0.08)' : '#fff',
+              color: breakdownOpen ? '#1B4332' : '#6b7280',
+            }}
+            aria-label="Show items"
+          >
+            🧺{tx.items.length}
+            {breakdownOpen
+              ? <ChevronUp className="w-3 h-3" />
+              : <ChevronDown className="w-3 h-3" />
+            }
+          </button>
+        )}
+        <button
+          onClick={() => onEdit(tx)}
+          className="flex items-center gap-1 flex-shrink-0 ml-2 press-scale"
+          style={{ minHeight: 44, minWidth: 44, justifyContent: 'flex-end' }}
+        >
+          <div className="text-right">
+            <span className="font-semibold text-sm" style={{ color: amountColor }}>
+              {tx.type === 'expense' ? '-' : ''}{fmt(tx.amount || 0)}
+            </span>
+            {tx.profit !== null && tx.profit !== undefined && (
+              <p className={`text-xs ${tx.profit >= 0 ? 'text-green-600' : 'text-red-400'}`}>
+                {tx.profit >= 0 ? '+' : ''}{fmt(tx.profit)} {t.profit}
+              </p>
+            )}
+          </div>
+          <Pencil className="w-3.5 h-3.5 text-gray-300" />
+        </button>
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-        <div className="text-right">
-          <span className="font-semibold text-sm" style={{ color: typeColor[tx.type] }}>
-            {tx.type === 'expense' ? '-' : ''}{fmt(tx.amount || 0)}
-          </span>
-          {tx.profit !== null && tx.profit !== undefined && (
-            <p className={`text-xs ${tx.profit >= 0 ? 'text-green-600' : 'text-red-400'}`}>
-              {tx.profit >= 0 ? '+' : ''}{fmt(tx.profit)} {t.profit}
-            </p>
-          )}
+
+      {hasBreakdown && breakdownOpen && (
+        <div
+          className="mt-2 ml-7 pl-3 py-1.5 space-y-1"
+          style={{ borderLeft: '2px solid rgba(27,67,50,0.15)' }}
+        >
+          {tx.items.map((it, i) => (
+            <div key={i} className="flex justify-between items-baseline text-xs">
+              <span className="truncate min-w-0" style={{ color: '#374151' }}>• {it.name}</span>
+              <span className="font-semibold flex-shrink-0 ml-2" style={{ color: amountColor }}>
+                {fmt(it.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+              </span>
+            </div>
+          ))}
+          {(() => {
+            const sum = tx.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+            const delta = (Number(tx.amount) || 0) - sum;
+            if (Math.abs(delta) < 0.01) return null;
+            return (
+              <div className="flex justify-between items-baseline text-[10px] pt-1 mt-1" style={{ borderTop: '1px dashed rgba(0,0,0,0.08)', color: '#C4883A' }}>
+                <span>{delta > 0 ? (lang === 'am' ? 'ቀሪ' : 'Unaccounted') : (lang === 'am' ? 'በላይ' : 'Excess')}</span>
+                <span className="font-semibold">{fmt(Math.abs(delta))} {lang === 'am' ? 'ብር' : 'birr'}</span>
+              </div>
+            );
+          })()}
         </div>
-        <Pencil className="w-3.5 h-3.5 text-gray-300" />
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
-function DayGroupList({ groups, onEdit, expandedGroups, toggleGroup, t }) {
+// Fix C: month-bucketed wrapper around DayGroupList. Shows month header bars;
+// only the expanded month renders its day cards. Current month auto-expands.
+function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, expandedMonths, toggleMonth, t, lang }) {
+  const monthBuckets = groupDaysByMonth(dayGroups);
+  const currentMonthLabel = monthLabelOf(Date.now());
+
+  return (
+    <div className="space-y-3">
+      {monthBuckets.map((bucket, idx) => {
+        const stats = calcStats(bucket.transactions);
+        const isCurrentMonth = bucket.label === currentMonthLabel;
+        // Current month + the first bucket default open; others collapsed.
+        const expanded = expandedMonths[bucket.label] ?? (isCurrentMonth || idx === 0);
+        return (
+          <div key={bucket.label}>
+            {/* Month header bar — tappable */}
+            <button
+              type="button"
+              onClick={() => toggleMonth(bucket.label, expanded)}
+              className="w-full px-4 py-3 flex justify-between items-center press-scale"
+              style={{
+                background: isCurrentMonth
+                  ? 'linear-gradient(135deg, #1B4332 0%, #2d6a4f 100%)'
+                  : '#1f2937',
+                color: '#fff',
+                borderRadius: expanded ? 'var(--radius-md) var(--radius-md) 0 0' : 'var(--radius-md)',
+                boxShadow: 'var(--shadow-xs)',
+              }}
+            >
+              <div className="text-left">
+                <span className="font-black text-sm">{bucket.label}</span>
+                <div className="text-[11px] mt-0.5" style={{ opacity: 0.7 }}>
+                  {bucket.transactions.length} {t.entries}
+                  {isCurrentMonth && (
+                    <span style={{ marginLeft: 6 }}>
+                      · {lang === 'am' ? 'አሁን' : 'current'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <div className="text-sm font-black" style={{ color: stats.profit >= 0 ? '#86efac' : '#fca5a5' }}>
+                    {stats.hasCost
+                      ? `${stats.profit >= 0 ? '+' : ''}${fmt(stats.profit)}`
+                      : fmt(stats.revenue)} {t.birr}
+                  </div>
+                  <div className="text-[10px]" style={{ opacity: 0.65 }}>
+                    {stats.hasCost ? t.profit : t.revenue}
+                  </div>
+                </div>
+                {expanded
+                  ? <ChevronUp className="w-4 h-4" style={{ opacity: 0.8 }} />
+                  : <ChevronDown className="w-4 h-4" style={{ opacity: 0.8 }} />}
+              </div>
+            </button>
+
+            {/* Day cards for this month — only rendered when the month is open */}
+            {expanded && (
+              <div
+                className="pt-3 px-2 pb-2"
+                style={{
+                  background: 'rgba(0,0,0,0.02)',
+                  borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  borderTop: 'none',
+                }}
+              >
+                <DayGroupList
+                  groups={bucket.dayGroups}
+                  onEdit={onEdit}
+                  expandedGroups={expandedGroups}
+                  toggleGroup={toggleGroup}
+                  t={t}
+                  lang={lang}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DayGroupList({ groups, onEdit, expandedGroups, toggleGroup, t, lang }) {
   return (
     <div className="space-y-3">
       {groups.map(group => {
@@ -335,7 +536,7 @@ function DayGroupList({ groups, onEdit, expandedGroups, toggleGroup, t }) {
             {expanded && (
               <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
                 {group.transactions.map(tx => (
-                  <TxRow key={tx.id} tx={tx} onEdit={onEdit} t={t} />
+                  <TxRow key={tx.id} tx={tx} onEdit={onEdit} t={t} lang={lang} />
                 ))}
               </div>
             )}
@@ -346,7 +547,7 @@ function DayGroupList({ groups, onEdit, expandedGroups, toggleGroup, t }) {
   );
 }
 
-function WeekGroupList({ groups, onEdit, expandedGroups, toggleGroup, t }) {
+function WeekGroupList({ groups, onEdit, expandedGroups, toggleGroup, t, lang }) {
   return (
     <div className="space-y-3">
       {groups.map(group => {
@@ -383,7 +584,7 @@ function WeekGroupList({ groups, onEdit, expandedGroups, toggleGroup, t }) {
             {expanded && (
               <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
                 {group.transactions.map(tx => (
-                  <TxRow key={tx.id} tx={tx} onEdit={onEdit} t={t} />
+                  <TxRow key={tx.id} tx={tx} onEdit={onEdit} t={t} lang={lang} />
                 ))}
               </div>
             )}
@@ -451,14 +652,19 @@ function ActorAuditSummary({ rows, t }) {
 }
 
 function HistoryView({ transactions, onEdit }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [period, setPeriod] = useState('day');
   const [grouping, setGrouping] = useState('day');
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [expandedMonths, setExpandedMonths] = useState({}); // Fix C: month bucket expansion
   const [searchQuery, setSearchQuery] = useState('');
   const [actorFilter, setActorFilter] = useState('');
 
   const toggleGroup = (key) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  // Fix C: takes the current EFFECTIVE expanded state (which may come from a
+  // default-open rule) so the first tap flips correctly instead of re-opening.
+  const toggleMonth = (key, currentlyExpanded) =>
+    setExpandedMonths(prev => ({ ...prev, [key]: !currentlyExpanded }));
 
   const actorOptions = buildActorOptions(transactions);
   const filteredTransactions = transactions.filter(tx => (
@@ -589,12 +795,16 @@ function HistoryView({ transactions, onEdit }) {
               </div>
             )
           ) : grouping === 'day' ? (
-            <DayGroupList
-              groups={dayGroups}
+            /* Fix C: month-bucketed so we never render all days at once. */
+            <MonthBucketedDayList
+              dayGroups={dayGroups}
               onEdit={onEdit}
               expandedGroups={expandedGroups}
               toggleGroup={toggleGroup}
+              expandedMonths={expandedMonths}
+              toggleMonth={toggleMonth}
               t={t}
+              lang={lang}
             />
           ) : (
             <WeekGroupList
@@ -603,6 +813,7 @@ function HistoryView({ transactions, onEdit }) {
               expandedGroups={expandedGroups}
               toggleGroup={toggleGroup}
               t={t}
+              lang={lang}
             />
           )}
         </>

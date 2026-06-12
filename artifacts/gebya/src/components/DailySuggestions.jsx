@@ -2,14 +2,6 @@ import { useLang } from '../context/LangContext';
 
 const SUGGESTIONS_EN = [
   {
-    id: 'great_streak_no_sales',
-    condition: (sales, expenses, streak) => streak >= 3 && sales === 0,
-    icon: '🔥',
-    message: (sales, expenses, streak) => `Great ${streak}-day streak! Keep it going — record today's sales`,
-    action: 'sale',
-    actionLabel: 'Record a Sale',
-  },
-  {
     id: 'no_sales',
     condition: (sales) => sales === 0,
     icon: '💰',
@@ -29,14 +21,6 @@ const SUGGESTIONS_EN = [
 
 const SUGGESTIONS_AM = [
   {
-    id: 'great_streak_no_sales',
-    condition: (sales, expenses, streak) => streak >= 3 && sales === 0,
-    icon: '🔥',
-    message: (sales, expenses, streak) => `${streak} ቀን ተከታታይ! ቀጥሉ — የዛሬ ሽያጭ ይምዝግቡ`,
-    action: 'sale',
-    actionLabel: 'ሽያጭ ምዝግብ',
-  },
-  {
     id: 'no_sales',
     condition: (sales) => sales === 0,
     icon: '💰',
@@ -54,18 +38,18 @@ const SUGGESTIONS_AM = [
   },
 ];
 
-export default function DailySuggestions({ todayTransactions, streak = 1, onAction }) {
+export default function DailySuggestions({ todayTransactions, onAction }) {
   const { lang } = useLang();
   const suggestions = lang === 'am' ? SUGGESTIONS_AM : SUGGESTIONS_EN;
 
   const salesCount = todayTransactions.filter(tx => tx.type === 'sale').length;
   const expensesCount = todayTransactions.filter(tx => tx.type === 'expense').length;
 
-  const suggestion = suggestions.find(s => s.condition(salesCount, expensesCount, streak));
+  const suggestion = suggestions.find(s => s.condition(salesCount, expensesCount));
 
   if (!suggestion) return null;
 
-  const message = suggestion.message(salesCount, expensesCount, streak);
+  const message = suggestion.message(salesCount, expensesCount);
 
   return (
     <div

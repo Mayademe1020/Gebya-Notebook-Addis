@@ -1,286 +1,1022 @@
-import { useMemo } from 'react';
-import { ArrowLeft, Bell, Link2, MessageCircle, Phone, Plus, RefreshCcw, Wallet } from 'lucide-react';
+// CustomerDetail.jsx — Cockpit Synthesis v0.3 customer detail page
+//
+// Layout (top → bottom):
+//   1. Dark header band       · back + photo/avatar + name + phone + status pill
+//   2. Telegram link state    · linked / manual / (none — hidden if no phone)
+//   3. Balance block          · owes me + days late + on-time/entries/due stats
+//   4. 4-icon quick actions   · Credit · Payment · Mark paid · Remind
+//   5. History                · tagged rows with settlement breadcrumb badges
+//                               + 🧺 breakdown expander + long-press action sheet
+//   6. Trust line             · 🔒 Saved on this phone only
+//
+// Sizes locked: avatar 56px detail · action 48px min · history row ~64px ·
+// touch targets ≥44px primary / ≥32px secondary.
+//
+// Long-press: pointerdown + 500ms timer → action sheet (Edit · Delete · Cancel).
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowLeft, Bell, CheckCircle2, ChevronDown, ChevronUp,
+  Link2, MessageCircle, MoreVertical, Phone, Plus, RefreshCcw, Wallet, X, Pencil, Trash2,
+} from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
+import { daysAgoLabel } from '../utils/reminders';
+import PhotoAttachment from './PhotoAttachment';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const LONG_PRESS_MS = 500;
+
+// ─── helpers ──────────────────────────────────────────────────────────
+function initialsOf(name) {
+  if (!name || typeof name !== 'string') return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+const AVATAR_GRADIENTS = {
+  A: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+  B: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+  C: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+  D: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+  E: 'linear-gradient(135deg, #84cc16 0%, #4d7c0f 100%)',
+  F: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+  G: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
+  H: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
+  I: 'linear-gradient(135deg, #f97316 0%, #c2410c 100%)',
+  J: 'linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%)',
+  K: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+  L: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+  M: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+  N: 'linear-gradient(135deg, #eab308 0%, #a16207 100%)',
+  O: 'linear-gradient(135deg, #d946ef 0%, #a21caf 100%)',
+  P: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+  Q: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)',
+  R: 'linear-gradient(135deg, #6366f1 0%, #3730a3 100%)',
+  S: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+  T: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+  U: 'linear-gradient(135deg, #06b6d4 0%, #0e7490 100%)',
+  V: 'linear-gradient(135deg, #f43f5e 0%, #9f1239 100%)',
+  W: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+  X: 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)',
+  Y: 'linear-gradient(135deg, #f97316 0%, #9a3412 100%)',
+  Z: 'linear-gradient(135deg, #ec4899 0%, #831843 100%)',
+};
+function gradientFor(name) {
+  const init = initialsOf(name);
+  return AVATAR_GRADIENTS[init[0]] || AVATAR_GRADIENTS.A;
+}
+
+function telegramState(customer) {
+  if (customer?.telegram_chat_id) return 'linked';
+  if (customer?.telegram_username) return 'manual';
+  return 'none';
+}
+
+// ─── long-press hook ──────────────────────────────────────────────────
+function useLongPress(onLongPress) {
+  const timerRef = useRef(null);
+  const targetRef = useRef(null);
+  const triggeredRef = useRef(false);
+
+  const handlers = {
+    onPointerDown: (e, payload) => {
+      triggeredRef.current = false;
+      targetRef.current = payload;
+      timerRef.current = setTimeout(() => {
+        triggeredRef.current = true;
+        onLongPress?.(payload);
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
+    onPointerLeave: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
+    onPointerCancel: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
+    wasLongPressed: () => triggeredRef.current,
+  };
+  return handlers;
+}
+
+// ─── component ────────────────────────────────────────────────────────
 function CustomerDetail({
   customer,
   onBack,
   onAddCredit,
   onRecordPayment,
-  onToggleTelegramNotify,
+  onMarkFullyPaid,
+  onToggleTelegramNotify,   // kept for compatibility, surfaced inside the TG block
   onOpenTelegramConnect,
   onResendTelegramUpdate,
+  onRemind,
+  onEditCustomer,              // Commit C.2 · Edit customer (name/phone/Telegram/photo)
+  onEditCustomerTransaction,   // long-press → Edit
+  onDeleteCustomerTransaction, // long-press → Delete
   isOnline = true,
   isSlowConnection = false,
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const [actionSheet, setActionSheet] = useState(null); // null | { tx }
+  const [expandedRows, setExpandedRows] = useState({}); // { [txId]: true }
+  const longPress = useLongPress((tx) => setActionSheet({ tx }));
+
   if (!customer) return null;
 
+  const balance = Number(customer.balance || 0);
+  const hasBalance = balance > 0;
+  const tg = telegramState(customer);
+  const initials = initialsOf(customer.display_name);
+  const grad = gradientFor(customer.display_name);
+
+  // ─── Telegram link sub-state (from existing fields) ──────────────────
   const hasLinkedBorrower = !!customer.telegram_chat_id;
   const hasManualTelegram = !!customer.telegram_username;
   const hasPendingLink = !hasLinkedBorrower && !!customer.telegram_link_requested_at;
   const isTelegramNotifyEnabled = hasLinkedBorrower && customer.telegram_notify_enabled;
-  const hasCollectableBalance = Number(customer.balance || 0) > 0;
-  const telegramConnectionHint = !isOnline
-    ? 'You are offline right now. Manual Telegram contact still shows, but bot linking needs internet.'
-    : isSlowConnection
-      ? 'Slow connection detected. Use refresh after the borrower opens Telegram instead of expecting instant updates.'
-      : null;
-  const historyRows = useMemo(() => {
-    let runningBalance = Number(customer.balance || 0);
 
+  // ─── History rows with running balance + settlement breadcrumb ───────
+  const historyRows = useMemo(() => {
+    let runningBalance = balance;
     return (customer.transactions || []).map((item) => {
       const balanceAfter = runningBalance;
       runningBalance = item.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT
         ? runningBalance + Number(item.amount || 0)
         : runningBalance - Number(item.amount || 0);
-
-      return {
-        ...item,
-        balance_after: balanceAfter,
-      };
+      return { ...item, balance_after: balanceAfter };
     });
-  }, [customer]);
+  }, [customer.transactions, balance]);
 
+  // Top customer detection (matches CustomerList logic)
+  const isTopCustomer = customer.on_time_eligible > 0
+    && customer.on_time_count === customer.on_time_eligible
+    && customer.on_time_count >= 3;
+
+  // ─── render ──────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-2 min-h-[44px] -ml-1 press-scale"
-        style={{ color: 'var(--color-primary)' }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="font-semibold">{t.backToCustomers}</span>
-      </button>
+    <div className="space-y-3" style={{ paddingBottom: 16 }}>
 
+      {/* ═══ 1. DARK HEADER BAND · compact (~80px) ══════════════════════════════════════════ */}
       <div
-        className="p-5 border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-xs)' }}
+        style={{
+          background: 'linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 100%)',
+          color: '#fff',
+          padding: '8px 14px 12px',
+          marginLeft: -12, marginRight: -12, marginTop: -12,
+        }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-black text-gray-900 leading-tight">{customer.display_name}</h2>
-            {customer.note && (
-              <p className="text-sm mt-2" style={{ color: 'var(--color-text-muted)' }}>
-                {customer.note}
-              </p>
+        {/* Top row: back link + status pill on the right (so they share one line) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="press-scale"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'transparent', border: 'none', color: '#fff',
+              fontSize: '0.78rem', fontWeight: 700, opacity: 0.85,
+              cursor: 'pointer', padding: '4px 0',
+              minHeight: 28,
+            }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{lang === 'am' ? 'ተመለስ · ደንበኞች' : 'Back · Customers'}</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Compact status pill — saves vertical space */}
+            {(customer.has_overdue && customer.overdue_days > 0) && (
+              <span style={{
+                background: '#fee2e2', color: '#991b1b',
+                padding: '2px 8px', borderRadius: 999,
+                fontSize: '0.62rem', fontWeight: 800,
+                letterSpacing: '0.04em',
+                flexShrink: 0,
+              }}>
+                {customer.overdue_days}{lang === 'am' ? 'ቀን ያለፈው' : 'd OVERDUE'}
+              </span>
+            )}
+            {!customer.has_overdue && isTopCustomer && (
+              <span style={{
+                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                color: '#1a1a1a',
+                padding: '2px 8px', borderRadius: 999,
+                fontSize: '0.62rem', fontWeight: 800,
+                letterSpacing: '0.04em',
+                flexShrink: 0,
+              }}>
+                👑 {lang === 'am' ? 'በወቅቱ' : 'ON TIME'}
+              </span>
+            )}
+
+            {/* Edit customer button — Commit C.2.
+                Opens CustomerForm pre-filled so the shopkeeper can add or
+                update phone, Telegram, photo, or note for an existing customer. */}
+            {onEditCustomer && (
+              <button
+                type="button"
+                onClick={() => onEditCustomer(customer)}
+                className="press-scale"
+                aria-label={lang === 'am' ? 'አስተካክል' : 'Edit customer'}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 30, height: 30,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#9ca3af' }}>
-              {t.currentBalance}
-            </p>
-            <p className="text-2xl font-black" style={{ color: '#92400e' }}>
-              {fmt(customer.balance || 0)} {t.birr}
-            </p>
-          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 mt-4">
-          {customer.phone_number && (
-            <a
-              href={`tel:${customer.phone_number}`}
-              className="flex items-center gap-2 p-3 min-h-[48px] border"
-              style={{ background: 'var(--color-surface-muted)', borderColor: 'var(--color-border-light)', borderRadius: 'var(--radius-md)', color: 'var(--color-text)' }}
-            >
-              <Phone className="w-4 h-4" />
-              {customer.phone_number}
-            </a>
-          )}
-          {customer.telegram_username && (
-            <div
-              className="flex items-center gap-2 p-3 min-h-[48px] border"
-              style={{ background: '#f0f9ff', borderColor: '#bae6fd', borderRadius: 'var(--radius-md)', color: '#0369a1' }}
-            >
-              <MessageCircle className="w-4 h-4" />
-              {customer.telegram_username}
+        {/* Identity row — avatar 44 + name + phone/entries one line.
+            Commit C.5: When there's no photo, the avatar becomes a tappable
+            button that opens the edit form so the shopkeeper can add a photo
+            retroactively. Subtle 📷 hint badge nudges discovery. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+          {customer.photo ? (
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              position: 'relative', flexShrink: 0, overflow: 'hidden',
+            }}>
+              <img src={customer.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {isTopCustomer && (
+                <div style={{
+                  position: 'absolute', top: -4, left: -4,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                  border: '2px solid #1a1a1a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.65rem',
+                }}>👑</div>
+              )}
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onEditCustomer?.(customer)}
+              aria-label={lang === 'am' ? 'ፎቶ ይጨምሩ' : 'Add photo'}
+              className="press-scale"
+              style={{
+                width: 44, height: 44, borderRadius: '50%',
+                position: 'relative', flexShrink: 0, overflow: 'hidden',
+                border: '2px dashed rgba(255,255,255,0.35)',
+                background: grad,
+                padding: 0, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: '1rem', fontWeight: 800,
+              }}
+            >
+              {initials}
+              {/* 📷 hint badge — bottom-right, signals tap-to-add */}
+              <span style={{
+                position: 'absolute', bottom: -2, right: -2,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#fff',
+                border: '1.5px solid #1a1a1a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.55rem',
+                color: '#1a1a1a',
+              }}>📷</span>
+              {isTopCustomer && (
+                <div style={{
+                  position: 'absolute', top: -4, left: -4,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                  border: '2px solid #1a1a1a',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.65rem',
+                }}>👑</div>
+              )}
+            </button>
+          )}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.15 }}>
+              {customer.display_name}
+            </p>
+            {/* Identity line: phone (or Telegram if no phone) — dropped redundant
+                "N entries" since OWES ME card shows the same. Commit C.1 polish. */}
+            <p style={{ fontSize: '0.7rem', opacity: 0.7, marginTop: 2, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {customer.phone_number ? (
+                <a
+                  href={`tel:${customer.phone_number}`}
+                  style={{ color: '#fff', textDecoration: 'none' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  📞 {customer.phone_number}
+                </a>
+              ) : customer.telegram_username ? (
+                <span>💬 @{customer.telegram_username}</span>
+              ) : (
+                <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
+                  {lang === 'am' ? 'ስልክ ወይም ቴሌግራም የለም' : 'No phone or Telegram'}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ 2. TELEGRAM LINK STATE BLOCK ══════════════════════════════════════════
+          Commit T2 polish: the WHOLE row is tappable now (not just the small + Link
+          button). Easier to hit on small phones. Action button stays for visual
+          affordance but the row click also fires onOpenTelegramConnect. */}
+      {(tg !== 'none' || customer.phone_number) && (
+        <button
+          type="button"
+          onClick={onOpenTelegramConnect}
+          className="press-scale"
+          style={{
+            background: tg === 'linked' ? '#f0fdf4' : tg === 'manual' ? '#fffbeb' : '#fff',
+            border: `1px solid ${tg === 'linked' ? '#a3e9c1' : tg === 'manual' ? '#fde68a' : '#ece6d6'}`,
+            borderRadius: 10,
+            padding: '10px 12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 10,
+            marginTop: -8, // Float slightly into the dark band for visual depth
+            position: 'relative', zIndex: 2,
+            boxShadow: '0 2px 8px -2px rgba(0,0,0,0.06)',
+            cursor: 'pointer',
+            textAlign: 'left',
+            width: '100%',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <MessageCircle
+              className="w-4 h-4"
+              style={{
+                color: tg === 'linked' ? '#047857' : tg === 'manual' ? '#92400e' : '#9ca3af',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{
+                fontSize: '0.78rem', fontWeight: 700,
+                color: tg === 'linked' ? '#047857' : tg === 'manual' ? '#92400e' : '#1a1a1a',
+              }}>
+                {tg === 'linked'
+                  ? (lang === 'am' ? '✓ ቦት ተገናኝቷል' : '✓ Bot connected')
+                  : tg === 'manual'
+                    ? (lang === 'am' ? 'ቴሌግራም በእጅ' : 'Manual Telegram')
+                    : (lang === 'am' ? 'ቴሌግራም አልተገናኘም' : 'No Telegram link')}
+                {tg === 'manual' && customer.telegram_username && (
+                  <span style={{ marginLeft: 5, fontWeight: 500, opacity: 0.85 }}>
+                    · {customer.telegram_username}
+                  </span>
+                )}
+              </p>
+              <p style={{ fontSize: '0.65rem', color: '#6b7280', marginTop: 1 }}>
+                {tg === 'linked'
+                  ? (isTelegramNotifyEnabled
+                    ? (lang === 'am' ? 'ራስ-ሰር ማሳወቂያ በርቷል · ለመቆጣጠር ይንኩ' : 'Auto-updates ON · tap to manage')
+                    : (lang === 'am' ? 'ራስ-ሰር ማሳወቂያ ጠፍቷል · ለመቆጣጠር ይንኩ' : 'Auto-updates OFF · tap to manage'))
+                  : tg === 'manual'
+                    ? (lang === 'am' ? 'ቦት ለማገናኘት ይንኩ' : 'Tap to link the bot')
+                    : hasPendingLink
+                      ? (lang === 'am' ? 'ቦት ይጠብቃል · ለመፈተሽ ይንኩ' : 'Waiting for bot · tap to refresh')
+                      : (lang === 'am' ? 'ለማስታወሻ ቴሌግራም ይጨምሩ' : 'Tap to add Telegram for reminders')}
+              </p>
+            </div>
+          </div>
+          <span
+            style={{
+              background: tg === 'linked' ? '#047857' : tg === 'manual' ? '#92400e' : '#1a1a1a',
+              color: '#fff',
+              padding: '6px 10px', borderRadius: 6,
+              fontSize: '0.7rem', fontWeight: 800,
+              flexShrink: 0,
+              minHeight: 32,
+              display: 'inline-flex', alignItems: 'center',
+            }}
+          >
+            {tg === 'linked'
+              ? (lang === 'am' ? 'አያያዝ' : 'Manage')
+              : (lang === 'am' ? '+ አገናኝ' : '+ Link')}
+          </span>
+        </button>
+      )}
+
+      {/* ═══ 3. BALANCE BLOCK ══════════════════════════════════════════ */}
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid #ece6d6',
+          borderRadius: 12,
+          padding: 14,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+        }}
+      >
+        <div>
+          {/* Prominent OVERDUE badge above the amount — Commit C.1 polish.
+              Promotes the urgency signal so shopkeepers immediately know
+              this is a chase-now situation, not a "we have time" one. */}
+          {customer.has_overdue && customer.overdue_days > 0 && (
+            <span
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: '#dc2626', color: '#fff',
+                fontSize: '0.62rem', fontWeight: 800,
+                padding: '3px 8px', borderRadius: 999,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                marginBottom: 5,
+              }}
+            >
+              🔴 {customer.overdue_days}{lang === 'am' ? 'ቀን ያለፈው' : 'd overdue'}
+            </span>
+          )}
+          <p style={{
+            fontSize: '0.6rem', fontWeight: 800,
+            color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase',
+          }}>
+            {lang === 'am' ? 'ለእኔ ይከፍላሉ' : 'Owes me'}
+          </p>
+          <p style={{
+            fontFamily: 'Manrope, system-ui, sans-serif',
+            fontSize: '1.85rem', fontWeight: 800,
+            color: customer.has_overdue ? '#dc2626' : hasBalance ? '#b8842c' : '#9ca3af',
+            lineHeight: 1, marginTop: 4,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {fmt(balance)}
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#9ca3af', marginLeft: 4 }}>
+              {lang === 'am' ? 'ብር' : 'birr'}
+            </span>
+          </p>
+        </div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end',
+          gap: 4, fontSize: '0.7rem', color: '#6b7280',
+        }}>
+          <span>
+            <strong style={{ color: '#1f2937', fontWeight: 700 }}>{customer.transaction_count || 0}</strong>{' '}
+            {lang === 'am' ? 'መዝገብ' : 'entries'}
+          </span>
+          {/* On-time rate as a percentage when there's enough data — clearer
+              than "0/1" fraction notation. Commit C.1 polish. */}
+          {customer.on_time_eligible > 0 && (() => {
+            const pct = Math.round((customer.on_time_count / customer.on_time_eligible) * 100);
+            const pctColor = pct >= 80 ? '#047857' : pct >= 50 ? '#b8842c' : '#dc2626';
+            return (
+              <span>
+                <strong style={{ color: pctColor, fontWeight: 700 }}>
+                  {pct}%
+                </strong>{' '}
+                {lang === 'am' ? 'በወቅቱ' : 'on time'}
+                <span style={{ color: '#9ca3af', marginLeft: 3, fontSize: '0.62rem' }}>
+                  ({customer.on_time_count}/{customer.on_time_eligible})
+                </span>
+              </span>
+            );
+          })()}
+          {customer.avg_pay_days !== null && customer.avg_pay_days !== undefined && (
+            <span>
+              {lang === 'am' ? 'አማካይ ክፍያ' : 'Avg pay'}:{' '}
+              <strong style={{ color: '#1f2937', fontWeight: 700 }}>{customer.avg_pay_days}d</strong>
+            </span>
+          )}
+          {customer.latest_due_date && (
+            <span>
+              {lang === 'am' ? 'መጨረሻ ቀን' : 'Due'}:{' '}
+              <strong style={{ color: '#1f2937', fontWeight: 700 }}>
+                {formatEthiopian(customer.latest_due_date)}
+              </strong>
+            </span>
           )}
         </div>
       </div>
 
-      <div
-        className="p-4 border space-y-3"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-black text-gray-900">{t.telegramConnection}</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              {hasLinkedBorrower
-                ? ' Borrower updates are linked to the Gebya bot.'
-                : hasPendingLink
-                  ? ' Borrower link is waiting for the bot start.'
-                  : hasManualTelegram
-                    ? ' Manual Telegram contact is saved, but bot updates are not linked yet.'
-                    : t.telegramConnectHint}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onOpenTelegramConnect}
-            className="px-3 py-2 text-sm font-black min-h-[44px] border press-scale"
-            style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe', borderRadius: 'var(--radius-sm)' }}
-          >
-            <span className="inline-flex items-center gap-1">
-              <Link2 className="w-4 h-4" />
-              {hasLinkedBorrower || hasPendingLink || hasManualTelegram ? t.manageTelegram : t.connectTelegram}
-            </span>
-          </button>
-        </div>
-
-        <div
-          className="flex items-center justify-between gap-3 p-3 border"
-          style={{ background: isTelegramNotifyEnabled ? '#f0fdf4' : 'var(--color-surface-muted)', borderColor: isTelegramNotifyEnabled ? '#bbf7d0' : 'var(--color-border-light)', borderRadius: 'var(--radius-md)' }}
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">{t.notifyOnTelegram}</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              {hasLinkedBorrower
-                ? (isTelegramNotifyEnabled ? t.telegramNotifyEnabledState : t.telegramNotifyDisabledState)
-                : hasPendingLink
-                  ? 'Borrower still needs to start the Gebya bot before updates can send.'
-                  : hasManualTelegram
-                    ? 'Updates can open as a drafted Telegram message until the borrower links the Gebya bot.'
-                    : 'Link the borrower to the Gebya bot before turning updates on.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onToggleTelegramNotify}
-            className={`w-11 h-6 rounded-full transition-colors ${isTelegramNotifyEnabled ? 'bg-green-900' : 'bg-gray-300'}`}
-            style={{ padding: '2px', flexShrink: 0 }}
-            aria-label={t.notifyOnTelegram}
-          >
-            <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${isTelegramNotifyEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-          </button>
-        </div>
-
-        {!hasLinkedBorrower && (
-          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: '#b45309' }}>
-            <Bell className="w-4 h-4" />
-            <span>{hasPendingLink ? 'Borrower has not started the bot yet.' : t.telegramNotifyConnectFirst}</span>
-          </div>
-        )}
-
-        {telegramConnectionHint && (
-          <div className="flex items-center gap-2 text-xs font-medium" style={{ color: isOnline ? '#b45309' : '#b91c1c' }}>
-            <MessageCircle className="w-4 h-4" />
-            <span>{telegramConnectionHint}</span>
-          </div>
-        )}
-
-        {hasLinkedBorrower && (
-          <button
-            type="button"
-            onClick={onResendTelegramUpdate}
-            className="w-full p-3 text-sm font-black flex items-center justify-center gap-2 border press-scale"
-            style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0', borderRadius: 'var(--radius-md)' }}
-          >
-            <RefreshCcw className="w-4 h-4" />
-            Resend latest update
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
+      {/* ═══ 4. QUICK ACTIONS GRID ══════════════════════════════════════════ */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 6,
+      }}>
+        <QuickAction
+          variant="primary"
+          icon={<Plus className="w-4 h-4" />}
+          label={lang === 'am' ? 'ዱቤ' : 'Credit'}
           onClick={onAddCredit}
-          className="p-4 font-black text-white min-h-[56px] flex items-center justify-center gap-2 press-scale"
-          style={{ background: '#C4883A', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 0 #96662b' }}
-        >
-          <Plus className="w-5 h-5" />
-          {t.addCredit}
-        </button>
-        <button
-          type="button"
+        />
+        <QuickAction
+          variant="green"
+          icon={<Wallet className="w-4 h-4" />}
+          label={lang === 'am' ? 'ክፍያ' : 'Payment'}
           onClick={onRecordPayment}
-          disabled={!hasCollectableBalance}
-          className="p-4 font-black text-white min-h-[56px] flex items-center justify-center gap-2 press-scale disabled:opacity-45 disabled:cursor-not-allowed"
-          style={{ background: '#2d6a4f', borderRadius: 'var(--radius-md)', boxShadow: hasCollectableBalance ? '0 4px 0 #1B4332' : 'none' }}
-        >
-          <Wallet className="w-5 h-5" />
-          {t.recordPayment}
-        </button>
+          disabled={!hasBalance}
+        />
+        <QuickAction
+          variant="green"
+          icon={<CheckCircle2 className="w-4 h-4" />}
+          label={lang === 'am' ? 'ሙሉ' : 'Mark paid'}
+          onClick={() => onMarkFullyPaid?.(customer)}
+          disabled={!hasBalance || !onMarkFullyPaid}
+        />
+        <QuickAction
+          variant="amber"
+          icon={<Bell className="w-4 h-4" />}
+          label={lang === 'am' ? 'አስታውስ' : 'Remind'}
+          onClick={() => onRemind?.(customer)}
+          disabled={!hasBalance || (!customer.telegram_chat_id && !customer.telegram_username && !customer.phone_number)}
+        />
       </div>
 
-      {!hasCollectableBalance && (
-        <p className="text-xs font-medium -mt-1" style={{ color: 'var(--color-text-muted)' }}>
-          {t.noBalanceToRecordPayment}
+      {!hasBalance && (
+        <p style={{ fontSize: '0.7rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic' }}>
+          {lang === 'am' ? 'ምንም ቀሪ ዱቤ የለም' : 'No outstanding balance'}
         </p>
       )}
 
-      <div
-        className="p-4 border"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-xs)' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-sm" style={{ color: 'var(--color-primary)' }}>
-            {t.customerTransactionHistory}
-          </h3>
-          <span className="text-xs" style={{ color: '#9ca3af' }}>
-            {(customer.transaction_count || 0)} {t.entries}
-          </span>
+      {/* Hint when Remind is greyed because customer has no contact info.
+          Commit C.2 — now tappable: opens CustomerForm in edit mode so the
+          shopkeeper can add phone/Telegram without hunting for it. */}
+      {hasBalance && !customer.telegram_chat_id && !customer.telegram_username && !customer.phone_number && (
+        <button
+          type="button"
+          onClick={() => onEditCustomer?.(customer)}
+          className="press-scale"
+          style={{
+            background: '#fffbeb',
+            border: '1px dashed #fbbf24',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: '0.72rem', color: '#92400e', fontWeight: 700,
+            textAlign: 'center',
+            cursor: 'pointer',
+            width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          {lang === 'am'
+            ? 'ለማስታወሻ ስልክ ወይም ቴሌግራም ይጨምሩ →'
+            : 'Tap to add phone or Telegram for reminders →'}
+        </button>
+      )}
+
+      {/* ═══ 5. HISTORY ══════════════════════════════════════════ */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 4px' }}>
+          <p style={{ fontSize: '0.62rem', fontWeight: 800, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            {lang === 'am' ? 'መዝገብ' : 'History'} · {historyRows.length} {lang === 'am' ? 'መዝገብ' : 'entries'}
+          </p>
+          {/* Commit P: stronger discoverability hint for edit/delete */}
+          <p
+            style={{
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              background: '#f5f1ea',
+              color: '#6b4f1d',
+              padding: '2px 8px',
+              borderRadius: 999,
+              border: '1px solid #ece6d6',
+            }}
+          >
+            {lang === 'am' ? 'ለማስተካከል ⋮ ይንኩ' : '⋮ tap to edit / delete'}
+          </p>
         </div>
 
-        {historyRows.length ? (
-          <div className="space-y-2">
-            {historyRows.map((item) => {
-              const isPayment = item.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 p-3 border"
-                  style={{
-                    background: isPayment ? '#f0fdf4' : '#fffbeb',
-                    borderColor: isPayment ? '#bbf7d0' : '#fde68a',
-                    borderRadius: 'var(--radius-sm)',
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm" style={{ color: isPayment ? '#166534' : '#92400e' }}>
-                      {isPayment ? t.paymentRecordedLabel : t.creditAddedLabel}
-                    </p>
-                    {item.item_note && (
-                      <p className="text-sm mt-1" style={{ color: '#4b5563' }}>
-                        {item.item_note}
-                      </p>
-                    )}
-                    <div className="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style={{ color: '#9ca3af' }}>
-                      <span>{formatEthiopian(item.created_at)}</span>
-                      {!isPayment && item.due_date ? <span>{t.dueLabelShort}: {formatEthiopian(item.due_date)}</span> : null}
-                      {item.reference_code ? <span>{item.reference_code}</span> : null}
-                      {item.actor_name_snapshot ? <span>Entered by {item.actor_name_snapshot}</span> : null}
-                      <span>{t.balanceAfterEntry}: {fmt(item.balance_after || 0)} {t.birr}</span>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-black text-sm" style={{ color: isPayment ? '#166534' : '#92400e' }}>
-                      {isPayment ? '-' : '+'}
-                      {fmt(item.amount || 0)} {t.birr}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+        {historyRows.length === 0 ? (
+          <div style={{
+            padding: 24,
+            background: '#fff',
+            border: '1px solid #ece6d6',
+            borderRadius: 12,
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+              {lang === 'am' ? 'መዝገብ የለም' : 'No entries yet'}
+            </p>
+            <p style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: 8 }}>
+              {lang === 'am' ? 'ለመጀመር ዱቤ ይጨምሩ' : 'Tap + Credit to start'}
+            </p>
           </div>
         ) : (
-          <div className="text-center py-6">
-            <p className="text-sm" style={{ color: '#9ca3af' }}>
-              {t.noTransactionsYet}
-            </p>
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              {t.noTransactionsHint}
-            </p>
+          <div style={{ background: '#fff', border: '1px solid #ece6d6', borderRadius: 12, overflow: 'hidden' }}>
+            {/* Commit C.5: Same-day grouping. We emit a sticky-style date
+                header whenever the row's date changes from the previous row.
+                Reduces visual noise when many entries share a date. */}
+            {(() => {
+              const elements = [];
+              let lastDate = null;
+              historyRows.forEach((tx, idx) => {
+                const txDate = formatEthiopian(tx.created_at);
+                if (txDate !== lastDate) {
+                  // Count how many entries are on this same date
+                  const sameDayCount = historyRows.filter(
+                    r => formatEthiopian(r.created_at) === txDate
+                  ).length;
+                  elements.push(
+                    <div
+                      key={`date_${txDate}_${idx}`}
+                      style={{
+                        background: '#faf8f3',
+                        borderTop: idx === 0 ? 'none' : '1px solid #f5f1ea',
+                        borderBottom: '1px solid #f5f1ea',
+                        padding: '6px 14px',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        color: '#6b7280',
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>📅 {txDate}</span>
+                      {sameDayCount > 1 && (
+                        <span style={{ color: '#9ca3af', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
+                          {sameDayCount} {lang === 'am' ? 'መዝገብ' : 'entries'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                  lastDate = txDate;
+                }
+                elements.push(
+                  <HistoryRow
+                    key={tx.id || idx}
+                    tx={tx}
+                    isLast={idx === historyRows.length - 1}
+                    expanded={!!expandedRows[tx.id]}
+                    onToggleExpand={() => setExpandedRows(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
+                    onActionMenu={(t) => setActionSheet({ tx: t })}
+                    lang={lang}
+                    longPress={longPress}
+                  />
+                );
+              });
+              return elements;
+            })()}
           </div>
         )}
       </div>
+
+      {/* ═══ 6. TRUST LINE ══════════════════════════════════════════ */}
+      <p style={{
+        textAlign: 'center', fontSize: '0.66rem', color: '#9ca3af',
+        padding: '8px 14px 4px',
+      }}>
+        🔒 {lang === 'am'
+          ? 'በዚህ ስልክ ብቻ ይቀመጣል። ለማንም አንልክም።'
+          : 'Saved on this phone only. We never send your numbers anywhere.'}
+      </p>
+
+      {/* ═══ ACTION SHEET (long-press) ══════════════════════════════════════════ */}
+      {actionSheet && (
+        <ActionSheet
+          tx={actionSheet.tx}
+          lang={lang}
+          onClose={() => setActionSheet(null)}
+          onEdit={() => {
+            const tx = actionSheet.tx;
+            setActionSheet(null);
+            onEditCustomerTransaction?.(tx);
+          }}
+          onDelete={() => {
+            const tx = actionSheet.tx;
+            setActionSheet(null);
+            onDeleteCustomerTransaction?.(tx);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ─── Quick action button ──────────────────────────────────────────────
+function QuickAction({ variant, icon, label, onClick, disabled }) {
+  const styles = {
+    primary: { bg: '#1a1a1a', border: '#1a1a1a', fg: '#fff', labelFg: '#fff' },
+    green:   { bg: '#d1f4e0', border: '#a3e9c1', fg: '#047857', labelFg: '#047857' },
+    amber:   { bg: '#fff7ed', border: '#fed7aa', fg: '#b8842c', labelFg: '#b8842c' },
+    default: { bg: '#fff',    border: '#ece6d6', fg: '#4b5563', labelFg: '#4b5563' },
+  };
+  const s = styles[variant] || styles.default;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="press-scale"
+      style={{
+        background: disabled ? '#f5f1ea' : s.bg,
+        border: `1px solid ${disabled ? '#e5e7eb' : s.border}`,
+        borderRadius: 10,
+        padding: '10px 4px',
+        textAlign: 'center',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        minHeight: 48,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'center', color: disabled ? '#9ca3af' : s.fg }}>{icon}</div>
+      <p style={{
+        fontSize: '0.62rem', fontWeight: 700,
+        color: disabled ? '#9ca3af' : s.labelFg,
+        marginTop: 4,
+      }}>
+        {label}
+      </p>
+    </button>
+  );
+}
+
+// ─── History row with settlement breadcrumb + breakdown expander ──────
+function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, longPress }) {
+  const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
+  const items = Array.isArray(tx.items) && tx.items.length > 0 ? tx.items : null;
+  const settlementMode = tx.settlement_mode || null; // 'partial' | 'later' | null
+
+  const amountColor = isPayment ? '#047857' : '#b8842c';
+  const sign = isPayment ? '−' : '+';
+
+  return (
+    <div
+      onPointerDown={(e) => longPress.onPointerDown(e, tx)}
+      onPointerUp={longPress.onPointerUp}
+      onPointerLeave={longPress.onPointerLeave}
+      onPointerCancel={longPress.onPointerCancel}
+      style={{
+        padding: '12px 14px',
+        background: isPayment ? '#f0fdf4' : '#fffbeb',
+        borderBottom: isLast ? 'none' : '1px solid #f5f1ea',
+        cursor: 'pointer',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        {!isPayment && (tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)) && (
+          <PhotoAttachment
+            photo={tx.photo}
+            photos={tx.photos}
+            lang={lang}
+            label={lang === 'am' ? 'የዕቃ ፎቶ ይመልከቱ' : 'View item photo'}
+          />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Tag row · CREDIT/PAYMENT + settlement breadcrumb */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4, alignItems: 'center' }}>
+            <span style={{
+              fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
+              padding: '1px 6px', borderRadius: 3,
+              background: isPayment ? '#d1f4e0' : '#fef3c7',
+              color: isPayment ? '#047857' : '#92400e',
+            }}>
+              {isPayment
+                ? (lang === 'am' ? 'ክፍያ' : 'PAYMENT')
+                : (lang === 'am' ? 'ዱቤ' : 'CREDIT')}
+            </span>
+            {settlementMode === 'partial' && (
+              <span style={{
+                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
+                padding: '1px 6px', borderRadius: 3,
+                background: '#ede9fe', color: '#6d28d9',
+              }}>
+                {lang === 'am' ? 'ከሽያጭ' : 'from sale'}
+              </span>
+            )}
+            {settlementMode === 'later' && (
+              <span style={{
+                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
+                padding: '1px 6px', borderRadius: 3,
+                background: '#ffe4e6', color: '#be123c',
+              }}>
+                {lang === 'am' ? 'ኋላ ይከፍላል' : 'pay-later'}
+              </span>
+            )}
+          </div>
+
+          {/* Note + qty + meta. Commit C.6: surface qty as a small "× N" prefix
+              so shopkeepers can see how many units they handed over. */}
+          {(tx.item_note || tx.quantity) && (
+            <p style={{ fontSize: '0.82rem', color: '#1f2937', marginTop: 2, marginBottom: 2, display: 'inline-flex', flexWrap: 'wrap', gap: 5, alignItems: 'baseline' }}>
+              {!isPayment && tx.quantity > 0 && (
+                <span style={{
+                  display: 'inline-block',
+                  background: '#fef3c7', color: '#92400e',
+                  padding: '1px 6px', borderRadius: 4,
+                  fontSize: '0.68rem', fontWeight: 800,
+                  letterSpacing: '0.02em',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  × {tx.quantity}
+                </span>
+              )}
+              {tx.item_note && <span>{tx.item_note}</span>}
+            </p>
+          )}
+          <p style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span>{formatEthiopian(tx.created_at)}</span>
+            {!isPayment && tx.due_date && (
+              <span>{lang === 'am' ? 'መጨረሻ' : 'due'}: {formatEthiopian(tx.due_date)}</span>
+            )}
+            {/* Commit C.3: visible badge when credit has NO due date.
+                Soft amber dashed-border chip — easy to scan and identify
+                which credits don't have a return commitment yet. */}
+            {!isPayment && !tx.due_date && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                background: '#fffaeb',
+                border: '1px dashed #fbbf24',
+                color: '#92400e',
+                padding: '1px 6px', borderRadius: 999,
+                fontSize: '0.58rem', fontWeight: 700,
+                letterSpacing: '0.02em',
+              }}>
+                📅? {lang === 'am' ? 'መመለሻ ቀን አልተወሰነም' : 'no due date'}
+              </span>
+            )}
+            {tx.actor_name_snapshot && (
+              <span>{lang === 'am' ? 'በ' : 'by'} {tx.actor_name_snapshot}</span>
+            )}
+            <span>{lang === 'am' ? 'ቀሪ' : 'after'}: {fmt(tx.balance_after || 0)} {lang === 'am' ? 'ብር' : 'birr'}</span>
+          </p>
+
+          {/* 🧺 breakdown expander */}
+          {items && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                marginTop: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                fontSize: '0.62rem', fontWeight: 700,
+                color: expanded ? '#fff' : '#1a1a1a',
+                background: expanded ? '#1a1a1a' : '#f3f4f6',
+                padding: '2px 8px', borderRadius: 999,
+                cursor: 'pointer', border: 'none',
+                minHeight: 32,
+              }}
+            >
+              🧺 {items.length} {lang === 'am' ? 'ዕቃ' : 'items'}
+              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          )}
+          {items && expanded && (
+            <div style={{
+              marginTop: 6,
+              padding: '8px 10px',
+              background: '#fff',
+              border: '1px solid #ece6d6',
+              borderLeft: '3px solid #b8842c',
+              borderRadius: 8,
+            }}>
+              {items.map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  fontSize: '0.74rem', padding: '3px 0',
+                }}>
+                  <span style={{ color: '#4b5563' }}>• {item.name}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#b8842c' }}>
+                    {fmt(item.amount || 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+          <p style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '0.95rem', fontWeight: 700,
+            color: amountColor,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {sign}{fmt(tx.amount || 0)}
+          </p>
+          {/* Commit P: 3-dot menu — primary action surface for edit/delete.
+              Long-press still works as a fallback. Made larger (36×36 was 28×28)
+              + tinted background so users actually find it without holding. */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onActionMenu?.(tx); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label={lang === 'am' ? 'ምርጫዎች · ለማስተካከል ወይም ለመሰረዝ' : 'More · edit or delete'}
+            className="press-scale"
+            style={{
+              width: 44, height: 44, borderRadius: 10,
+              background: '#f5f1ea',
+              border: '1px solid #ece6d6',
+              color: '#1B4332',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Action sheet (long-press) ──────────────────────────────────────────
+function ActionSheet({ tx, lang, onClose, onEdit, onDelete }) {
+  // Close on background click; lock body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const isPayment = tx?.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
+  const headerLabel = isPayment
+    ? (lang === 'am' ? 'ክፍያ' : 'PAYMENT')
+    : (lang === 'am' ? 'ዱቤ' : 'CREDIT');
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        zIndex: 60,
+        animation: 'gebya-fade-in 0.15s ease',
+      }}
+    >
+      <div
+        style={{
+          width: '100%', maxWidth: 480,
+          background: '#fff',
+          borderRadius: '14px 14px 0 0',
+          padding: '14px 0 0',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0) + 12px)',
+        }}
+      >
+        <div style={{ width: 40, height: 4, background: '#e5e7eb', borderRadius: 2, margin: '0 auto 12px' }} />
+        <p style={{
+          fontSize: '0.7rem', fontWeight: 800,
+          color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase',
+          textAlign: 'center', padding: '0 16px 8px',
+          borderBottom: '1px solid #ece6d6',
+        }}>
+          {lang === 'am' ? 'ቀጥሎ' : 'Long-press'} · {headerLabel} {fmt(tx?.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+        </p>
+        <ActionButton
+          icon={<Pencil className="w-4 h-4" />}
+          label={lang === 'am' ? 'አስተካክል' : 'Edit entry'}
+          onClick={onEdit}
+        />
+        <ActionButton
+          icon={<Trash2 className="w-4 h-4" />}
+          label={lang === 'am' ? 'ሰርዝ' : 'Delete'}
+          onClick={onDelete}
+          danger
+        />
+        <div
+          onClick={onClose}
+          style={{
+            padding: 14,
+            background: '#f5f1ea',
+            textAlign: 'center',
+            fontSize: '0.9rem', fontWeight: 700,
+            color: '#6b7280',
+            cursor: 'pointer',
+            marginTop: 4,
+          }}
+        >
+          {lang === 'am' ? 'ሰርዝ' : 'Cancel'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionButton({ icon, label, onClick, danger }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: '100%',
+        padding: '14px 18px',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: '1px solid #f5f1ea',
+        display: 'flex', alignItems: 'center', gap: 10,
+        cursor: 'pointer',
+        fontSize: '0.95rem', fontWeight: 600,
+        color: danger ? '#dc2626' : '#1a1a1a',
+        minHeight: 48,
+        textAlign: 'left',
+      }}
+    >
+      <span style={{ color: danger ? '#dc2626' : '#1a1a1a' }}>{icon}</span>
+      {label}
+    </button>
   );
 }
 

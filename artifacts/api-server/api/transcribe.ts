@@ -1,10 +1,23 @@
-﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Vercel function handler. Previously imported VercelRequest/VercelResponse
+// types from @vercel/node, but adding that dep required updating the
+// pnpm-lock.yaml across the monorepo. Inline minimal types are sufficient
+// since we only use req.method / req.headers / req.body and res.status().json().
 import {
   extractLikelyTotal,
   NULL_TRANSCRIBE_RESPONSE,
   parseDraft,
   VoiceContext,
 } from '../src/utils/voiceDraft.js';
+
+interface VercelReqLike {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+}
+interface VercelResLike {
+  status(code: number): VercelResLike;
+  json(body: unknown): VercelResLike;
+}
 
 function parseVoiceContext(raw: unknown): VoiceContext | undefined {
   if (!raw) return undefined;
@@ -58,12 +71,12 @@ function parseVoiceContext(raw: unknown): VoiceContext | undefined {
   }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelReqLike, res: VercelResLike) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed', ...NULL_TRANSCRIBE_RESPONSE });
   }
 
-  const contentType = req.headers['content-type'] ?? '';
+  const contentType = (req.headers['content-type'] ?? '') as string;
 
   if (contentType.includes('multipart/form-data')) {
     return res.status(400).json({
@@ -75,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let body: Record<string, unknown>;
 
   try {
-    body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body ?? {});
+    body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : ((req.body as Record<string, unknown>) ?? {});
   } catch {
     return res.status(400).json({
       error: 'invalid JSON body',

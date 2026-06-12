@@ -1,4 +1,19 @@
-type TelegramLinkSession = {
+// telegramStore.ts — session storage for the Telegram bot.
+//
+// Commit KV (launch-critical 2b): sessions now persist in Vercel KV (Upstash)
+// when KV_REST_API_URL + KV_REST_API_TOKEN are present. This fixes the bug
+// where a serverless cold-start wiped the in-memory Map between a shop
+// generating a link and the customer tapping /start (the "This link is no
+// longer valid" failure).
+//
+// We talk to Upstash via its REST command API using plain fetch — NO
+// @vercel/kv package, so the monorepo pnpm lockfile stays untouched (adding a
+// dep would break the frozen-lockfile CI install, a trap we already hit).
+//
+// Falls back to an in-memory Map when KV env vars are absent, so local dev and
+// un-provisioned deploys still work (ephemeral, as before).
+
+export type TelegramLinkSession = {
   token: string;
   customerId: string;
   customerName: string;
@@ -17,42 +32,134 @@ type TelegramLinkSession = {
 };
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
-const sessions = new Map<string, TelegramLinkSession>();
-const chatToToken = new Map<string, string>();
-const sessionStoreMode = process.env.TELEGRAM_SESSION_STORE?.trim() || "memory";
+const SESSION_TTL_SEC = Math.floor(SESSION_TTL_MS / 1000);
+
+// ─── storage backend selection ────────────────────────────────────────
+// Accept BOTH naming conventions: the classic Vercel KV names
+// (KV_REST_API_URL / KV_REST_API_TOKEN) and the native Upstash names
+// (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN). The Vercel Marketplace
+// → Upstash integration may inject either set depending on how the store is
+// connected, so reading both means provisioning "just works" either way.
+const KV_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL)?.trim();
+const KV_TOKEN = (process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN)?.trim();
+const kvEnabled = Boolean(KV_URL && KV_TOKEN);
 const isServerlessEnvironment = process.env.VERCEL === "1";
+
+// In-memory fallback (used only when KV is not configured)
+const memSessions = new Map<string, TelegramLinkSession>();
+const memChatToToken = new Map<string, string>();
+
+const sKey = (token: string) => `tg:s:${token}`;
+const cKey = (chatId: string) => `tg:c:${chatId}`;
+
+// Upstash REST command API: POST the command as a JSON array, e.g.
+// ["SET","key","value","EX","604800"] → { "result": "OK" }
+// ["GET","key"] → { "result": "value-or-null" }
+async function kvCmd(args: (string | number)[]): Promise<unknown> {
+  const res = await fetch(KV_URL as string, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${KV_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) {
+    throw new Error(`KV command failed (${res.status})`);
+  }
+  const data = (await res.json()) as { result?: unknown };
+  return data?.result ?? null;
+}
+
+// ─── low-level session accessors (KV or memory) ───────────────────────
+
+async function readSession(token: string): Promise<TelegramLinkSession | null> {
+  if (kvEnabled) {
+    const raw = await kvCmd(["GET", sKey(token)]);
+    if (!raw || typeof raw !== "string") return null;
+    try {
+      return JSON.parse(raw) as TelegramLinkSession;
+    } catch {
+      return null;
+    }
+  }
+  return memSessions.get(token) ?? null;
+}
+
+async function writeSession(session: TelegramLinkSession): Promise<void> {
+  if (kvEnabled) {
+    await kvCmd(["SET", sKey(session.token), JSON.stringify(session), "EX", SESSION_TTL_SEC]);
+    return;
+  }
+  memSessions.set(session.token, session);
+}
+
+async function deleteSession(token: string): Promise<void> {
+  if (kvEnabled) {
+    await kvCmd(["DEL", sKey(token)]);
+    return;
+  }
+  memSessions.delete(token);
+}
+
+async function readTokenByChat(chatId: string): Promise<string | null> {
+  if (kvEnabled) {
+    const raw = await kvCmd(["GET", cKey(chatId)]);
+    return typeof raw === "string" && raw ? raw : null;
+  }
+  return memChatToToken.get(chatId) ?? null;
+}
+
+async function writeChatLink(chatId: string, token: string): Promise<void> {
+  if (kvEnabled) {
+    await kvCmd(["SET", cKey(chatId), token, "EX", SESSION_TTL_SEC]);
+    return;
+  }
+  memChatToToken.set(chatId, token);
+}
+
+async function deleteChatLink(chatId: string): Promise<void> {
+  if (kvEnabled) {
+    await kvCmd(["DEL", cKey(chatId)]);
+    return;
+  }
+  memChatToToken.delete(chatId);
+}
 
 function normalizeAmount(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
 }
 
+// ─── public API ───────────────────────────────────────────────────────
+
 export function getTelegramSessionStoreStatus() {
-  const persistent = sessionStoreMode !== "memory";
+  // KV-backed = persistent. Otherwise memory (ephemeral on serverless).
+  const persistent = kvEnabled;
+  const mode = kvEnabled ? "vercel-kv" : (process.env.TELEGRAM_SESSION_STORE?.trim() || "memory");
   const linkingAvailable =
     persistent || !isServerlessEnvironment || process.env.ALLOW_EPHEMERAL_TELEGRAM_LINKING === "true";
 
   return {
-    mode: sessionStoreMode,
+    mode,
     persistent,
     linkingAvailable,
-    reason:
-      linkingAvailable
-        ? null
-        : "Telegram QR linking is disabled on stateless deployments without persistent session storage.",
+    reason: linkingAvailable
+      ? null
+      : "Telegram QR linking is disabled on stateless deployments without persistent session storage.",
   };
 }
 
-export function upsertTelegramLinkSession(payload: {
+export async function upsertTelegramLinkSession(payload: {
   token: string;
   customerId: string;
   customerName: string;
   shopName: string;
   currentBalance?: number;
   updatesEnabled?: boolean;
-}) {
+}): Promise<TelegramLinkSession> {
   const now = Date.now();
-  const existing = sessions.get(payload.token);
+  const existing = await readSession(payload.token);
   const next: TelegramLinkSession = {
     token: payload.token,
     customerId: payload.customerId,
@@ -70,41 +177,41 @@ export function upsertTelegramLinkSession(payload: {
     lastReference: existing?.lastReference ?? null,
     lastUpdatedAt: existing?.lastUpdatedAt ?? null,
   };
-  sessions.set(payload.token, next);
+  await writeSession(next);
   return next;
 }
 
-export function getTelegramLinkSession(token: string) {
-  const session = sessions.get(token);
+export async function getTelegramLinkSession(token: string): Promise<TelegramLinkSession | null> {
+  const session = await readSession(token);
   if (!session) return null;
   if (session.expiresAt < Date.now()) {
-    sessions.delete(token);
-    if (session.chatId) chatToToken.delete(session.chatId);
+    await deleteSession(token);
+    if (session.chatId) await deleteChatLink(session.chatId);
     return null;
   }
   return session;
 }
 
-export function linkTelegramChatToSession(payload: {
+export async function linkTelegramChatToSession(payload: {
   token: string;
   chatId: string;
   telegramUsername?: string | null;
-}) {
-  const session = getTelegramLinkSession(payload.token);
+}): Promise<TelegramLinkSession | null> {
+  const session = await getTelegramLinkSession(payload.token);
   if (!session) return null;
-  const next = {
+  const next: TelegramLinkSession = {
     ...session,
     linkedAt: Date.now(),
     chatId: payload.chatId,
     telegramUsername: payload.telegramUsername || session.telegramUsername || null,
     lastUpdatedAt: Date.now(),
   };
-  sessions.set(payload.token, next);
-  chatToToken.set(payload.chatId, payload.token);
+  await writeSession(next);
+  await writeChatLink(payload.chatId, payload.token);
   return next;
 }
 
-export function syncTelegramCustomerState(payload: {
+export async function syncTelegramCustomerState(payload: {
   token: string;
   customerName?: string;
   shopName?: string;
@@ -112,11 +219,10 @@ export function syncTelegramCustomerState(payload: {
   updatesEnabled?: boolean;
   telegramUsername?: string | null;
   chatId?: string | null;
-}) {
-  const session = getTelegramLinkSession(payload.token);
-  if (!session && !payload.chatId) return null;
+}): Promise<TelegramLinkSession | null> {
+  const session = await getTelegramLinkSession(payload.token);
   const fallback = !session && payload.chatId
-    ? upsertTelegramLinkSession({
+    ? await upsertTelegramLinkSession({
         token: payload.token,
         customerId: "unknown",
         customerName: payload.customerName || "Customer",
@@ -127,7 +233,7 @@ export function syncTelegramCustomerState(payload: {
     : null;
   const baseSession = session || fallback;
   if (!baseSession) return null;
-  const next = {
+  const next: TelegramLinkSession = {
     ...baseSession,
     customerName: payload.customerName || baseSession.customerName,
     shopName: payload.shopName || baseSession.shopName,
@@ -137,32 +243,32 @@ export function syncTelegramCustomerState(payload: {
     chatId: payload.chatId ?? baseSession.chatId,
     lastUpdatedAt: Date.now(),
   };
-  sessions.set(payload.token, next);
-  if (next.chatId) chatToToken.set(next.chatId, next.token);
+  await writeSession(next);
+  if (next.chatId) await writeChatLink(next.chatId, next.token);
   return next;
 }
 
-export function storeTelegramDelivery(payload: {
+export async function storeTelegramDelivery(payload: {
   token: string;
   currentBalance: number;
   message: string;
   reference: string;
-}) {
-  const session = getTelegramLinkSession(payload.token);
+}): Promise<TelegramLinkSession | null> {
+  const session = await getTelegramLinkSession(payload.token);
   if (!session) return null;
-  const next = {
+  const next: TelegramLinkSession = {
     ...session,
     currentBalance: normalizeAmount(payload.currentBalance),
     lastMessage: payload.message,
     lastReference: payload.reference,
     lastUpdatedAt: Date.now(),
   };
-  sessions.set(payload.token, next);
+  await writeSession(next);
   return next;
 }
 
-export function getSessionByChatId(chatId: string) {
-  const token = chatToToken.get(chatId);
+export async function getSessionByChatId(chatId: string): Promise<TelegramLinkSession | null> {
+  const token = await readTokenByChat(chatId);
   if (!token) return null;
   return getTelegramLinkSession(token);
 }

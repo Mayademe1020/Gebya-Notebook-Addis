@@ -392,8 +392,8 @@ db.version(14).stores({
   analytics: 'key, value',
 });
 
-// v15: PR 1A-UI — local identity cache for shop sync (owner + staff)
-// Single-row table keyed by 'me' to hold the synced identity.
+// Sync queue stores non-authoritative integration work only. Ledger/source rows
+// above remain the local-first source of truth even when sync fails.
 db.version(15).stores({
   transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot',
   customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
@@ -402,6 +402,37 @@ db.version(15).stores({
   suppliers: '++id, display_name, phone_number, note, active, created_at, updated_at',
   supplier_transactions: '++id, supplier_id, type, catalog_entry_id, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot',
   staff_members: '++id, display_name, role, active, created_at, updated_at, deactivated_at',
+  sync_queue: '++id, kind, status, created_at, updated_at, next_attempt_at, record_table, record_id',
+  credit_records: '++id, customer_id, customer_name, original_amount, paid_amount, remaining_amount, due_date, status, created_at, direction',
+  credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
+  settings: 'key, value',
+  analytics: 'key, value',
+});
+
+db.version(16).stores({
+  transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
+  customer_transactions: '++id, customer_id, type, amount, due_date, reference_code, telegram_delivery_state, telegram_delivery_error, telegram_delivery_attempted_at, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  catalog_entries: '++id, name, kind, active, created_at, updated_at',
+  suppliers: '++id, display_name, phone_number, note, active, created_at, updated_at',
+  supplier_transactions: '++id, supplier_id, type, catalog_entry_id, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  staff_members: '++id, display_name, role, active, created_at, updated_at, deactivated_at',
+  sync_queue: '++id, kind, status, created_at, updated_at, next_attempt_at, record_table, record_id, transaction_id, &idempotency_key, record_type, device_id',
+  credit_records: '++id, customer_id, customer_name, original_amount, paid_amount, remaining_amount, due_date, status, created_at, direction',
+  credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
+  settings: 'key, value',
+  analytics: 'key, value',
+});
+
+db.version(17).stores({
+  transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
+  customer_transactions: '++id, customer_id, type, amount, due_date, reference_code, telegram_delivery_state, telegram_delivery_error, telegram_delivery_attempted_at, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  catalog_entries: '++id, name, kind, active, created_at, updated_at',
+  suppliers: '++id, display_name, phone_number, note, active, created_at, updated_at',
+  supplier_transactions: '++id, supplier_id, type, catalog_entry_id, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
+  staff_members: '++id, display_name, role, active, created_at, updated_at, deactivated_at',
+  sync_queue: '++id, kind, status, created_at, updated_at, next_attempt_at, record_table, record_id, transaction_id, &idempotency_key, record_type, device_id',
   credit_records: '++id, customer_id, customer_name, original_amount, paid_amount, remaining_amount, due_date, status, created_at, direction',
   credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
   settings: 'key, value',
@@ -412,11 +443,10 @@ db.version(15).stores({
 db.on('ready', async () => {
   const privacySetting = await db.settings.get('privacy_mode');
   if (!privacySetting) {
-    await db.settings.put({ key: 'privacy_mode', value: 'hidden' });
+    await db.settings.put({ key: 'privacy_mode', value: 'visible' });
   }
 });
 
-// Identity cache helpers (PR 1A-UI)
 export async function getIdentity() {
   return db.identity.get('me');
 }
@@ -457,7 +487,6 @@ export async function getPermissions() {
 
 export async function canCreateEvent(eventType) {
   const perms = await getPermissions();
-  // Map PR 1A event types to permission keys
   const map = {
     sale: 'can_create_sale',
     customer_payment: 'can_create_customer_payment',

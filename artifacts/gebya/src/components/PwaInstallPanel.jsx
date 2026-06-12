@@ -1,4 +1,4 @@
-import { CheckCircle2, Download, RefreshCw, Signal, SignalHigh, Smartphone, WifiOff, X } from 'lucide-react';
+import { Download, RefreshCw, Signal, SignalHigh, Smartphone, WifiOff, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 
 function InstallGuideModal({ pwa }) {
@@ -115,67 +115,30 @@ export default function PwaInstallPanel({ pwa, variant = 'banner' }) {
   );
 
   if (variant === 'settings') {
+    // Commit P2: removed the status/checklist clutter the user disliked
+    // (browser mode · online · offline-ready · home-screen · data-location).
+    // Already installed → render nothing at the top of Settings.
+    // Not installed → one clean "add to home screen" prompt, no status noise.
+    if (pwa.isStandalone) {
+      return <InstallGuideModal pwa={pwa} />;
+    }
     return (
       <>
         <section>
-          <h2 className="text-xs font-bold tracking-widest uppercase text-green-800 mb-2 px-1">{t.installSectionTitle}</h2>
           <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden" style={{ background: 'var(--color-surface)' }}>
             <div className="px-5 py-4 space-y-3">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(27,67,50,0.08)' }}>
                   <Smartphone className="w-5 h-5" style={{ color: '#1B4332' }} />
                 </div>
-                <div className="flex-1">
-                  <div className="font-bold text-gray-800">
-                    {pwa.isStandalone ? t.installStatusInstalled : t.installStatusBrowser}
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-gray-800">{t.installBannerTitle}</div>
                   <div className="text-xs text-gray-500 mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {pwa.isOnline ? t.installStatusOnline : t.installStatusOffline}
+                    {t.installBannerBody}
                   </div>
                 </div>
               </div>
-
-              <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--color-surface-soft)', border: '1.5px solid var(--color-border)' }}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-gray-600">{t.installChecklistOffline}</span>
-                  <span className="font-black" style={{ color: '#1B4332' }}>{t.installChecklistReady}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-gray-600">{t.installChecklistHomeScreen}</span>
-                  <span className="font-black" style={{ color: pwa.isStandalone ? '#15803d' : '#C4883A' }}>
-                    {pwa.isStandalone ? t.installChecklistInstalled : t.installChecklistPending}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-gray-600">{t.installChecklistData}</span>
-                  <span className="font-black" style={{ color: '#1B4332' }}>{t.installChecklistOnPhone}</span>
-                </div>
-              </div>
-
-              <BannerCard tone={connectionTone}>
-                <div className="px-4 py-3 flex items-start gap-3">
-                  <ConnectionIcon className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: pwa.isSlowConnection ? '#b45309' : '#15803d' }} />
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900">{connectionTitle}</p>
-                    <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      {connectionBody}
-                    </p>
-                  </div>
-                </div>
-              </BannerCard>
-
-              {!pwa.isStandalone && installActions}
-
-              {pwa.isStandalone && (
-                <button
-                  onClick={pwa.openInstallGuide}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 min-h-[44px] press-scale"
-                  style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text)' }}
-                >
-                  <CheckCircle2 className="w-4 h-4 text-green-700" />
-                  {t.installAlreadyInstalled}
-                </button>
-              )}
+              {installActions}
             </div>
           </div>
         </section>

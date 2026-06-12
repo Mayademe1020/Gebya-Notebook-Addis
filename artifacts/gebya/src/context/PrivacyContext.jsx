@@ -1,14 +1,17 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import db from '../db';
 
-const PrivacyContext = createContext({ hidden: true, toggle: () => {} });
+const PrivacyContext = createContext({ hidden: false, toggle: () => {} });
 
 export function PrivacyProvider({ children }) {
-  const [hidden, setHidden] = useState(true);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     db.settings.get('privacy_mode').then(s => {
-      if (s) setHidden(s.value === 'hidden');
+      if (!s) {
+        db.settings.put({ key: 'privacy_mode', value: 'visible' });
+      }
+      setHidden(false);
     });
   }, []);
 
@@ -24,9 +27,6 @@ export function PrivacyProvider({ children }) {
     const next = !hidden;
     setHidden(next);
     await db.settings.put({ key: 'privacy_mode', value: next ? 'hidden' : 'visible' });
-    if (!next) {
-      setTimeout(() => setHidden(true), 30000);
-    }
   };
 
   return (

@@ -51,7 +51,12 @@ export function buildCustomerConnectMessage({ shopName, customerName, token }) {
 
 export function buildCustomerConnectLink({ botUsername, shopTelegram, shopName, customerName, token }) {
   if (botUsername) {
-    return `https://t.me/${botUsername}?start=${encodeURIComponent(token)}`;
+    // Bug fix: the bot status can return the username WITH a leading '@'
+    // (e.g. '@shopnotebookbot'). A t.me URL must NOT include the '@' —
+    // 'https://t.me/@name?start=...' is invalid and the QR/link fails to
+    // open the bot. Strip any leading '@' before building the URL.
+    const handle = String(botUsername).replace(/^@+/, '');
+    return `https://t.me/${handle}?start=${encodeURIComponent(token)}`;
   }
 
   const connectMessage = buildCustomerConnectMessage({ shopName, customerName, token });

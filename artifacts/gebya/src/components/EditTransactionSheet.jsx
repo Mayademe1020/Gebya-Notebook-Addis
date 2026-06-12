@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil, Plus, Camera } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import VoiceButton from './VoiceButton';
 import PaymentTypeChips from './PaymentTypeChips';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput } from '../utils/numformat';
+import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS, normalizePhotos } from '../utils/photoProof';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -19,8 +21,10 @@ const ACCENT = {
   credit:  { btn: '#C4883A', shadow: '#96662b' },
 };
 
+const EDIT_VOICE_ENABLED = false;
+
 function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const type = transaction.type;
   const isCredit = type === 'credit';
   const accent = ACCENT[type] || ACCENT.sale;
@@ -36,6 +40,11 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
   const initPProvider = transaction.payment_provider || '';
   const [paymentType, setPaymentType] = useState(initPType);
   const [paymentProvider, setPaymentProvider] = useState(initPProvider);
+  const [photos, setPhotos] = useState(() => normalizePhotos(transaction));
+  const [photoError, setPhotoError] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoChanged, setPhotoChanged] = useState(false);
+  const [replacePhotoId, setReplacePhotoId] = useState(null);
   const lastProviderByType = {
     bank:   initPType === 'bank'   ? initPProvider : '',
     wallet: initPType === 'wallet' ? initPProvider : '',
@@ -49,6 +58,16 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
   const [selectedDue, setSelectedDue] = useState(transaction.due_date || null);
   const [customDue, setCustomDue] = useState('');
   const [saving, setSaving] = useState(false);
+  // Editable multi-item breakdown
+  const [editableItems, setEditableItems] = useState(() => (
+    Array.isArray(transaction.items)
+      ? transaction.items.map((it, i) => ({
+          id: `init-${i}`,
+          name: it?.name || '',
+          amount: it?.amount != null ? String(it.amount) : '',
+        }))
+      : []
+  ));
 
   const dueDateOptions = getDueDateOptions();
   const phoneValid = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
@@ -65,12 +84,70 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
     return selectedDue;
   };
 
+  // Breakdown edit helpers
+  const updateBreakdownLine = (id, field, value) =>
+    setEditableItems(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)));
+  const removeBreakdownLine = (id) =>
+    setEditableItems(prev => prev.filter(l => l.id !== id));
+  const addBreakdownLine = () =>
+    setEditableItems(prev => [
+      ...prev,
+      { id: `new-${Date.now()}-${Math.random()}`, name: '', amount: '' },
+    ]);
+
+  const handlePhotoCapture = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setPhotoLoading(true);
+    setPhotoError(null);
+    try {
+      const nextPhotos = await Promise.all(files.map(async (file) => (
+        createPhotoProof(await compressPhoto(file))
+      )));
+      const cleanPhotos = nextPhotos.filter(Boolean);
+      if (replacePhotoId) {
+        const replacement = cleanPhotos[0];
+        if (replacement) {
+          setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? replacement : entry)));
+        }
+      } else {
+        setPhotos(prev => [...prev, ...cleanPhotos].slice(0, MAX_PROOF_PHOTOS));
+      }
+      setPhotoChanged(true);
+    } catch (err) {
+      setPhotoError(err.message || 'Photo capture failed');
+    } finally {
+      setPhotoLoading(false);
+      setReplacePhotoId(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (photoId) => {
+    setPhotos(prev => prev.filter(photo => photo.id !== photoId));
+    setPhotoError(null);
+    setPhotoChanged(true);
+  };
+
+  const validBreakdown = editableItems
+    .filter(l => l.name.trim() && parseFloat(l.amount) > 0)
+    .map(l => ({ name: l.name.trim(), amount: parseFloat(l.amount) }));
+  const breakdownSum = validBreakdown.reduce((s, it) => s + it.amount, 0);
+  const breakdownDelta = sellingPrice - breakdownSum;
+  const hadBreakdown = Array.isArray(transaction.items) && transaction.items.length > 0;
+
   const handleSave = async () => {
     if (!canSave || saving) return;
     setSaving(true);
     try {
+      // If transaction had a breakdown OR user added new line items, persist the edited items.
+      // item_name auto-derives from line names when breakdown is present.
+      const useBreakdown = (hadBreakdown || editableItems.length > 0) && !isCredit;
+      const finalItemName = useBreakdown && validBreakdown.length > 0
+        ? validBreakdown.map(it => it.name).join(', ').substring(0, 200)
+        : item.trim();
       const updates = {
-        item_name: item.trim(),
+        item_name: finalItemName,
         quantity: isCredit ? 1 : qty,
         amount: sellingPrice,
         cost_price: isCredit ? 0 : cost,
@@ -80,6 +157,8 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
         customer_phone: isCredit ? (phoneEntered && phoneValid ? '+251' + phoneDigits : null) : null,
         direction: isCredit ? direction : null,
         due_date: isCredit ? getEffectiveDueDate() : null,
+        ...(isCredit ? { photos: [], photo: null, photo_taken_at: null } : buildPhotoFields(photos)),
+        ...(useBreakdown ? { items: validBreakdown.length > 0 ? validBreakdown : null } : {}),
       };
       await onUpdate(transaction.id, updates);
       onClose();
@@ -118,6 +197,100 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
 
         <div className="px-6 py-4 space-y-4">
 
+          {/* Multi-item breakdown — editable when transaction has items OR when user wants to add one */}
+          {!isCredit && (hadBreakdown || editableItems.length > 0) && (() => {
+            const accentBdColor = type === 'expense' ? '#dc2626' : '#16a34a';
+            return (
+              <div className="p-3 space-y-2"
+                style={{ background: 'rgba(27,67,50,0.04)', borderRadius: 'var(--radius-md)', border: '1px solid #e8e2d8' }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#6b7280' }}>
+                  🧺 {editableItems.length === 1 ? '1 item' : `${editableItems.length} items`}
+                </p>
+
+                {/* Editable line rows */}
+                <div className="space-y-1.5">
+                  {editableItems.map((line) => (
+                    <div key={line.id} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={line.name}
+                        onChange={(e) => updateBreakdownLine(line.id, 'name', e.target.value)}
+                        placeholder="item"
+                        className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm"
+                        style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                      />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={fmtInput(line.amount)}
+                        onChange={(e) => {
+                          let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+                          const parts = raw.split('.');
+                          if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+                          updateBreakdownLine(line.id, 'amount', raw);
+                        }}
+                        placeholder="0"
+                        className="w-20 px-2 py-2 border focus:outline-none text-sm text-right font-bold"
+                        style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeBreakdownLine(line.id)}
+                        className="press-scale flex items-center justify-center flex-shrink-0"
+                        style={{ minWidth: '32px', minHeight: '32px' }}
+                        aria-label="Remove line"
+                      >
+                        <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addBreakdownLine}
+                  className="w-full py-2 text-xs font-bold border border-dashed press-scale flex items-center justify-center gap-1"
+                  style={{
+                    borderColor: '#c9bfa8',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#faf9f7',
+                    color: '#6b7280',
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {editableItems.length === 0 ? 'Add first item' : 'Add another item'}
+                </button>
+
+                {/* Totals + delta hint */}
+                {validBreakdown.length > 0 && (
+                  <div className="text-xs pt-2 space-y-0.5" style={{ borderTop: '1px solid #e8e2d8' }}>
+                    <div className="flex justify-between" style={{ color: '#374151' }}>
+                      <span>Items total</span>
+                      <span className="font-bold">{fmt(breakdownSum)} {t.birr || 'birr'}</span>
+                    </div>
+                    {sellingPrice > 0 && Math.abs(breakdownDelta) > 0.01 && (
+                      <button
+                        type="button"
+                        onClick={() => setAmount(String(breakdownSum))}
+                        className="w-full flex justify-between items-center px-1.5 py-1 mt-1 press-scale"
+                        style={{
+                          color: breakdownDelta > 0 ? '#C4883A' : '#dc2626',
+                          background: breakdownDelta > 0 ? 'rgba(196,136,58,0.08)' : 'rgba(220,38,38,0.06)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                        title="Tap to set total to items sum"
+                      >
+                        <span>{breakdownDelta > 0 ? 'Unaccounted' : 'Items exceed total'}:</span>
+                        <span className="font-bold">{fmt(Math.abs(breakdownDelta))} ⤴</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {isCredit && (
             <div>
               <label className="block text-gray-700 font-semibold mb-2 text-sm font-sans">{t.direction}</label>
@@ -154,8 +327,113 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                 className="flex-1 p-4 border-2 focus:outline-none text-base min-h-[52px] font-sans"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
               />
-              <VoiceButton onResult={setItem} />
+              {!isCredit && (
+                <label
+                  className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+                  style={{
+                    width: 56,
+                    minHeight: 52,
+                    border: '2px solid #e8e2d8',
+                    borderRadius: 'var(--radius-md)',
+                    background: photos.length > 0 ? '#f0fdf4' : '#fafaf6',
+                    opacity: photos.length >= MAX_PROOF_PHOTOS ? 0.55 : 1,
+                    position: 'relative',
+                  }}
+                  aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
+                  onClick={() => setReplacePhotoId(null)}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoCapture}
+                    className="hidden"
+                    disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS}
+                  />
+                  {photoLoading
+                    ? <span className="text-sm">...</span>
+                    : <Camera className="w-6 h-6" style={{ color: photos.length > 0 ? '#16a34a' : '#6b7280' }} />
+                  }
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: -7,
+                      right: -7,
+                      minWidth: 24,
+                      height: 20,
+                      padding: '0 5px',
+                      borderRadius: 999,
+                      background: photos.length >= MAX_PROOF_PHOTOS ? '#6b7280' : accent.btn,
+                      color: '#fff',
+                      border: '2px solid #fff',
+                      fontSize: 10,
+                      fontWeight: 900,
+                      lineHeight: '16px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {photos.length >= MAX_PROOF_PHOTOS ? '0' : `+${MAX_PROOF_PHOTOS - photos.length}`}
+                  </span>
+                </label>
+              )}
+              {EDIT_VOICE_ENABLED && <VoiceButton onResult={setItem} />}
             </div>
+            {!isCredit && photoError && (
+              <p className="text-xs mt-1" style={{ color: '#dc2626' }}>
+                {photoError}
+              </p>
+            )}
+            {!isCredit && photos.length > 0 && (
+              <div
+                className="mt-2 p-2"
+                style={{ background: '#fafaf6', border: '1px solid #e8e2d8', borderRadius: 'var(--radius-sm)' }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>
+                    {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
+                  </p>
+                  <p className="text-[10px] font-bold" style={{ color: '#6b7280' }}>
+                    {photos.length}/{MAX_PROOF_PHOTOS}
+                  </p>
+                </div>
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                  {photos.map((entry, index) => (
+                    <div key={entry.id} className="relative flex-shrink-0">
+                      <label
+                        className="cursor-pointer press-scale block"
+                        aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
+                        onClick={() => setReplacePhotoId(entry.id)}
+                      >
+                        <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
+                        <input type="file" accept="image/*" onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(entry.id)}
+                        className="press-scale flex items-center justify-center"
+                        style={{
+                          position: 'absolute',
+                          top: -6,
+                          right: -6,
+                          minWidth: 28,
+                          minHeight: 28,
+                          borderRadius: 999,
+                          border: '1px solid #e8e2d8',
+                          background: '#fff',
+                        }}
+                        aria-label={lang === 'am' ? '\u134E\u1276 \u12A0\u1235\u12C8\u130D\u12F5' : `Remove photo ${index + 1}`}
+                      >
+                        <X className="w-3.5 h-3.5" style={{ color: '#6b7280' }} />
+                      </button>
+                      <p className="text-[10px] text-center mt-1" style={{ color: '#9ca3af' }}>
+                        {Math.round(photoSizeBytes(entry.dataUrl) / 1024)} KB
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {!isCredit && (
