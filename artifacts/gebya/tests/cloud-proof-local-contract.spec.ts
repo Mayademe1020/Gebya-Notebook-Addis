@@ -157,7 +157,7 @@ test('offline sale and expense get cloud proof contract rows without sensitive p
   await page.getByPlaceholder(/search item name or code/i).fill('Sugar private item');
   await page.getByRole('button', { name: /add item/i }).click();
   await page.getByRole('button', { name: /save 1 item .*250/i }).click();
-  await expect(page.getByText(/sugar private item/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /250.*sugar private item/i })).toBeVisible();
 
   await page.getByRole('button', { name: /^expense$/i }).click();
   await page.getByPlaceholder(/add details/i).fill('Rent private note');

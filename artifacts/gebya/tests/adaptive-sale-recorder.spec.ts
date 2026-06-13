@@ -142,3 +142,50 @@ test('calculator writes the amount field without permanently occupying the form'
   await expect(page.getByPlaceholder('0')).toHaveValue('600');
   await expect(page.getByPlaceholder(/350 \+ 250/i)).toHaveCount(0);
 });
+
+test('new typed sale item is learned locally for recent items after reload', async ({ page }) => {
+  await startEnglishNotebook(page);
+
+  await page.getByRole('button', { name: /^sale$/i }).click();
+  await page.getByPlaceholder('0').fill('123');
+  await page.getByPlaceholder(/search item name or code/i).fill('New Gum');
+  await page.getByRole('button', { name: /add item/i }).click();
+  await page.getByRole('button', { name: /save 1 item .*123/i }).click();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: /tigist shop/i })).toBeVisible();
+
+  await page.getByRole('button', { name: /^sale$/i }).click();
+  await expect(page.getByText(/recent \/ most sold/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New Gum', exact: true })).toBeVisible();
+
+  const catalog = await page.evaluate(async () => {
+    const request = window.indexedDB.open('GebyaDB');
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    try {
+      return await new Promise<any[]>((resolve, reject) => {
+        const tx = db.transaction('catalog_entries', 'readonly');
+        const store = tx.objectStore('catalog_entries');
+        const getAll = store.getAll();
+        getAll.onsuccess = () => resolve(getAll.result);
+        getAll.onerror = () => reject(getAll.error);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  expect(catalog).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      name: 'New Gum',
+      default_price: 123,
+      use_count: 1,
+    }),
+  ]));
+});

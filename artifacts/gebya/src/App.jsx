@@ -1178,6 +1178,66 @@ function AppInner() {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
+  const rememberSaleItemsInCatalog = async (sale) => {
+    const items = Array.isArray(sale?.items) ? sale.items : [];
+    if (!items.length) return;
+
+    try {
+      const now = Date.now();
+      const existingEntries = await db.catalog_entries.toArray();
+      const updatedIds = new Set();
+
+      for (const line of items) {
+        const name = String(line?.name || '').trim();
+        if (!name) continue;
+        const code = String(line?.code || '').trim();
+        const normalizedName = name.toLowerCase();
+        const normalizedCode = code.toLowerCase();
+        const existing = existingEntries.find(entry => {
+          const entryName = String(entry?.name || '').trim().toLowerCase();
+          const entryCode = String(entry?.code || entry?.sku || entry?.item_code || '').trim().toLowerCase();
+          return entryName === normalizedName || (normalizedCode && entryCode === normalizedCode);
+        });
+        const usageCount = Math.max(1, Number(line?.qty || 1));
+        const price = Number(line?.unit_price || line?.line_total || line?.amount || 0);
+
+        if (existing?.id) {
+          const patch = {
+            use_count: Number(existing.use_count || 0) + usageCount,
+            last_used_at: now,
+            updated_at: now,
+          };
+          if (price > 0) patch.last_price = price;
+          if (existing.default_price == null && price > 0) patch.default_price = price;
+          if (!existing.code && code) patch.code = code;
+          await db.catalog_entries.update(existing.id, patch);
+          updatedIds.add(existing.id);
+        } else {
+          const id = await db.catalog_entries.add({
+            name,
+            code: code || null,
+            kind: line?.item_kind === 'service' ? 'service' : 'item',
+            default_price: price > 0 ? price : null,
+            last_price: price > 0 ? price : null,
+            use_count: usageCount,
+            active: true,
+            created_at: now,
+            updated_at: now,
+            last_used_at: now,
+          });
+          updatedIds.add(id);
+        }
+      }
+
+      if (updatedIds.size > 0) {
+        const nextEntries = await db.catalog_entries.toArray();
+        setCatalogEntries(nextEntries);
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Sale item learning failed:', err);
+    }
+  };
+
   const handleAddTransaction = async (transaction) => {
     try {
       const isOnlineNow = isBrowserOnline();
@@ -1204,6 +1264,7 @@ function AppInner() {
         });
       }
       if (saved?.type === 'sale') {
+        await rememberSaleItemsInCatalog(saved);
         await enqueueStaffEventSync({
           recordTable: 'transactions',
           record: saved,

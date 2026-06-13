@@ -743,7 +743,7 @@ function TransactionForm({
           <div style={{ width: '36px' }} />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-28 space-y-3">
           <section className="border" style={{ borderColor: '#d8eadf', borderRadius: 'var(--radius-md)', background: '#f7fcf8' }}>
             <div className="px-3 py-2.5 flex items-start justify-between gap-3">
               <div>

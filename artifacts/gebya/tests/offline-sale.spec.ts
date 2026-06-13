@@ -49,12 +49,10 @@ test('offline typed sale is saved locally and survives reload', async ({ page, c
   await page.getByRole('button', { name: /save 1 item .*250/i }).click();
 
   await expect(page.getByText(/saved on this phone .* syncs later/i)).toBeVisible();
-  await expect(page.getByText(/sugar/i)).toBeVisible();
-  await expect(page.getByText(/^\+?250(?:\.00)? birr$/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /250.*sugar/i })).toBeVisible();
 
   await context.setOffline(false);
   await page.reload({ waitUntil: 'domcontentloaded' });
 
-  await expect(page.getByText(/sugar/i)).toBeVisible();
-  await expect(page.getByText(/^\+?250(?:\.00)? birr$/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /250.*sugar/i })).toBeVisible();
 });
