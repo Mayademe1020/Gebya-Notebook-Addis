@@ -98,6 +98,10 @@ function OnboardingScreen({ onComplete }) {
         role: 'owner',
         join_code: result.join_code,
         join_url: result.join_url,
+        staff_id: result.staff_id,
+        device_id: result.device_id,
+        display_name: result.display_name || name.trim(),
+        device_status: result.device_status || 'active',
       });
     } catch {
       await db.settings.put({ key: 'intro_seen', value: 'yes' });

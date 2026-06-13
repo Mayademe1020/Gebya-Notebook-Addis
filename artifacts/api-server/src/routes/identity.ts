@@ -101,7 +101,7 @@ router.post("/shops", (req: Request, res: Response) => {
     userId: owner.id,
   });
   const { token, tokenHash } = store.issueDeviceToken();
-  store.createDevice({
+  const device = store.createDevice({
     shopId: shop.id,
     staffId: ownerStaff.id,
     deviceLabel: "Owner's phone",
@@ -116,9 +116,15 @@ router.post("/shops", (req: Request, res: Response) => {
     shop_name: shop.name,
     join_code: shop.joinCode,
     join_url: buildJoinUrl(shop.joinCode),
+    staff_id: ownerStaff.id,
+    device_id: device.id,
+    display_name: owner.displayName,
     role: "owner",
     permissions,
     device_token: token,
+    device_status: device.deviceStatus,
+    phone_required: shop.phoneRequired,
+    approval_required: shop.approvalRequired,
   });
 });
 

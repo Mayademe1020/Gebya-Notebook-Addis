@@ -31,7 +31,7 @@ export function resolveActorSnapshot({ shopProfile, staffMembers = [], activeSta
   const ownerName = String(shopProfile?.name || '').trim();
   return {
     actor_role: 'owner',
-    actor_staff_member_id: null,
+    actor_staff_member_id: shopProfile?.staff_id || null,
     actor_name_snapshot: ownerName || 'Owner',
   };
 }

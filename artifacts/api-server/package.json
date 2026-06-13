@@ -10,7 +10,8 @@
     "dev": "NODE_ENV=development tsx ./src/index.ts",
     "build": "tsx ./build.ts",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
-    "test:smoke": "node --import ../../node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs src/__tests__/smoke.ts"
+    "test:smoke": "node --import ../../node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs src/__tests__/smoke.ts",
+    "test:events": "node --import ../../node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs src/__tests__/events.ts"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

@@ -22,6 +22,8 @@ import {
 } from "./permissions";
 import type { Role, StaffStatus, DeviceStatus } from "./shops";
 
+export type StoredSyncEventType = "sale" | "customer_payment" | "customer_credit";
+
 export interface StoredUser {
   id: string;
   displayName: string;
@@ -74,6 +76,22 @@ export interface StoredDevice {
   revokedReason: string | null;
 }
 
+export interface StoredStaffEvent {
+  eventId: string;
+  clientEventId: string;
+  recordId: string;
+  shopId: string;
+  deviceId: string;
+  actorStaffMemberId: string | null;
+  actorNameSnapshot: string;
+  actorRoleAtEvent: string;
+  eventType: StoredSyncEventType;
+  occurredAtDevice: Date;
+  createdAtServer: Date;
+  payload: Record<string, unknown>;
+  schemaVersion: 1;
+}
+
 /**
  * In-memory store. One process; no persistence; resets on restart.
  *
@@ -86,6 +104,8 @@ export class InMemoryStore {
   shops = new Map<string, StoredShop>();
   staff = new Map<string, StoredStaff>();
   devices = new Map<string, StoredDevice>();
+  events = new Map<string, StoredStaffEvent>();
+  eventClientIndex = new Map<string, string>();
   /** device_token (plaintext) -> device id, kept for unit tests only */
   deviceTokens = new Map<string, string>();
 
@@ -372,12 +392,46 @@ export class InMemoryStore {
     return d;
   }
 
+  // ---- staff events ----
+  eventIdempotencyKey(shopId: string, clientEventId: string): string {
+    return `${shopId}:${clientEventId}`;
+  }
+
+  findEventByClientEventId(shopId: string, clientEventId: string): StoredStaffEvent | null {
+    const eventId = this.eventClientIndex.get(this.eventIdempotencyKey(shopId, clientEventId));
+    return eventId ? this.events.get(eventId) ?? null : null;
+  }
+
+  pushStaffEvent(input: Omit<StoredStaffEvent, "eventId" | "createdAtServer">):
+    | { status: "accepted"; event: StoredStaffEvent }
+    | { status: "duplicate"; event: StoredStaffEvent } {
+    const existing = this.findEventByClientEventId(input.shopId, input.clientEventId);
+    if (existing) {
+      return { status: "duplicate", event: existing };
+    }
+
+    const event: StoredStaffEvent = {
+      ...input,
+      eventId: randomUUID(),
+      createdAtServer: new Date(),
+    };
+    this.events.set(event.eventId, event);
+    this.eventClientIndex.set(this.eventIdempotencyKey(event.shopId, event.clientEventId), event.eventId);
+    return { status: "accepted", event };
+  }
+
+  listEventsForShop(shopId: string): StoredStaffEvent[] {
+    return [...this.events.values()].filter((event) => event.shopId === shopId);
+  }
+
   // ---- helpers for unit tests ----
   reset(): void {
     this.users.clear();
     this.shops.clear();
     this.staff.clear();
     this.devices.clear();
+    this.events.clear();
+    this.eventClientIndex.clear();
     this.deviceTokens.clear();
   }
 }

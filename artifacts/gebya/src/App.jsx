@@ -28,6 +28,7 @@ import { usePwaInstall } from './hooks/usePwaInstall.js';
 import { resendLatestTelegramUpdate, syncTelegramCustomerState } from './utils/telegramBotClient';
 import { countPendingTelegramSync, drainTelegramSyncQueue, enqueueTelegramLedgerUpdate } from './utils/syncQueue';
 import { createCloudProofFields, enqueueCloudProofUpsert } from './utils/cloudProof';
+import { enqueueStaffEventSync, processStaffEventQueue } from './utils/staffEventSync';
 import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from './utils/staffMembers';
 import {
   buildDefaultChannels,
@@ -972,6 +973,8 @@ function AppInner() {
         telegram: telegramRow?.value || '',
         businessType: businessTypeRow?.value || 'retail-shop',
         role: identityForProfile?.role || 'owner',
+        staff_id: identityForProfile?.staff_id || null,
+        device_id: identityForProfile?.device_id || null,
         join_code: identityForProfile?.join_code || '',
         join_url: identityForProfile?.join_url || '',
         // Canonical (Commit C.4)
@@ -1168,6 +1171,13 @@ function AppInner() {
 
   useEffect(() => { trackSession(); }, [trackSession]);
 
+  useEffect(() => {
+    processStaffEventQueue({ limit: 5 }).catch(() => {});
+    const handleOnline = () => processStaffEventQueue({ limit: 5 }).catch(() => {});
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   const handleAddTransaction = async (transaction) => {
     try {
       const isOnlineNow = isBrowserOnline();
@@ -1192,6 +1202,14 @@ function AppInner() {
           recordType: transactionRecordType,
           record: saved,
         });
+      }
+      if (saved?.type === 'sale') {
+        await enqueueStaffEventSync({
+          recordTable: 'transactions',
+          record: saved,
+          eventType: 'sale',
+        });
+        if (isOnlineNow) processStaffEventQueue({ limit: 3 }).catch(() => {});
       }
       await rememberLastSave({
         type: transaction.type,
@@ -1256,6 +1274,12 @@ function AppInner() {
               recordType: 'customer_credit',
               record: savedCustomerTx,
             });
+            await enqueueStaffEventSync({
+              recordTable: 'customer_transactions',
+              record: savedCustomerTx,
+              eventType: 'customer_credit',
+            });
+            if (isOnlineNow) processStaffEventQueue({ limit: 3 }).catch(() => {});
           }
           if (savedCustomerTx) {
             setLedgerTransactions(prev => insertCustomerTransaction(prev, savedCustomerTx));
@@ -2662,6 +2686,12 @@ function AppInner() {
       recordType: getCustomerCloudProofRecordType(saved),
       record: saved,
     });
+    await enqueueStaffEventSync({
+      recordTable: 'customer_transactions',
+      record: saved,
+      eventType: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT ? 'customer_payment' : 'customer_credit',
+    });
+    if (isOnlineNow) processStaffEventQueue({ limit: 3 }).catch(() => {});
     await rememberLastSave({
       type: draft.type,
       label: draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT

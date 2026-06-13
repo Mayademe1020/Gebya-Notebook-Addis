@@ -57,9 +57,15 @@ export const CreateShopResponse = z.object({
   shop_name: z.string(),
   join_code: z.string(),
   join_url: z.string(),
+  staff_id: z.string().uuid(),
+  device_id: z.string().uuid(),
+  display_name: z.string(),
   role: z.literal("owner"),
   permissions: z.record(z.string(), z.boolean()),
   device_token: z.string().min(16),
+  device_status: z.literal("active"),
+  phone_required: z.boolean(),
+  approval_required: z.boolean(),
 });
 
 // ---- POST /api/shops/join ----

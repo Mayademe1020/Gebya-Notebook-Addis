@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:ledger": "node src/__tests__/ledger.test.js",
     "test:e2e": "playwright test",
-    "test:design-smoke": "playwright test tests/design-regression-smoke.spec.ts --project=chromium"
+    "test:design-smoke": "playwright test tests/design-regression-smoke.spec.ts --project=chromium",
+    "test:staff-events": "pnpm build && playwright test tests/staff-event-sync.spec.ts --project=chromium"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
