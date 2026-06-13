@@ -7,6 +7,15 @@ async function resetFreshOrigin(page: Page) {
     localStorage.clear();
     localStorage.setItem('gebya_lang', 'en');
 
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(registration => registration.unregister()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+
     await new Promise<void>((resolve, reject) => {
       const request = window.indexedDB.deleteDatabase('GebyaDB');
       request.onsuccess = () => resolve();
@@ -102,9 +111,10 @@ test('design regression smoke protects core merchant surfaces', async ({ page },
   await attachScreenshot(page, testInfo, '04-team-and-staff');
 
   await page.locator('nav').getByRole('button', { name: 'Report' }).click();
-  await expect(page.getByPlaceholder('Search item, code, amount, staff, or date')).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Today' })).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Week' })).toBeVisible();
-  await expect(page.getByText('Staff Sales Today')).toBeVisible();
+  await expect(page.getByPlaceholder('Search item, code, customer, staff, amount, or date')).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'today', exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('button', { name: 'week', exact: true })).toBeVisible();
+  await expect(page.getByText('Total Sold')).toBeVisible();
+  await expect(page.getByText("Today's Closing Check")).toBeVisible();
   await attachScreenshot(page, testInfo, '05-report');
 });
