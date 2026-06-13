@@ -45,9 +45,10 @@ test('core notebook actions still work while offline', async ({ browser }) => {
   });
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Offline sale');
   await page.getByPlaceholder('0').fill('120');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/search item name or code/i).fill('Offline sale');
+  await page.getByRole('button', { name: /add item/i }).click();
+  await page.getByRole('button', { name: /save 1 item .*120/i }).click();
 
   await expect(page.getByText(/offline sale/i)).toBeVisible();
   await expect(page.getByText(/120(?:\.00)? birr/i).first()).toBeVisible();
@@ -79,7 +80,8 @@ test('slow-network guidance shows before telegram flow', async ({ browser }) => 
 
   await expect(page.getByText(/slow network buyer/i)).toBeVisible();
   await page.getByRole('button', { name: /\+?\s*link/i }).click();
-  await expect(page.getByText(/telegram service is unavailable right now/i)).toBeVisible();
+  await expect(page.getByText(/telegram bot not configured yet/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /manual fallback/i })).toBeVisible();
 
   await context.close();
 });

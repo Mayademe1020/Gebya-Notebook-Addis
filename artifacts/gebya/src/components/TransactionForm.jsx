@@ -21,7 +21,7 @@
 // Preserves all existing handlers, save data shape, success screen, recurring popup.
 // NEW: photo capture (B-009) — base64 stored on transaction record.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X,
   ChevronDown,
@@ -50,6 +50,68 @@ function handleNumericInput(e, setter) {
 }
 
 const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
+
+function safeMathTotal(input) {
+  const normalized = String(input || '')
+    .replace(/[×x]/gi, '*')
+    .replace(/÷/g, '/')
+    .replace(/\s+/g, '');
+  if (!normalized || !/^\d+(?:\.\d+)?(?:[+\-*/]\d+(?:\.\d+)?)*$/.test(normalized)) return null;
+
+  const tokens = normalized.match(/\d+(?:\.\d+)?|[+\-*/]/g);
+  if (!tokens || tokens.length === 0) return null;
+
+  const values = [Number(tokens[0])];
+  const ops = [];
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const next = Number(tokens[i + 1]);
+    if (!Number.isFinite(next)) return null;
+    if (op === '*') {
+      values[values.length - 1] *= next;
+    } else if (op === '/') {
+      if (next === 0) return null;
+      values[values.length - 1] /= next;
+    } else {
+      ops.push(op);
+      values.push(next);
+    }
+  }
+
+  const result = values.reduce((sum, value, index) => (
+    index === 0 ? value : (ops[index - 1] === '-' ? sum - value : sum + value)
+  ), 0);
+  return Number.isFinite(result) && result > 0 ? Math.round(result * 100) / 100 : null;
+}
+
+function parseItemDraft(input, catalogEntries = []) {
+  const raw = String(input || '').trim();
+  if (!raw) return { kind: 'empty', raw: '' };
+  const query = raw.toLowerCase();
+  const exactCatalog = catalogEntries.find((entry) => {
+    const name = String(entry?.name || '').trim().toLowerCase();
+    const code = String(entry?.code || entry?.sku || entry?.item_code || '').trim().toLowerCase();
+    return query && (query === name || query === code);
+  });
+  if (exactCatalog) return { kind: 'catalog', entry: exactCatalog, raw };
+
+  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+  if (qtyMatch) {
+    const qty = Number(qtyMatch[2]);
+    const unitPrice = Number(qtyMatch[3]);
+    if (qty > 0 && unitPrice > 0) {
+      return { kind: 'item', name: qtyMatch[1].trim(), qty, unitPrice, raw };
+    }
+  }
+
+  const itemAmountMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr))?$/i);
+  if (itemAmountMatch) {
+    const unitPrice = Number(itemAmountMatch[2]);
+    if (unitPrice > 0) return { kind: 'item', name: itemAmountMatch[1].trim(), qty: 1, unitPrice, raw };
+  }
+
+  return { kind: 'item', name: raw, qty: 1, unitPrice: null, raw };
+}
 
 function TransactionForm({
   type,
@@ -147,6 +209,11 @@ function TransactionForm({
   const [showNewCustomerInline, setShowNewCustomerInline] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [saleItemInput, setSaleItemInput] = useState('');
+  const [saleItems, setSaleItems] = useState([]);
+  const [saleAmountBasis, setSaleAmountBasis] = useState('entered');
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calculatorInput, setCalculatorInput] = useState('');
 
   // ─── Derived ────────────────────────────────────────────────────────────
   const dueDateOptions = getDueDateOptions();
@@ -166,9 +233,17 @@ function TransactionForm({
     : true;
 
   // Top catalog items (active ones) — shown as chips below item input
-  const topCatalogItems = catalogEntries
-    .filter(e => e && e.is_active !== false && e.name)
-    .slice(0, 8);
+  const activeCatalogItems = useMemo(() => (
+    catalogEntries
+      .filter(e => e && e.is_active !== false && e.name)
+      .slice()
+      .sort((a, b) => {
+        const bScore = Number(b.use_count || 0) * 10000000000000 + Number(b.last_used_at || b.updated_at || 0);
+        const aScore = Number(a.use_count || 0) * 10000000000000 + Number(a.last_used_at || a.updated_at || 0);
+        return bScore - aScore;
+      })
+  ), [catalogEntries]);
+  const topCatalogItems = activeCatalogItems.slice(0, 8);
 
   // Multi-item breakdown — derived
   const lineItemsTotal = lineItems.reduce((sum, l) => {
@@ -194,16 +269,61 @@ function TransactionForm({
     .slice()
     .sort((a, b) => (b.last_activity_at || b.updated_at || 0) - (a.last_activity_at || a.updated_at || 0))
     .slice(0, 5);
+  const saleItemDraft = useMemo(
+    () => parseItemDraft(saleItemInput, activeCatalogItems),
+    [activeCatalogItems, saleItemInput]
+  );
+  const saleItemSuggestions = useMemo(() => {
+    const query = saleItemInput.trim().toLowerCase();
+    if (!query) return [];
+    return activeCatalogItems
+      .filter(entry => {
+        const haystack = [
+          entry.name,
+          entry.code,
+          entry.sku,
+          entry.item_code,
+          entry.note,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 5);
+  }, [activeCatalogItems, saleItemInput]);
+  const saleItemsSubtotal = saleItems.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
+  const saleUnitCount = saleItems.reduce((sum, line) => sum + Number(line.qty || 0), 0);
+  const saleFinalAmount = isCredit || isExpense
+    ? sellingPrice
+    : (saleAmountBasis === 'items' && saleItemsSubtotal > 0 ? saleItemsSubtotal : sellingPrice);
+  const saleHasMismatch = type === 'sale'
+    && sellingPrice > 0
+    && saleItemsSubtotal > 0
+    && Math.abs(sellingPrice - saleItemsSubtotal) >= 0.01;
+  const salePaymentOptions = useMemo(() => {
+    const banks = enabledProviders?.banks || ['CBE', 'Dashen', 'Awash', 'Abyssinia'];
+    const wallets = enabledProviders?.wallets || ['telebirr', 'CBE Birr'];
+    return [
+      { id: 'cash', label: 'Cash', paymentType: 'cash', provider: '' },
+      ...wallets.map(provider => ({ id: `wallet:${provider}`, label: provider, paymentType: 'wallet', provider })),
+      ...banks.map(provider => ({ id: `bank:${provider}`, label: provider, paymentType: 'bank', provider })),
+      { id: 'later', label: 'Pay later', paymentType: 'credit', provider: '', settlementMode: 'later' },
+    ];
+  }, [enabledProviders]);
+  const selectedSalePaymentId = settlementMode === 'later'
+    ? 'later'
+    : paymentType === 'cash'
+      ? 'cash'
+      : `${paymentType}:${paymentProvider}`;
+  const activeSalePayment = salePaymentOptions.find(option => option.id === selectedSalePaymentId) || salePaymentOptions[0];
 
   // Item is OPTIONAL for sale/expense; REQUIRED (as customer name) for credit
   // For Partial/Later settlement modes, a customer is also required.
   const canSave =
-    sellingPrice > 0
+    (type === 'sale' ? saleFinalAmount : sellingPrice) > 0
     && (isCredit ? item.trim() && hasDueDate : true)
     && (!phoneEntered || phoneValid)
     && !isSaving
     && (!needsCustomer || !!selectedCustomerForCredit)
-    && (settlementMode !== 'partial' || (partialReceivedAmount > 0 && partialReceivedAmount < sellingPrice));
+    && (settlementMode !== 'partial' || (partialReceivedAmount > 0 && partialReceivedAmount < (type === 'sale' ? saleFinalAmount : sellingPrice)));
 
   // ─── Handlers ───────────────────────────────────────────────────────────
   const getEffectiveDueDate = () => {
@@ -242,10 +362,24 @@ function TransactionForm({
 
     // If breakdown has valid items, build a clean items array; let item_name
     // derive from the items so the row is self-describing in History/Reports.
-    const cleanedItems = validLineItems.map(l => ({
-      name: l.name.trim(),
-      amount: parseFloat(parseInput(l.amount)),
+    const saleCleanedItems = saleItems.map(line => ({
+      name: line.name,
+      code: line.code || null,
+      amount: Number(line.line_total || 0),
+      qty: Number(line.qty || 1),
+      unit_price: Number(line.unit_price || 0),
+      line_total: Number(line.line_total || 0),
+      catalog_entry_id: line.catalog_entry_id || null,
+      item_kind: line.item_kind || 'item',
+      photo_uri: line.photo_uri || null,
     }));
+    const cleanedItems = type === 'sale'
+      ? saleCleanedItems
+      : validLineItems.map(l => ({
+          name: l.name.trim(),
+          amount: parseFloat(parseInput(l.amount)),
+        }));
+    const effectiveSellingPrice = type === 'sale' ? saleFinalAmount : sellingPrice;
     const itemNameForSave = (!isCredit && cleanedItems.length > 0)
       ? cleanedItems.map(li => li.name).join(', ').substring(0, 200)
       : item.trim();
@@ -253,7 +387,7 @@ function TransactionForm({
     // Cash actually received from this sale (drives Today's cash tally vs gross sales)
     const cashReceived = !isCredit
       ? (settlementMode === 'paid'
-          ? sellingPrice
+          ? effectiveSellingPrice
           : settlementMode === 'partial'
             ? partialReceivedAmount
             : 0)
@@ -263,12 +397,14 @@ function TransactionForm({
     const data = {
       type,
       item_name: itemNameForSave,
-      catalog_entry_id: catalogEntryId ? Number(catalogEntryId) : null,
-      item_kind: selectedCatalogEntry?.kind || null,
-      quantity: isCredit ? 1 : qty,
-      amount: sellingPrice,
+      catalog_entry_id: type === 'sale'
+        ? (saleItems[0]?.catalog_entry_id ? Number(saleItems[0].catalog_entry_id) : null)
+        : (catalogEntryId ? Number(catalogEntryId) : null),
+      item_kind: type === 'sale' ? (saleItems[0]?.item_kind || null) : (selectedCatalogEntry?.kind || null),
+      quantity: isCredit ? 1 : (type === 'sale' && saleUnitCount > 0 ? saleUnitCount : qty),
+      amount: effectiveSellingPrice,
       cost_price: isCredit ? 0 : cost,
-      profit: (!isCredit && cost > 0) ? (sellingPrice - cost * qty) : null,
+      profit: (!isCredit && cost > 0) ? (effectiveSellingPrice - cost * qty) : null,
       is_credit: isCredit,
       customer_id: !isCredit && settlementMode !== 'paid' ? (selectedCustomerForCredit?.id || null) : null,
       customer_name: !isCredit && settlementMode !== 'paid' ? (selectedCustomerForCredit?.display_name || null) : null,
@@ -283,7 +419,14 @@ function TransactionForm({
       // Paid · Partial · Pay Later metadata
       settlement_mode: !isCredit ? settlementMode : null,
       cash_received: cashReceived,
-      credit_amount: !isCredit && creditAmount > 0 ? creditAmount : null,
+      credit_amount: !isCredit && (settlementMode === 'partial'
+        ? Math.max(0, effectiveSellingPrice - partialReceivedAmount)
+        : settlementMode === 'later' ? effectiveSellingPrice : 0) > 0
+        ? (settlementMode === 'partial' ? Math.max(0, effectiveSellingPrice - partialReceivedAmount) : effectiveSellingPrice)
+        : null,
+      entered_total: type === 'sale' && sellingPrice > 0 ? sellingPrice : null,
+      items_subtotal: type === 'sale' && saleItemsSubtotal > 0 ? saleItemsSubtotal : null,
+      amount_basis: type === 'sale' ? saleAmountBasis : null,
       created_at: Date.now(),
     };
     try {
@@ -424,6 +567,126 @@ function TransactionForm({
     if (!costPrice && entry.default_cost != null) setCostPrice(String(entry.default_cost));
   };
 
+  const addSaleItem = (draft) => {
+    if (!draft?.name) return;
+    const qtyValue = Math.max(1, Number(draft.qty || 1));
+    const unitPrice = Number(draft.unitPrice || 0);
+    const lineTotal = Math.round(qtyValue * unitPrice * 100) / 100;
+    const nextItem = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: draft.name.trim(),
+      code: draft.code || '',
+      qty: qtyValue,
+      unit_price: unitPrice,
+      line_total: lineTotal,
+      catalog_entry_id: draft.catalog_entry_id || null,
+      item_kind: draft.item_kind || 'item',
+      photo_uri: photos[0]?.dataUrl || null,
+    };
+    setSaleItems(prev => {
+      const matchKey = String(nextItem.catalog_entry_id || nextItem.code || nextItem.name).toLowerCase();
+      const existing = prev.find(line => String(line.catalog_entry_id || line.code || line.name).toLowerCase() === matchKey);
+      if (existing) {
+        return prev.map(line => {
+          const lineKey = String(line.catalog_entry_id || line.code || line.name).toLowerCase();
+          if (lineKey !== matchKey) return line;
+          const nextQty = Number(line.qty || 1) + nextItem.qty;
+          const nextUnitPrice = Number(line.unit_price || nextItem.unit_price || 0);
+          return {
+            ...line,
+            qty: nextQty,
+            unit_price: nextUnitPrice,
+            line_total: Math.round(nextQty * nextUnitPrice * 100) / 100,
+            photo_uri: line.photo_uri || nextItem.photo_uri || null,
+          };
+        });
+      }
+      return [...prev, nextItem];
+    });
+    if (!amount && lineTotal > 0) {
+      setAmount(String(lineTotal));
+      setSaleAmountBasis('items');
+    }
+    setSaleItemInput('');
+    navigator.vibrate?.(40);
+  };
+
+  const addSaleCatalogItem = (entry) => {
+    const unitPrice = Number(entry?.default_price || entry?.last_price || 0);
+    addSaleItem({
+      name: entry?.name || '',
+      code: entry?.code || entry?.sku || entry?.item_code || '',
+      qty: 1,
+      unitPrice: unitPrice || (saleItems.length === 0 ? sellingPrice : 0),
+      catalog_entry_id: entry?.id || null,
+      item_kind: entry?.kind || 'item',
+    });
+    setCatalogEntryId(String(entry?.id || ''));
+    setItem(entry?.name || '');
+  };
+
+  const handleSaleAddItem = () => {
+    if (saleItemDraft.kind === 'catalog' && saleItemDraft.entry) {
+      addSaleCatalogItem(saleItemDraft.entry);
+      return;
+    }
+    if (saleItemDraft.kind === 'item') {
+      const fallbackUnitPrice = saleItemDraft.unitPrice ?? (saleItems.length === 0 ? sellingPrice : 0);
+      addSaleItem({ ...saleItemDraft, unitPrice: fallbackUnitPrice });
+      if (!item) setItem(saleItemDraft.name || '');
+    }
+  };
+
+  const updateSaleItemQty = (id, nextQty) => {
+    setSaleItems(prev => prev.map(line => {
+      if (line.id !== id) return line;
+      const qtyValue = Math.max(1, Number(nextQty || 1));
+      const unitPrice = Number(line.unit_price || 0);
+      return { ...line, qty: qtyValue, line_total: Math.round(qtyValue * unitPrice * 100) / 100 };
+    }));
+    setSaleAmountBasis(current => (current === 'items' ? 'items' : current));
+  };
+
+  const removeSaleItem = (id) => {
+    setSaleItems(prev => prev.filter(line => line.id !== id));
+  };
+
+  const handleSalePaymentSelect = (option) => {
+    if (option.id === 'later') {
+      setSettlementMode('later');
+      setPartialReceived('');
+      return;
+    }
+    if (settlementMode === 'later') setSettlementMode('paid');
+    setPaymentType(option.paymentType);
+    setPaymentProvider(option.provider || '');
+  };
+
+  const applyCalculatorResult = () => {
+    const result = safeMathTotal(calculatorInput);
+    if (!result) return;
+    setAmount(String(result));
+    setSaleAmountBasis('entered');
+    setCalculatorInput('');
+    setShowCalculator(false);
+  };
+
+  const buildSaleSaveLabel = () => {
+    if (saleFinalAmount <= 0) return photos.length > 0 ? 'Add amount to save photo sale' : 'Save';
+    if (settlementMode === 'partial' && partialReceivedAmount > 0 && partialReceivedAmount < saleFinalAmount) {
+      return `Save Partial · ${fmt(partialReceivedAmount)} paid · ${fmt(saleFinalAmount - partialReceivedAmount)} remaining`;
+    }
+    if (settlementMode === 'later') {
+      return selectedCustomerForCredit?.display_name
+        ? `Save Credit · ${selectedCustomerForCredit.display_name} · ${fmt(saleFinalAmount)} ETB`
+        : `Save Credit · ${fmt(saleFinalAmount)} ETB`;
+    }
+    if (saleItems.length > 0) return `Save ${saleItems.length} ${saleItems.length === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`;
+    if (photos.length > 0) return `Save photo sale · ${fmt(saleFinalAmount)} ETB`;
+    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(saleFinalAmount)} ETB`;
+    return `Save ${fmt(saleFinalAmount)} ETB`;
+  };
+
   const openAddRecurring = (demoName = '') => {
     setPopupName(demoName);
     setPopupAmount('');
@@ -447,6 +710,336 @@ function TransactionForm({
   };
 
   // ─── Main form ──────────────────────────────────────────────────────────
+  if (type === 'sale') {
+    const saleSaveLabel = buildSaleSaveLabel();
+    const remainingAmount = Math.max(0, saleFinalAmount - partialReceivedAmount);
+    const canAddSaleItem = saleItemDraft.kind === 'item' || saleItemDraft.kind === 'catalog';
+
+    return (
+      <div
+        className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col"
+        style={{ background: '#ffffff' }}
+      >
+        <div
+          className="flex-shrink-0 px-3 sm:px-4 py-3 flex items-center justify-between"
+          style={{ borderBottom: '1px solid #e8e2d8' }}
+        >
+          <button
+            onClick={onDone}
+            aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
+            className="press-scale flex items-center justify-center"
+            style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
+          >
+            <ArrowLeft className="w-5 h-5" style={{ color: '#6b7280' }} />
+          </button>
+          <div className="text-center min-w-0">
+            <h2 className="text-base font-bold" style={{ color: accentColor }}>{headerLabel}</h2>
+            {actorLabel && (
+              <p className="text-[11px] font-semibold truncate" style={{ color: '#6b7280', maxWidth: '220px' }}>
+                Recording as {actorLabel}
+              </p>
+            )}
+          </div>
+          <div style={{ width: '36px' }} />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-4 space-y-3">
+          <section className="border" style={{ borderColor: '#d8eadf', borderRadius: 'var(--radius-md)', background: '#f7fcf8' }}>
+            <div className="px-3 py-2.5 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold" style={{ color: '#4b6855' }}>Total amount</p>
+                <p className="text-2xl font-black leading-tight" style={{ color: saleFinalAmount > 0 ? '#14532d' : '#9ca3af' }}>
+                  {fmt(saleFinalAmount)} ETB
+                </p>
+              </div>
+              <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>
+                {activeSalePayment.label} ▾
+              </span>
+            </div>
+            <div className="px-3 pb-3 flex gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                value={fmtInput(amount)}
+                onChange={event => {
+                  handleNumericInput(event, setAmount);
+                  setSaleAmountBasis('entered');
+                }}
+                placeholder="0"
+                className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-2xl font-black"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: amount ? '#86efac' : '#d7e3da', color: amount ? '#14532d' : '#9ca3af' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCalculator(true)}
+                className="px-3 py-2 text-sm font-black border-2 press-scale"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: '#d7e3da', background: '#fff', color: '#14532d', minWidth: '92px' }}
+              >
+                Calculator
+              </button>
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>
+                Item details - optional
+              </p>
+              {saleItems.length > 0 && (
+                <p className="text-[11px] font-bold" style={{ color: '#14532d' }}>
+                  {saleItems.length} {saleItems.length === 1 ? 'item' : 'items'}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 items-stretch">
+              <label
+                className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+                style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }}
+                aria-label="Take or choose photo"
+              >
+                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS} />
+                {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
+              </label>
+              <input
+                type="text"
+                inputMode="text"
+                value={saleItemInput}
+                onChange={event => setSaleItemInput(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter' && canAddSaleItem) handleSaleAddItem(); }}
+                placeholder="Search item name or code..."
+                className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-base"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: saleItemInput ? '#86efac' : '#d7e3da' }}
+              />
+              <button
+                type="button"
+                onClick={handleSaleAddItem}
+                disabled={!canAddSaleItem}
+                className="px-3 py-2 text-sm font-black press-scale flex-shrink-0"
+                style={{ borderRadius: 'var(--radius-md)', background: canAddSaleItem ? '#14532d' : '#e5e7eb', color: canAddSaleItem ? '#fff' : '#6b7280', minWidth: 66 }}
+              >
+                <span className="hidden min-[390px]:inline">Add item</span>
+                <span className="min-[390px]:hidden">Add</span>
+              </button>
+            </div>
+            {photos.length > 0 && (
+              <div className="flex items-center gap-2 p-2 border" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-sm)', background: '#f8faf8' }}>
+                <img src={photos[0].dataUrl} alt="" className="w-10 h-10 object-cover" style={{ borderRadius: 6 }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black" style={{ color: '#14532d' }}>Photo attached</p>
+                  <p className="text-xs truncate" style={{ color: '#6b7280' }}>Add amount or item details</p>
+                </div>
+                <button type="button" onClick={() => handleRemovePhoto(photos[0].id)} aria-label="Remove photo" className="p-2">
+                  <X className="w-4 h-4" style={{ color: '#6b7280' }} />
+                </button>
+              </div>
+            )}
+            {photoError && <p className="text-xs font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
+          </section>
+
+          <section className="space-y-1.5">
+            <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>
+              {saleItemInput.trim() ? 'Suggestions' : 'Recent / most sold'}
+            </p>
+            {saleItemInput.trim() ? (
+              saleItemSuggestions.length > 0 ? (
+                <div className="space-y-1.5">
+                  {saleItemSuggestions.map(entry => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => addSaleCatalogItem(entry)}
+                      className="w-full p-2.5 border text-left press-scale flex items-center justify-between gap-2"
+                      style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black truncate" style={{ color: '#111827' }}>{entry.name}</span>
+                        {(entry.code || entry.sku || entry.item_code) && <span className="block text-xs truncate" style={{ color: '#6b7280' }}>Code: {entry.code || entry.sku || entry.item_code}</span>}
+                      </span>
+                      {(entry.default_price || entry.last_price) && <span className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(entry.default_price || entry.last_price)} ETB</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs border p-2.5" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>No local item match. Add it as typed.</p>
+              )
+            ) : topCatalogItems.length > 0 ? (
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {topCatalogItems.map(entry => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => addSaleCatalogItem(entry)}
+                    className="flex-shrink-0 px-3 py-2 text-xs font-black border press-scale"
+                    style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}
+                  >
+                    {entry.code || entry.sku || entry.item_code || entry.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 border text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>
+                <p className="font-bold" style={{ color: '#374151' }}>No items yet</p>
+                <p>Saved items will appear here after you use them.</p>
+              </div>
+            )}
+          </section>
+
+          {saleItems.length > 0 && (
+            <section className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Items in this sale</p>
+              {saleItems.map(line => (
+                <div key={line.id} className="p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black truncate" style={{ color: '#111827' }}>{line.name}</p>
+                      {line.code && <p className="text-xs" style={{ color: '#6b7280' }}>{line.code}</p>}
+                      <p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} · Unit: {fmt(line.unit_price)}</p>
+                    </div>
+                    <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(line.line_total)} ETB</p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) - 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Minus className="w-4 h-4" /></button>
+                      <span className="text-sm font-black min-w-6 text-center">{line.qty}</span>
+                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) + 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Plus className="w-4 h-4" /></button>
+                    </div>
+                    <button type="button" onClick={() => removeSaleItem(line.id)} className="px-3 py-2 text-xs font-bold border press-scale" style={{ borderColor: '#fecaca', color: '#b91c1c', borderRadius: 6 }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-black px-1" style={{ color: '#374151' }}>
+                <span>Items subtotal ({saleUnitCount || saleItems.length} units)</span>
+                <span>{fmt(saleItemsSubtotal)} ETB</span>
+              </div>
+              {saleHasMismatch && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaleAmountBasis('entered')}
+                    className="p-2 text-xs font-black border-2 press-scale"
+                    style={{ borderColor: saleAmountBasis === 'entered' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'entered' ? '#ecfdf3' : '#fff', color: '#14532d' }}
+                  >
+                    Use entered total {fmt(sellingPrice)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaleAmountBasis('items')}
+                    className="p-2 text-xs font-black border-2 press-scale"
+                    style={{ borderColor: saleAmountBasis === 'items' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'items' ? '#ecfdf3' : '#fff', color: '#14532d' }}
+                  >
+                    Use item subtotal {fmt(saleItemsSubtotal)}
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          <section>
+            <p className="text-[11px] font-black uppercase tracking-wide mb-1.5" style={{ color: '#6b7280' }}>Payment method</p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {salePaymentOptions.map(option => {
+                const active = option.id === selectedSalePaymentId;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleSalePaymentSelect(option)}
+                    className="flex-shrink-0 px-3 py-2 text-xs font-black border-2 press-scale"
+                    style={{ borderColor: active ? '#14532d' : '#e8e2d8', borderRadius: 'var(--radius-sm)', background: active ? '#ecfdf3' : '#fff', color: active ? '#14532d' : '#374151' }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <label className="flex items-center justify-between gap-3 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)' }}>
+              <span className="text-sm font-black" style={{ color: '#374151' }}>Partial payment</span>
+              <input
+                type="checkbox"
+                checked={settlementMode === 'partial'}
+                onChange={event => {
+                  setSettlementMode(event.target.checked ? 'partial' : 'paid');
+                  if (!event.target.checked) setPartialReceived('');
+                  if (event.target.checked && settlementMode === 'later') {
+                    setPaymentType('cash');
+                    setPaymentProvider('');
+                  }
+                }}
+                className="w-5 h-5"
+              />
+            </label>
+            {settlementMode === 'partial' && (
+              <div className="space-y-2 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fafaf6' }}>
+                <input type="text" inputMode="decimal" value={fmtInput(partialReceived)} onChange={event => handleNumericInput(event, setPartialReceived)} placeholder="Paid amount" className="w-full p-2.5 border focus:outline-none text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 6 }} />
+                <p className="text-xs font-bold" style={{ color: '#6b7280' }}>Remaining: {fmt(remainingAmount)} ETB</p>
+              </div>
+            )}
+            {(settlementMode === 'later' || settlementMode === 'partial') && (
+              <div className="space-y-2 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                {selectedCustomerForCredit ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-sm font-black truncate">{selectedCustomerForCredit.display_name}</span>
+                    <button type="button" onClick={() => setSelectedCustomerForCredit(null)} className="p-2"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <>
+                    <input type="text" value={newCustomerName} onChange={event => setNewCustomerName(event.target.value)} placeholder="Customer name" className="w-full p-2.5 border focus:outline-none text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 6 }} />
+                    <div className="flex gap-1.5 overflow-x-auto pb-1">
+                      {recentCustomers.map(customer => (
+                        <button key={customer.id} type="button" onClick={() => setSelectedCustomerForCredit(customer)} className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}>{customer.display_name}</button>
+                      ))}
+                      {onAddCustomerInline && (
+                        <button type="button" onClick={submitNewCustomerInline} disabled={!newCustomerName.trim() || savingCustomer} className="flex-shrink-0 px-3 py-1.5 text-xs font-black" style={{ background: newCustomerName.trim() ? '#14532d' : '#e5e7eb', color: newCustomerName.trim() ? '#fff' : '#6b7280', borderRadius: 6 }}>Add customer</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8', background: '#fff' }}>
+          {!canSave && saleFinalAmount > 0 && needsCustomer && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>Add or pick a customer above</p>}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!canSave}
+            className="w-full p-3 font-black text-base flex items-center justify-center gap-2 transition-all press-scale"
+            style={{ background: canSave ? '#14532d' : '#e5e7eb', color: canSave ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-md)' }}
+          >
+            <Save className="w-5 h-5" />
+            {saleSaveLabel}
+          </button>
+          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone · Syncs later</p>
+        </div>
+
+        {showCalculator && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(17,24,39,0.35)', paddingBottom: '68px' }}>
+            <div className="w-full max-w-md bg-white p-3 space-y-3" style={{ borderRadius: '16px 16px 0 0' }}>
+              <div className="flex items-center gap-2">
+                <input value={calculatorInput} onChange={event => setCalculatorInput(event.target.value)} placeholder="350 + 250" className="flex-1 p-3 border text-xl font-black focus:outline-none" style={{ borderColor: '#e8e2d8', borderRadius: 8 }} />
+                <button type="button" onClick={() => setShowCalculator(false)} className="p-3"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', 'C', '0', '.', '+'].map(key => (
+                  <button key={key} type="button" onClick={() => setCalculatorInput(prev => key === 'C' ? '' : `${prev}${key}`)} className="p-3 text-lg font-black border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 8, background: '#fafaf6' }}>{key}</button>
+                ))}
+              </div>
+              <button type="button" onClick={applyCalculatorResult} disabled={!safeMathTotal(calculatorInput)} className="w-full p-3 font-black" style={{ background: safeMathTotal(calculatorInput) ? '#14532d' : '#e5e7eb', color: safeMathTotal(calculatorInput) ? '#fff' : '#9ca3af', borderRadius: 8 }}>
+                Done{safeMathTotal(calculatorInput) ? ` · ${fmt(safeMathTotal(calculatorInput))} ETB` : ''}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col"

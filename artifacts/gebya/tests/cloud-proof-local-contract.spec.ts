@@ -17,9 +17,29 @@ async function startFreshShop(page: Page) {
     });
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByPlaceholder(/e\.g\. tigist/i).fill('Tigist Shop');
-  await page.getByRole('button', { name: /start using gebya/i }).click();
-  await expect(page.getByText(/tigist shop/i)).toBeVisible();
+  await page.evaluate(async () => {
+    const request = window.indexedDB.open('GebyaDB');
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('settings', 'readwrite');
+      const store = tx.objectStore('settings');
+      store.put({ key: 'intro_seen', value: 'yes' });
+      store.put({ key: 'shop_name', value: 'Tigist Shop' });
+      store.put({ key: 'shop_phone', value: '' });
+      store.put({ key: 'shop_telegram', value: '' });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+
+    db.close();
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: /tigist shop/i })).toBeVisible();
 }
 
 async function readStore<T = any>(page: Page, storeName: string): Promise<T[]> {
@@ -129,12 +149,14 @@ async function waitForStoreCount(page: Page, storeName: string, count: number) {
 
 test('offline sale and expense get cloud proof contract rows without sensitive payload fields', async ({ page, context }) => {
   await startFreshShop(page);
-  await context.setOffline(true);
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Sugar private item');
+  await expect(page.getByPlaceholder('0')).toBeVisible();
+  await context.setOffline(true);
   await page.getByPlaceholder('0').fill('250');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/search item name or code/i).fill('Sugar private item');
+  await page.getByRole('button', { name: /add item/i }).click();
+  await page.getByRole('button', { name: /save 1 item .*250/i }).click();
   await expect(page.getByText(/sugar private item/i)).toBeVisible();
 
   await page.getByRole('button', { name: /^expense$/i }).click();
@@ -174,9 +196,9 @@ test('offline customer dubie and payment get cloud proof contract rows', async (
   await page.getByRole('button', { name: /save customer/i }).click();
   await expect(page.getByText(/almaz secret/i)).toBeVisible();
 
-  await context.setOffline(true);
-
   await page.getByRole('main').getByRole('button', { name: /^credit$/i }).click();
+  await expect(page.getByPlaceholder('0')).toBeVisible();
+  await context.setOffline(true);
   await page.getByPlaceholder('0').fill('250');
   await page.getByPlaceholder(/what they took/i).fill('Sugar private item');
   await page.getByRole('button', { name: /save (credit|dubie)/i }).click();
@@ -219,9 +241,9 @@ test('offline supplier purchase and payment get cloud proof contract rows', asyn
   await page.getByRole('button', { name: /save supplier/i }).click();
   await expect(page.getByText(/kiros secret supplier/i)).toBeVisible();
 
-  await context.setOffline(true);
-
   await page.getByRole('button', { name: /^buy$/i }).click();
+  await expect(page.getByPlaceholder('0')).toBeVisible();
+  await context.setOffline(true);
   await page.getByPlaceholder('0').fill('400');
   await page.getByPlaceholder(/5 bags coffee/i).fill('Coffee private batch');
   await page.getByRole('button', { name: /save purchase/i }).click();
@@ -284,16 +306,21 @@ test('cloud proof queue failure does not block local save and telegram queue kin
   });
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await expect(page.getByPlaceholder(/add details|bread|sugar/i)).toBeVisible();
+  await expect(page.getByPlaceholder(/search item name or code/i)).toBeVisible();
 
   await context.setOffline(true);
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Queue failure sale');
   await page.getByPlaceholder('0').fill('75');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/search item name or code/i).fill('Queue failure sale');
+  await page.getByRole('button', { name: /add item/i }).click();
+  await page.getByRole('button', { name: /save 1 item .*75/i }).click();
   await expect(page.getByText(/queue failure sale/i)).toBeVisible();
 
+  await expect.poll(async () => {
+    const rows = await readStore(page, 'transactions');
+    return rows.some((row) => row.type === 'sale' && row.item_name === 'Queue failure sale' && Number(row.amount) === 75);
+  }).toBe(true);
   const transactions = await readStore(page, 'transactions');
-  const saved = transactions.find((row) => row.item_name === 'Queue failure sale');
+  const saved = transactions.find((row) => row.type === 'sale' && row.item_name === 'Queue failure sale' && Number(row.amount) === 75);
   expect(saved).toBeTruthy();
   expect(saved.transaction_id).toEqual(expect.any(String));
 
