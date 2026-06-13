@@ -132,9 +132,8 @@ test('offline sale and expense get cloud proof contract rows without sensitive p
   await context.setOffline(true);
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Sugar private item');
-  await page.getByPlaceholder('0').fill('250');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Sugar private item 250');
+  await page.getByRole('button', { name: /save 1 item .*250/i }).click();
   await expect(page.getByText(/sugar private item/i)).toBeVisible();
 
   await page.getByRole('button', { name: /^expense$/i }).click();
@@ -284,12 +283,11 @@ test('cloud proof queue failure does not block local save and telegram queue kin
   });
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await expect(page.getByPlaceholder(/add details|bread|sugar/i)).toBeVisible();
+  await expect(page.getByPlaceholder(/amount, item, code, or note/i)).toBeVisible();
 
   await context.setOffline(true);
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Queue failure sale');
-  await page.getByPlaceholder('0').fill('75');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Queue failure sale 75');
+  await page.getByRole('button', { name: /save 1 item .*75/i }).click();
   await expect(page.getByText(/queue failure sale/i)).toBeVisible();
 
   const transactions = await readStore(page, 'transactions');

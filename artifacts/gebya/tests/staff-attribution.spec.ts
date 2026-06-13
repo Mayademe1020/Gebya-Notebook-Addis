@@ -72,24 +72,23 @@ test('staff selection is shown on new records and persists in history after relo
 
   await page.locator('nav').getByRole('button', { name: /today/i }).click();
   await openSaleForm(page);
-  await expect(page.getByText(/^almaz$/i)).toBeVisible();
+  await expect(page.getByText(/recording as almaz/i)).toBeVisible();
 
-  await page.getByPlaceholder(/add details/i).fill('Bread');
-  await page.getByPlaceholder(/^0$/).fill('120');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Bread 120');
+  await page.getByRole('button', { name: /save 1 item .*120/i }).click();
   await expect.poll(async () => ({
     alert: await getLastAlert(page),
     error: await getLastSaveError(page),
   })).toEqual({ alert: null, error: null });
 
-  await expect(page.getByText(/bread/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /120.*bread/i })).toBeVisible();
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
+  await expect(page.getByText(/^almaz .* today/i)).toBeVisible();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
+  await expect(page.getByText(/^almaz .* today/i)).toBeVisible();
 });
 
 test('inactivating the current staff member warns the owner and falls back to owner', async ({ page }) => {
@@ -131,14 +130,13 @@ test('renaming a staff member updates future attribution while keeping past snap
 
   await page.locator('nav').getByRole('button', { name: /today/i }).click();
   await openSaleForm(page);
-  await page.getByPlaceholder(/add details/i).fill('Bread');
-  await page.getByPlaceholder(/^0$/).fill('120');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Bread 120');
+  await page.getByRole('button', { name: /save 1 item .*120/i }).click();
   await expect.poll(async () => ({
     alert: await getLastAlert(page),
     error: await getLastSaveError(page),
   })).toEqual({ alert: null, error: null });
-  await expect(page.getByText(/bread/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /120.*bread/i })).toBeVisible();
 
   await openTeamSection(page);
   await page.getByRole('button', { name: /^edit$/i }).click();
@@ -148,22 +146,44 @@ test('renaming a staff member updates future attribution while keeping past snap
 
   await page.locator('nav').getByRole('button', { name: /today/i }).click();
   await openSaleForm(page);
-  await expect(page.getByText(/^mahi$/i)).toBeVisible();
-  await page.getByPlaceholder(/add details/i).fill('Sugar');
-  await page.getByPlaceholder(/^0$/).fill('90');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await expect(page.getByText(/recording as mahi/i)).toBeVisible();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Sugar 90');
+  await page.getByRole('button', { name: /save 1 item .*90/i }).click();
   await expect.poll(async () => ({
     alert: await getLastAlert(page),
     error: await getLastSaveError(page),
   })).toEqual({ alert: null, error: null });
-  await expect(page.getByText(/sugar/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /90.*sugar/i })).toBeVisible();
 
-  await expect(page.getByText(/bread/i)).toBeVisible();
-  await expect(page.getByText(/sugar/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /120.*bread/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /90.*sugar/i })).toBeVisible();
+
+  const snapshots = await page.evaluate(async () => {
+    const request = window.indexedDB.open('GebyaDB');
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    try {
+      return await new Promise<Array<{ item_name: string; actor_name_snapshot?: string }>>((resolve, reject) => {
+        const tx = db.transaction('transactions', 'readonly');
+        const store = tx.objectStore('transactions');
+        const getAll = store.getAll();
+        getAll.onsuccess = () => resolve(getAll.result);
+        getAll.onerror = () => reject(getAll.error);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+  expect(snapshots.find(row => row.item_name === 'Bread')?.actor_name_snapshot).toBe('Almaz');
+  expect(snapshots.find(row => row.item_name === 'Sugar')?.actor_name_snapshot).toBe('Mahi');
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
-  await expect(page.getByText(/mahi/i)).toBeVisible();
+  await expect(page.getByText(/^mahi .* today/i)).toBeVisible();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openTeamSection(page);
@@ -171,6 +191,5 @@ test('renaming a staff member updates future attribution while keeping past snap
   await expect(page.getByRole('button', { name: /^current$/i })).toBeVisible();
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
-  await expect(page.getByText(/mahi/i)).toBeVisible();
+  await expect(page.getByText(/^mahi .* today/i)).toBeVisible();
 });

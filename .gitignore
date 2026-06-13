@@ -21,6 +21,8 @@ yarn-error.log*
 coverage/
 .playwright/
 artifacts/gebya/test-results/
+artifacts/gebya/screenshots/
+artifacts/gebya/**/qa-result.json
 
 # Vercel
 .vercel/
@@ -49,6 +51,8 @@ artifacts/gebya/test-results/
 
 # Misc
 .sass-cache/
+__pycache__/
+*.pyc
 connect.lock
 libpeerconnection.log
 testem.log

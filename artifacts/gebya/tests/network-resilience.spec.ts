@@ -45,9 +45,8 @@ test('core notebook actions still work while offline', async ({ browser }) => {
   });
 
   await page.getByRole('button', { name: /^sale$/i }).click();
-  await page.getByPlaceholder(/add details|bread|sugar/i).fill('Offline sale');
-  await page.getByPlaceholder('0').fill('120');
-  await page.getByRole('button', { name: /save sale/i }).click();
+  await page.getByPlaceholder(/amount, item, code, or note/i).fill('Offline sale 120');
+  await page.getByRole('button', { name: /save 1 item .*120/i }).click();
 
   await expect(page.getByText(/offline sale/i)).toBeVisible();
   await expect(page.getByText(/120(?:\.00)? birr/i).first()).toBeVisible();

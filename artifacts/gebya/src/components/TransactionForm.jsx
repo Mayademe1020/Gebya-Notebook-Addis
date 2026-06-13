@@ -21,7 +21,7 @@
 // Preserves all existing handlers, save data shape, success screen, recurring popup.
 // NEW: photo capture (B-009) — base64 stored on transaction record.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X,
   ChevronDown,
@@ -50,6 +50,130 @@ function handleNumericInput(e, setter) {
 }
 
 const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
+
+const SALE_PAYMENT_METHODS = [
+  { id: 'cash', label: 'Cash', paymentType: 'cash', provider: '' },
+  { id: 'telebirr', label: 'telebirr', paymentType: 'wallet', provider: 'telebirr' },
+  { id: 'cbe', label: 'CBE', paymentType: 'bank', provider: 'cbe' },
+  { id: 'awash', label: 'Awash', paymentType: 'bank', provider: 'awash' },
+  { id: 'boa', label: 'BoA', paymentType: 'bank', provider: 'boa' },
+  { id: 'dashen', label: 'Dashen', paymentType: 'bank', provider: 'dashen' },
+  { id: 'zemen', label: 'Zemen', paymentType: 'bank', provider: 'zemen' },
+  { id: 'coopbank', label: 'CoopBank', paymentType: 'bank', provider: 'coopbank' },
+  { id: 'later', label: 'Pay later', paymentType: 'credit', provider: '', settlementMode: 'later' },
+];
+
+function safeMathTotal(input) {
+  const normalized = String(input || '')
+    .replace(/[×x]/gi, '*')
+    .replace(/÷/g, '/')
+    .replace(/\s+/g, '');
+  if (!normalized || !/^\d+(?:\.\d+)?(?:[+\-*/]\d+(?:\.\d+)?)*$/.test(normalized)) return null;
+
+  const tokens = normalized.match(/\d+(?:\.\d+)?|[+\-*/]/g);
+  if (!tokens || tokens.length === 0) return null;
+
+  const values = [Number(tokens[0])];
+  const ops = [];
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const next = Number(tokens[i + 1]);
+    if (!Number.isFinite(next)) return null;
+    if (op === '*') {
+      values[values.length - 1] *= next;
+    } else if (op === '/') {
+      if (next === 0) return null;
+      values[values.length - 1] /= next;
+    } else {
+      ops.push(op);
+      values.push(next);
+    }
+  }
+
+  const result = values.reduce((sum, value, index) => (
+    index === 0 ? value : (ops[index - 1] === '-' ? sum - value : sum + value)
+  ), 0);
+  return Number.isFinite(result) && result > 0 ? Math.round(result * 100) / 100 : null;
+}
+
+function parseSaleInput(input, catalogEntries = []) {
+  const raw = String(input || '').trim();
+  if (!raw) return { kind: 'empty', raw: '' };
+
+  const exactCatalog = catalogEntries.find((entry) => {
+    const name = String(entry?.name || '').trim().toLowerCase();
+    const code = String(entry?.code || entry?.sku || entry?.item_code || '').trim().toLowerCase();
+    const query = raw.toLowerCase();
+    return query && (query === name || query === code);
+  });
+  if (exactCatalog) {
+    const price = Number(exactCatalog.default_price || exactCatalog.last_price || 0);
+    return {
+      kind: price > 0 ? 'item' : 'catalog',
+      name: exactCatalog.name,
+      code: exactCatalog.code || exactCatalog.sku || exactCatalog.item_code || '',
+      qty: 1,
+      unitPrice: price,
+      total: price,
+      catalogEntry: exactCatalog,
+      raw,
+    };
+  }
+
+  const mathTotal = safeMathTotal(raw);
+  if (mathTotal != null) return { kind: 'amount', total: mathTotal, raw };
+
+  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+  if (qtyMatch) {
+    const qty = Number(qtyMatch[2]);
+    const unitPrice = Number(qtyMatch[3]);
+    if (qty > 0 && unitPrice > 0) {
+      return {
+        kind: 'item',
+        name: qtyMatch[1].trim(),
+        qty,
+        unitPrice,
+        total: Math.round(qty * unitPrice * 100) / 100,
+        raw,
+      };
+    }
+  }
+
+  const itemAmountMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr))?$/i);
+  if (itemAmountMatch) {
+    const unitPrice = Number(itemAmountMatch[2]);
+    if (unitPrice > 0) {
+      return {
+        kind: 'item',
+        name: itemAmountMatch[1].trim(),
+        qty: 1,
+        unitPrice,
+        total: unitPrice,
+        raw,
+      };
+    }
+  }
+
+  return { kind: 'note', note: raw, raw };
+}
+
+function makeSaleDraftItem(parsed, photo = null) {
+  if (!parsed || parsed.kind !== 'item') return null;
+  const qty = Number(parsed.qty || 1);
+  const unitPrice = Number(parsed.unitPrice || parsed.total || 0);
+  if (!parsed.name || !(qty > 0) || !(unitPrice > 0)) return null;
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: parsed.name.trim(),
+    code: parsed.code || '',
+    qty,
+    unit_price: unitPrice,
+    line_total: Math.round(qty * unitPrice * 100) / 100,
+    catalog_entry_id: parsed.catalogEntry?.id || null,
+    item_kind: parsed.catalogEntry?.kind || 'item',
+    photo_uri: photo?.dataUrl || null,
+  };
+}
 
 function TransactionForm({
   type,
@@ -147,6 +271,15 @@ function TransactionForm({
   const [showNewCustomerInline, setShowNewCustomerInline] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [smartInput, setSmartInput] = useState('');
+  const [adaptiveItems, setAdaptiveItems] = useState([]);
+  const [selectedSalePaymentId, setSelectedSalePaymentId] = useState(() => {
+    if (initialPaymentType === 'wallet' && initialPaymentProvider) return initialPaymentProvider;
+    if (initialPaymentType === 'bank' && initialPaymentProvider) return initialPaymentProvider;
+    return initialPaymentType === 'credit' ? 'later' : 'cash';
+  });
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calculatorInput, setCalculatorInput] = useState('');
 
   // ─── Derived ────────────────────────────────────────────────────────────
   const dueDateOptions = getDueDateOptions();
@@ -194,6 +327,64 @@ function TransactionForm({
     .slice()
     .sort((a, b) => (b.last_activity_at || b.updated_at || 0) - (a.last_activity_at || a.updated_at || 0))
     .slice(0, 5);
+  const saleInputDraft = useMemo(
+    () => parseSaleInput(smartInput, catalogEntries),
+    [smartInput, catalogEntries]
+  );
+  const activeSalePayment = SALE_PAYMENT_METHODS.find(method => method.id === selectedSalePaymentId) || SALE_PAYMENT_METHODS[0];
+  const adaptiveSubtotal = adaptiveItems.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
+  const adaptiveUnitCount = adaptiveItems.reduce((sum, line) => sum + Number(line.qty || 0), 0);
+  const adaptiveManualAmount = adaptiveItems.length === 0 && saleInputDraft.kind === 'amount'
+    ? Number(saleInputDraft.total || 0)
+    : 0;
+  const adaptiveInlineItem = adaptiveItems.length === 0 && saleInputDraft.kind === 'item'
+    ? makeSaleDraftItem(saleInputDraft, photos[0])
+    : null;
+  const adaptiveTotal = adaptiveItems.length > 0
+    ? adaptiveSubtotal
+    : adaptiveInlineItem
+      ? adaptiveInlineItem.line_total
+      : adaptiveManualAmount;
+  const adaptiveCreditAmount = !isCredit && settlementMode === 'partial'
+    ? Math.max(0, adaptiveTotal - partialReceivedAmount)
+    : (!isCredit && settlementMode === 'later' ? adaptiveTotal : 0);
+  const adaptiveSuggestions = useMemo(() => {
+    const query = smartInput.trim().toLowerCase();
+    if (!query || saleInputDraft.kind === 'amount') return [];
+    return catalogEntries
+      .filter(entry => entry && entry.is_active !== false && entry.name)
+      .filter(entry => {
+        const haystack = [
+          entry.name,
+          entry.code,
+          entry.sku,
+          entry.item_code,
+          entry.note,
+          entry.default_price,
+          entry.last_price,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 5);
+  }, [catalogEntries, saleInputDraft.kind, smartInput]);
+  const adaptiveQuickItems = useMemo(() => (
+    catalogEntries
+      .filter(entry => entry && entry.is_active !== false && entry.name)
+      .slice()
+      .sort((a, b) => {
+        const bScore = Number(b.use_count || 0) * 10 + Number(b.last_used_at || b.updated_at || 0);
+        const aScore = Number(a.use_count || 0) * 10 + Number(a.last_used_at || a.updated_at || 0);
+        return bScore - aScore;
+      })
+      .slice(0, 8)
+  ), [catalogEntries]);
+  const adaptiveNeedsCustomer = !isCredit && (settlementMode === 'later' || settlementMode === 'partial');
+  const adaptiveCanSave =
+    type === 'sale'
+    && adaptiveTotal > 0
+    && !isSaving
+    && (!adaptiveNeedsCustomer || !!selectedCustomerForCredit)
+    && (settlementMode !== 'partial' || (partialReceivedAmount > 0 && partialReceivedAmount < adaptiveTotal));
 
   // Item is OPTIONAL for sale/expense; REQUIRED (as customer name) for credit
   // For Partial/Later settlement modes, a customer is also required.
@@ -424,6 +615,179 @@ function TransactionForm({
     if (!costPrice && entry.default_cost != null) setCostPrice(String(entry.default_cost));
   };
 
+  const addAdaptiveItem = (draftItem) => {
+    if (!draftItem) return;
+    setAdaptiveItems(prev => {
+      const matchKey = String(draftItem.catalog_entry_id || draftItem.code || draftItem.name).toLowerCase();
+      const existing = prev.find(line => String(line.catalog_entry_id || line.code || line.name).toLowerCase() === matchKey);
+      if (existing) {
+        return prev.map(line => {
+          const lineKey = String(line.catalog_entry_id || line.code || line.name).toLowerCase();
+          if (lineKey !== matchKey) return line;
+          const nextQty = Number(line.qty || 1) + Number(draftItem.qty || 1);
+          const unitPrice = Number(line.unit_price || draftItem.unit_price || 0);
+          return {
+            ...line,
+            qty: nextQty,
+            unit_price: unitPrice,
+            line_total: Math.round(nextQty * unitPrice * 100) / 100,
+            photo_uri: line.photo_uri || draftItem.photo_uri || null,
+          };
+        });
+      }
+      return [...prev, draftItem];
+    });
+    navigator.vibrate?.(50);
+  };
+
+  const addAdaptiveCatalogItem = (entry) => {
+    const price = Number(entry?.default_price || entry?.last_price || 0);
+    const draftItem = makeSaleDraftItem({
+      kind: 'item',
+      name: entry?.name || '',
+      code: entry?.code || entry?.sku || entry?.item_code || '',
+      qty: 1,
+      unitPrice: price,
+      total: price,
+      catalogEntry: entry,
+    }, photos[0]);
+    addAdaptiveItem(draftItem);
+    setSmartInput('');
+  };
+
+  const handleAdaptiveAddItem = () => {
+    if (saleInputDraft.kind === 'item') {
+      addAdaptiveItem(makeSaleDraftItem(saleInputDraft, photos[0]));
+      setSmartInput('');
+      return;
+    }
+    if (saleInputDraft.kind === 'catalog' && saleInputDraft.catalogEntry) {
+      addAdaptiveCatalogItem(saleInputDraft.catalogEntry);
+    }
+  };
+
+  const updateAdaptiveQty = (id, nextQty) => {
+    setAdaptiveItems(prev => prev.map(line => {
+      if (line.id !== id) return line;
+      const qtyValue = Math.max(1, Number(nextQty || 1));
+      const unitPrice = Number(line.unit_price || 0);
+      return { ...line, qty: qtyValue, line_total: Math.round(qtyValue * unitPrice * 100) / 100 };
+    }));
+  };
+
+  const removeAdaptiveItem = (id) => {
+    setAdaptiveItems(prev => prev.filter(line => line.id !== id));
+  };
+
+  const handleSalePaymentSelect = (method) => {
+    setSelectedSalePaymentId(method.id);
+    if (method.id === 'later') {
+      setSettlementMode('later');
+      setPartialReceived('');
+      return;
+    }
+    if (settlementMode === 'later') setSettlementMode('paid');
+    setPaymentType(method.paymentType);
+    setPaymentProvider(method.provider || '');
+  };
+
+  const applyCalculatorResult = () => {
+    const result = safeMathTotal(calculatorInput);
+    if (!result) return;
+    setSmartInput(String(result));
+    setCalculatorInput('');
+    setShowCalculator(false);
+  };
+
+  const buildAdaptiveSaveLabel = () => {
+    if (adaptiveTotal <= 0) return photos.length > 0 ? 'Add amount to save photo sale' : 'Save';
+    if (settlementMode === 'partial' && partialReceivedAmount > 0 && partialReceivedAmount < adaptiveTotal) {
+      return `Save Partial · ${fmt(partialReceivedAmount)} paid · ${fmt(adaptiveTotal - partialReceivedAmount)} remaining`;
+    }
+    if (settlementMode === 'later') {
+      return selectedCustomerForCredit?.display_name
+        ? `Save Credit · ${selectedCustomerForCredit.display_name} · ${fmt(adaptiveTotal)} ETB`
+        : `Save Credit · ${fmt(adaptiveTotal)} ETB`;
+    }
+    if (adaptiveItems.length > 0 || adaptiveInlineItem) {
+      const count = adaptiveItems.length || 1;
+      return `Save ${count} ${count === 1 ? 'item' : 'items'} · ${fmt(adaptiveTotal)} ETB`;
+    }
+    if (photos.length > 0) return `Save photo sale · ${fmt(adaptiveTotal)} ETB`;
+    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(adaptiveTotal)} ETB`;
+    return `Save ${fmt(adaptiveTotal)} ETB`;
+  };
+
+  const handleAdaptiveSaleSave = async () => {
+    if (!adaptiveCanSave) return;
+    setIsSaving(true);
+    const effectiveItems = adaptiveItems.length > 0
+      ? adaptiveItems
+      : (adaptiveInlineItem ? [adaptiveInlineItem] : []);
+    const primaryItemName = effectiveItems.length > 0
+      ? effectiveItems.map(line => line.name).join(', ').substring(0, 200)
+      : (saleInputDraft.note || smartInput.trim() || 'Sale');
+    const cashReceived = settlementMode === 'paid'
+      ? adaptiveTotal
+      : settlementMode === 'partial'
+        ? partialReceivedAmount
+        : 0;
+    const photoFields = buildPhotoFields(photos);
+    const data = {
+      type: 'sale',
+      item_name: primaryItemName,
+      catalog_entry_id: effectiveItems[0]?.catalog_entry_id ? Number(effectiveItems[0].catalog_entry_id) : null,
+      item_kind: effectiveItems[0]?.item_kind || null,
+      quantity: Math.max(1, adaptiveUnitCount || effectiveItems[0]?.qty || 1),
+      amount: adaptiveTotal,
+      cost_price: 0,
+      profit: null,
+      is_credit: false,
+      customer_id: adaptiveNeedsCustomer ? (selectedCustomerForCredit?.id || null) : null,
+      customer_name: adaptiveNeedsCustomer ? (selectedCustomerForCredit?.display_name || null) : null,
+      customer_phone: null,
+      due_date: settlementMode === 'later' ? getEffectiveDueDate() : null,
+      payment_type: settlementMode === 'later' ? 'credit' : activeSalePayment.paymentType,
+      payment_provider: settlementMode === 'later' ? null : (activeSalePayment.provider || null),
+      payment_method_label: activeSalePayment.label,
+      direction: null,
+      ...photoFields,
+      items: effectiveItems.length > 0
+        ? effectiveItems.map(line => ({
+            name: line.name,
+            code: line.code || null,
+            amount: Number(line.line_total || 0),
+            qty: Number(line.qty || 1),
+            unit_price: Number(line.unit_price || 0),
+            line_total: Number(line.line_total || 0),
+            photo_uri: line.photo_uri || null,
+          }))
+        : null,
+      settlement_mode: settlementMode,
+      cash_received: cashReceived,
+      credit_amount: adaptiveCreditAmount > 0 ? adaptiveCreditAmount : null,
+      source: photos.length > 0 ? 'adaptive_photo_sale' : 'adaptive_sale',
+      raw_transcript: smartInput.trim() || null,
+      created_at: Date.now(),
+    };
+    try {
+      await onSave(data);
+      navigator.vibrate?.([40, 30, 40]);
+      if (effectiveItems.length > 0 && onSaveCatalogEntry) {
+        effectiveItems.forEach((line) => {
+          onSaveCatalogEntry({
+            name: line.name,
+            kind: 'item',
+            default_price: line.unit_price || line.line_total || null,
+          }).catch(() => {});
+        });
+      }
+      onDone();
+    } catch (err) {
+      setIsSaving(false);
+    }
+  };
+
   const openAddRecurring = (demoName = '') => {
     setPopupName(demoName);
     setPopupAmount('');
@@ -447,6 +811,140 @@ function TransactionForm({
   };
 
   // ─── Main form ──────────────────────────────────────────────────────────
+  if (type === 'sale') {
+    const saveLabel = buildAdaptiveSaveLabel();
+    const remainingAmount = Math.max(0, adaptiveTotal - partialReceivedAmount);
+    const addItemEnabled = saleInputDraft.kind === 'item' || saleInputDraft.kind === 'catalog';
+    return (
+      <div className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col">
+        <div className="flex-shrink-0 px-3 sm:px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #e8e2d8' }}>
+          <button onClick={onDone} aria-label="Back" className="press-scale flex items-center justify-center" style={{ minWidth: 36, minHeight: 36, padding: 4 }}>
+            <ArrowLeft className="w-5 h-5" style={{ color: '#6b7280' }} />
+          </button>
+          <div className="text-center min-w-0">
+            <h2 className="text-base font-black" style={{ color: '#14532d' }}>+ Sale</h2>
+            {actorLabel && <p className="text-[11px] font-semibold truncate" style={{ color: '#6b7280', maxWidth: 210 }}>Recording as {actorLabel}</p>}
+          </div>
+          <div style={{ width: 36 }} />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-4 space-y-3">
+          <section className="border" style={{ borderColor: '#d8eadf', borderRadius: 'var(--radius-md)', background: '#f7fcf8' }}>
+            <div className="px-3 py-2.5 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold" style={{ color: '#4b6855' }}>Total</p>
+                <p className="text-2xl font-black leading-tight" style={{ color: adaptiveTotal > 0 ? '#14532d' : '#9ca3af' }}>{fmt(adaptiveTotal)} ETB</p>
+              </div>
+              <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>
+                {activeSalePayment.label}⌄
+              </span>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex gap-2 items-stretch">
+              <label className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0" style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }} aria-label="Take or choose photo">
+                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS} />
+                {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
+              </label>
+              <input
+                type="text"
+                inputMode="text"
+                autoFocus
+                value={smartInput}
+                onChange={event => setSmartInput(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter' && addItemEnabled) handleAdaptiveAddItem(); }}
+                placeholder="Amount, item, code, or note..."
+                className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-base"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: smartInput ? '#86efac' : '#d7e3da' }}
+              />
+              <button type="button" onClick={handleAdaptiveAddItem} disabled={!addItemEnabled} className="adaptive-add-item px-3 py-2 text-sm font-black press-scale flex-shrink-0" style={{ borderRadius: 'var(--radius-md)', background: addItemEnabled ? '#14532d' : '#e5e7eb', color: addItemEnabled ? '#fff' : '#6b7280', minWidth: 66 }}>
+                <span className="hidden min-[390px]:inline">Add item</span><span className="min-[390px]:hidden">Add</span>
+              </button>
+            </div>
+            <p className="text-xs mt-1.5" style={{ color: '#6b7280' }}>Examples: 500 · charger 350 · bread 2x15 · <button type="button" onClick={() => setShowCalculator(true)} className="font-bold underline" style={{ color: '#14532d' }}>Calculator</button></p>
+            {photos.length > 0 && (
+              <div className="mt-2 flex items-center gap-2 p-2 border" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-sm)', background: '#f8faf8' }}>
+                <img src={photos[0].dataUrl} alt="" className="w-10 h-10 object-cover" style={{ borderRadius: 6 }} />
+                <div className="flex-1 min-w-0"><p className="text-xs font-black" style={{ color: '#14532d' }}>Photo attached</p><p className="text-xs truncate" style={{ color: '#6b7280' }}>Add amount or item name</p></div>
+                <button type="button" onClick={() => handleRemovePhoto(photos[0].id)} aria-label="Remove photo" className="p-2"><X className="w-4 h-4" style={{ color: '#6b7280' }} /></button>
+              </div>
+            )}
+            {photoError && <p className="text-xs mt-1 font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
+          </section>
+
+          {adaptiveSuggestions.length > 0 && (
+            <section className="space-y-1.5">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Suggestions</p>
+              {adaptiveSuggestions.map(entry => (
+                <button key={entry.id} type="button" onClick={() => addAdaptiveCatalogItem(entry)} className="w-full p-2.5 border text-left press-scale flex items-center justify-between gap-2" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                  <span className="min-w-0"><span className="block text-sm font-black truncate" style={{ color: '#111827' }}>{entry.name}</span>{(entry.code || entry.sku || entry.item_code) && <span className="block text-xs truncate" style={{ color: '#6b7280' }}>Code: {entry.code || entry.sku || entry.item_code}</span>}</span>
+                  {(entry.default_price || entry.last_price) && <span className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(entry.default_price || entry.last_price)} ETB</span>}
+                </button>
+              ))}
+            </section>
+          )}
+
+          <section>
+            <p className="text-[11px] font-black uppercase tracking-wide mb-1.5" style={{ color: '#6b7280' }}>Recent / Quick items</p>
+            {adaptiveQuickItems.length === 0 ? (
+              <div className="p-3 border text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}><p className="font-bold" style={{ color: '#374151' }}>No items yet</p><p>They will appear here as you sell.</p></div>
+            ) : (
+              <div className="flex gap-1.5 overflow-x-auto pb-1">{adaptiveQuickItems.map(entry => <button key={entry.id} type="button" onClick={() => addAdaptiveCatalogItem(entry)} className="flex-shrink-0 px-3 py-2 text-xs font-black border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>{entry.code || entry.sku || entry.item_code || entry.name}</button>)}</div>
+            )}
+          </section>
+
+          {(adaptiveItems.length > 0 || adaptiveInlineItem) && (
+            <section className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Items in this sale ({adaptiveItems.length || 1})</p>
+              {(adaptiveItems.length > 0 ? adaptiveItems : [adaptiveInlineItem]).map(line => (
+                <div key={line.id} className="p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><p className="text-sm font-black truncate" style={{ color: '#111827' }}>{line.name}</p>{line.code && <p className="text-xs" style={{ color: '#6b7280' }}>{line.code}</p>}<p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} · Unit: {fmt(line.unit_price)}</p></div>
+                    <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(line.line_total)} ETB</p>
+                  </div>
+                  {adaptiveItems.length > 0 && <div className="mt-2 flex items-center justify-between gap-2"><div className="flex items-center gap-2"><button type="button" onClick={() => updateAdaptiveQty(line.id, Number(line.qty || 1) - 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Minus className="w-4 h-4" /></button><span className="text-sm font-black min-w-6 text-center">{line.qty}</span><button type="button" onClick={() => updateAdaptiveQty(line.id, Number(line.qty || 1) + 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Plus className="w-4 h-4" /></button></div><button type="button" onClick={() => removeAdaptiveItem(line.id)} className="px-3 py-2 text-xs font-bold border press-scale" style={{ borderColor: '#fecaca', color: '#b91c1c', borderRadius: 6 }}>Delete</button></div>}
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-black px-1" style={{ color: '#374151' }}><span>Subtotal ({adaptiveItems.length || 1} {(adaptiveItems.length || 1) === 1 ? 'item' : 'items'}, {adaptiveUnitCount || adaptiveInlineItem?.qty || 1} units)</span><span>{fmt(adaptiveTotal)} ETB</span></div>
+            </section>
+          )}
+
+          <section>
+            <p className="text-[11px] font-black uppercase tracking-wide mb-1.5" style={{ color: '#6b7280' }}>Payment method</p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">{SALE_PAYMENT_METHODS.map(method => { const active = method.id === activeSalePayment.id; return <button key={method.id} type="button" onClick={() => handleSalePaymentSelect(method)} className="flex-shrink-0 px-3 py-2 text-xs font-black border-2 press-scale" style={{ borderColor: active ? '#14532d' : '#e8e2d8', borderRadius: 'var(--radius-sm)', background: active ? '#ecfdf3' : '#fff', color: active ? '#14532d' : '#374151' }}>{method.label}</button>; })}</div>
+          </section>
+
+          <section className="space-y-2">
+            <label className="flex items-center justify-between gap-3 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)' }}><span className="text-sm font-black" style={{ color: '#374151' }}>Partial payment</span><input type="checkbox" checked={settlementMode === 'partial'} onChange={event => { setSettlementMode(event.target.checked ? 'partial' : 'paid'); if (!event.target.checked) setPartialReceived(''); if (event.target.checked && selectedSalePaymentId === 'later') setSelectedSalePaymentId('cash'); }} className="w-5 h-5" /></label>
+            {settlementMode === 'partial' && <div className="space-y-2 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fafaf6' }}><input type="text" inputMode="decimal" value={fmtInput(partialReceived)} onChange={event => handleNumericInput(event, setPartialReceived)} placeholder="Paid amount" className="w-full p-2.5 border focus:outline-none text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 6 }} /><p className="text-xs font-bold" style={{ color: '#6b7280' }}>Remaining: {fmt(remainingAmount)} ETB</p></div>}
+            {(settlementMode === 'later' || settlementMode === 'partial') && (
+              <div className="space-y-2 p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                {selectedCustomerForCredit ? <div className="flex items-center gap-2"><span className="flex-1 text-sm font-black truncate">{selectedCustomerForCredit.display_name}</span><button type="button" onClick={() => setSelectedCustomerForCredit(null)} className="p-2"><X className="w-4 h-4" /></button></div> : <><input type="text" value={newCustomerName} onChange={event => setNewCustomerName(event.target.value)} placeholder="Customer name" className="w-full p-2.5 border focus:outline-none text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 6 }} /><div className="flex gap-1.5 overflow-x-auto pb-1">{recentCustomers.map(customer => <button key={customer.id} type="button" onClick={() => setSelectedCustomerForCredit(customer)} className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}>{customer.display_name}</button>)}{onAddCustomerInline && <button type="button" onClick={submitNewCustomerInline} disabled={!newCustomerName.trim() || savingCustomer} className="flex-shrink-0 px-3 py-1.5 text-xs font-black" style={{ background: newCustomerName.trim() ? '#14532d' : '#e5e7eb', color: newCustomerName.trim() ? '#fff' : '#6b7280', borderRadius: 6 }}>Add customer</button>}</div></>}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8', background: '#fff' }}>
+          {!adaptiveCanSave && adaptiveTotal > 0 && adaptiveNeedsCustomer && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>Add or pick a customer above</p>}
+          <button type="button" onClick={handleAdaptiveSaleSave} disabled={!adaptiveCanSave} className="w-full p-3 font-black text-base flex items-center justify-center gap-2 transition-all press-scale" style={{ background: adaptiveCanSave ? '#14532d' : '#e5e7eb', color: adaptiveCanSave ? '#fff' : '#9ca3af', cursor: adaptiveCanSave ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-md)' }}><Save className="w-5 h-5" />{saveLabel}</button>
+          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone · Syncs later</p>
+        </div>
+
+        {showCalculator && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center" style={{ background: 'rgba(17,24,39,0.35)' }}>
+            <div className="w-full max-w-md bg-white p-3 space-y-3" style={{ borderRadius: '16px 16px 0 0' }}>
+              <div className="flex items-center gap-2"><input value={calculatorInput} onChange={event => setCalculatorInput(event.target.value)} placeholder="350 + 250" className="flex-1 p-3 border text-xl font-black focus:outline-none" style={{ borderColor: '#e8e2d8', borderRadius: 8 }} /><button type="button" onClick={() => setShowCalculator(false)} className="p-3"><X className="w-5 h-5" /></button></div>
+              <div className="grid grid-cols-4 gap-2">{['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', 'C', '0', '.', '+'].map(key => <button key={key} type="button" onClick={() => setCalculatorInput(prev => key === 'C' ? '' : `${prev}${key}`)} className="p-3 text-lg font-black border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 8, background: '#fafaf6' }}>{key}</button>)}</div>
+              <button type="button" onClick={applyCalculatorResult} disabled={!safeMathTotal(calculatorInput)} className="w-full p-3 font-black" style={{ background: safeMathTotal(calculatorInput) ? '#14532d' : '#e5e7eb', color: safeMathTotal(calculatorInput) ? '#fff' : '#9ca3af', borderRadius: 8 }}>Done{safeMathTotal(calculatorInput) ? ` · ${fmt(safeMathTotal(calculatorInput))} ETB` : ''}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col"
