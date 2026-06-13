@@ -143,6 +143,23 @@ test('calculator writes the amount field without permanently occupying the form'
   await expect(page.getByPlaceholder(/350 \+ 250/i)).toHaveCount(0);
 });
 
+test('selecting the same suggested item twice merges quantity and updates save label', async ({ page }) => {
+  await startEnglishNotebook(page);
+  await seedCatalog(page);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+
+  await page.getByRole('button', { name: /^sale$/i }).click();
+  await page.getByPlaceholder('0').fill('940');
+  await page.getByPlaceholder(/search item name or code/i).fill('ch');
+  await page.getByRole('button', { name: /charger/i }).click();
+  await page.getByPlaceholder(/search item name or code/i).fill('ch');
+  await page.getByRole('button', { name: /charger/i }).click();
+
+  await expect(page.getByText(/qty:\s*2/i)).toBeVisible();
+  await expect(page.getByText(/items subtotal \(2 units\)/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /save 2 items .*940/i })).toBeVisible();
+});
+
 test('new typed sale item is learned locally for recent items after reload', async ({ page }) => {
   await startEnglishNotebook(page);
 
@@ -151,6 +168,10 @@ test('new typed sale item is learned locally for recent items after reload', asy
   await page.getByPlaceholder(/search item name or code/i).fill('New Gum');
   await page.getByRole('button', { name: /add item/i }).click();
   await page.getByRole('button', { name: /save 1 item .*123/i }).click();
+  await expect.poll(async () => readSavedSale(page)).toEqual(expect.objectContaining({
+    item_name: 'New Gum',
+    amount: 123,
+  }));
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: /tigist shop/i })).toBeVisible();

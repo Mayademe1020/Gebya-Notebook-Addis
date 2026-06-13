@@ -681,7 +681,10 @@ function TransactionForm({
         ? `Save Credit · ${selectedCustomerForCredit.display_name} · ${fmt(saleFinalAmount)} ETB`
         : `Save Credit · ${fmt(saleFinalAmount)} ETB`;
     }
-    if (saleItems.length > 0) return `Save ${saleItems.length} ${saleItems.length === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`;
+    if (saleItems.length > 0) {
+      const itemCount = saleUnitCount || saleItems.length;
+      return `Save ${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`;
+    }
     if (photos.length > 0) return `Save photo sale · ${fmt(saleFinalAmount)} ETB`;
     if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(saleFinalAmount)} ETB`;
     return `Save ${fmt(saleFinalAmount)} ETB`;
