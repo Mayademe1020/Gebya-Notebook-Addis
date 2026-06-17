@@ -9,6 +9,7 @@ export const analytics = pgTable("analytics", {
   count: integer("count").default(0),
   lastSeenAt: bigint("last_seen_at", { mode: "number" }),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }),
   schemaVersion: integer("schema_version").default(1),
   syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow(),
 }, (t) => [
@@ -22,6 +23,7 @@ export const insertAnalyticsSchema = z.object({
   count: z.number().optional(),
   lastSeenAt: z.number().optional(),
   createdAt: z.number(),
+  updatedAt: z.number().optional(),
   schemaVersion: z.number().optional(),
 });
 
