@@ -12,6 +12,7 @@ export const customerTransactions = pgTable("customer_transactions", {
   type: varchar("type", { length: 32 }).notNull().default("payment"),
   note: text("note"),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }),
 
   schemaVersion: integer("schema_version").default(1),
   syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow(),
@@ -29,6 +30,7 @@ export const insertCustomerTransactionSchema = z.object({
   type: z.string().max(32).optional(),
   note: z.string().nullable().optional(),
   createdAt: z.number(),
+  updatedAt: z.number().optional(),
   schemaVersion: z.number().optional(),
 });
 

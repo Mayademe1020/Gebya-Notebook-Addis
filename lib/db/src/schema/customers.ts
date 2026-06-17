@@ -7,6 +7,7 @@ export const customers = pgTable("customers", {
   deviceId: varchar("device_id", { length: 128 }).notNull(),
   transactionId: varchar("transaction_id", { length: 128 }).notNull(),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }),
 
   name: text("name"),
   phone: text("phone"),
@@ -32,6 +33,7 @@ export const insertCustomerSchema = z.object({
   deviceId: z.string().max(128),
   transactionId: z.string().max(128),
   createdAt: z.number(),
+  updatedAt: z.number().optional(),
   name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
