@@ -10,6 +10,7 @@ import { ALL_BANKS, ALL_WALLETS } from './PaymentTypeChips';
 import { fireToast } from './Toast';
 import { normalizeTelegram } from '../utils/customerTelegram';
 import { isValidSubscriber, extractSubscriberDigits } from '../utils/phoneNumber';
+import { useSyncStore } from '../stores/syncStore';
 import { getSyncEngine } from '../utils/syncEngine';
 import {
   DEFAULT_CHANNEL_DEFINITIONS,
@@ -627,14 +628,7 @@ function SettingsPage({
   const [cleared, setCleared] = useState(false);
   // Commit E: backup + restore state
   const [lastBackupAt, setLastBackupAt] = useState(null);
-  const [syncState, setSyncState] = useState({ status: 'idle', lastSyncAt: 0, error: null, online: true });
-
-  // Sync status listener
-  useEffect(() => {
-    const engine = getSyncEngine();
-    if (!engine) return;
-    return engine.onChange(setSyncState);
-  }, []);
+  const syncState = useSyncStore(s => ({ status: s.status, lastSyncAt: s.lastSyncAt, error: s.error, online: s.online }));
   const [restoreTarget, setRestoreTarget] = useState(null);
   const [restoreConfirmStep2, setRestoreConfirmStep2] = useState(false);
   const [catalogForm, setCatalogForm] = useState({

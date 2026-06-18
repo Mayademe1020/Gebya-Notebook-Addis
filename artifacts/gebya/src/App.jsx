@@ -28,6 +28,9 @@ import { countPendingTelegramSync, drainTelegramSyncQueue, enqueueTelegramLedger
 import { createCloudProofFields, enqueueCloudProofUpsert } from './utils/cloudProof';
 import { initSyncEngine, getAuthToken, getSyncEngine, clearAuthToken } from './utils/syncEngine';
 import AuthGate from './components/AuthGate';
+import { useAppStore } from './stores/appStore';
+import { useAuthStore } from './stores/authStore';
+import { useShopStore } from './stores/shopStore';
 import { normalizeStaffDraft, resolveActorSnapshot, getActorDisplayLabel } from './utils/staffMembers';
 import {
   buildDefaultChannels,
@@ -695,6 +698,8 @@ function AppInner() {
   const { hidden } = usePrivacy();
   const { lang, toggleLang, t } = useLang();
   const pwa = usePwaInstall();
+
+  // ─── Phase B: Data state (stays in AppInner for now) ───
   const [transactions, setTransactions] = useState([]);
   const [ledgerCustomers, setLedgerCustomers] = useState([]);
   const [ledgerTransactions, setLedgerTransactions] = useState([]);
@@ -703,68 +708,97 @@ function AppInner() {
   const [supplierTransactions, setSupplierTransactions] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
   const [activeStaffMemberId, setActiveStaffMemberId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('today');
-  // Launch-critical data-loss prevention: nudge the shopkeeper to back up
-  // when they've never backed up or it's been >7 days. Dismissable per session.
-  const [lastBackupAt, setLastBackupAt] = useState(undefined); // undefined = not loaded yet
-  const [backupNudgeDismissed, setBackupNudgeDismissed] = useState(false);
-  const [showForm, setShowForm] = useState(null);
-  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
-  const [telegramConnectCustomerId, setTelegramConnectCustomerId] = useState(null);
-  const [showCustomerForm, setShowCustomerForm] = useState(false);
-  const [customerTransactionModal, setCustomerTransactionModal] = useState(null);
-  const [reminderTarget, setReminderTarget] = useState(null);
-  // Bulk reminder · queue of customer ids to remind in sequence
-  const [bulkReminderQueue, setBulkReminderQueue] = useState([]);
-  // Edit a single customer_transaction · opens CustomerTransactionSheet pre-filled
-  const [customerTransactionEditTarget, setCustomerTransactionEditTarget] = useState(null);
-  // Commit C.2: track the customer being edited (vs added). When non-null,
-  // CustomerForm renders in edit mode pre-filled with `existing={customer}`.
-  const [customerEditTarget, setCustomerEditTarget] = useState(null);
-  // Supplier credit ("I owe") — Khatabook-style second ledger
-  const [creditView, setCreditView] = useState('customers'); // 'customers' | 'suppliers'
-  const [selectedSupplierId, setSelectedSupplierId] = useState(null);
-  const [showSupplierForm, setShowSupplierForm] = useState(false);
-  const [supplierTransactionModal, setSupplierTransactionModal] = useState(null);
-  // Commit D: edit existing supplier (mirrors customerEditTarget pattern).
-  // When set, SupplierForm renders pre-filled with `existing={supplier}`.
-  const [supplierEditTarget, setSupplierEditTarget] = useState(null);
-  // Commit D: edit a single supplier_transaction row (mirror of
-  // customerTransactionEditTarget). When set, SupplierTransactionSheet
-  // renders with `editingTransaction={...}` so the user can adjust amount/note.
-  const [supplierTransactionEditTarget, setSupplierTransactionEditTarget] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editTarget, setEditTarget] = useState(null);
-  const [shopProfile, setShopProfile] = useState(null);
-  const [ownerAlertSettings, setOwnerAlertSettings] = useState({
-    threshold_amount: DEFAULT_OWNER_ALERT_THRESHOLD_AMOUNT,
-  });
-  const [enabledProviders, setEnabledProviders] = useState(DEFAULT_PROVIDERS);
-  const [recurringExpenses, setRecurringExpenses] = useState([]);
-  const [customQuickAmounts, setCustomQuickAmounts] = useState([]);
-  const [lastPayment, setLastPayment] = useState({
-    sale:    { type: 'cash', provider: '', bankProvider: '', walletProvider: '' },
-    expense: { type: 'cash', provider: '', bankProvider: '', walletProvider: '' },
-  });
-  const [usageStats, setUsageStats] = useState(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareText, setShareText] = useState('');
-  const [pressedBtn, setPressedBtn] = useState(null);
-  const [voiceStep, setVoiceStep] = useState(null);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [voiceDetectedTotal, setVoiceDetectedTotal] = useState(null);
-  const [voiceItems, setVoiceItems] = useState([]);
-  const [voiceConfidence, setVoiceConfidence] = useState(null);
-  const [voiceProvider, setVoiceProvider] = useState(null);
-  const [voiceDraft, setVoiceDraft] = useState(null);
-  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
-  const [pendingTelegramCount, setPendingTelegramCount] = useState(0);
-  const [retryingTelegram, setRetryingTelegram] = useState(false);
-  // Phase 5: Auth state — null = not checked, false = checked but no user, object = logged in
-  const [authUser, setAuthUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
+  // ─── Phase B: Global UI state (Zustand stores) ───
+  const activeTab = useAppStore(s => s.activeTab);
+  const setActiveTab = useAppStore(s => s.setActiveTab);
+  const loading = useAppStore(s => s.loading);
+  const setLoading = useAppStore(s => s.setLoading);
+  const showForm = useAppStore(s => s.showForm);
+  const setShowForm = useAppStore(s => s.setShowForm);
+  const selectedCustomerId = useAppStore(s => s.selectedCustomerId);
+  const setSelectedCustomerId = useAppStore(s => s.setSelectedCustomerId);
+  const telegramConnectCustomerId = useAppStore(s => s.telegramConnectCustomerId);
+  const setTelegramConnectCustomerId = useAppStore(s => s.setTelegramConnectCustomerId);
+  const showCustomerForm = useAppStore(s => s.showCustomerForm);
+  const setShowCustomerForm = useAppStore(s => s.setShowCustomerForm);
+  const customerTransactionModal = useAppStore(s => s.customerTransactionModal);
+  const setCustomerTransactionModal = useAppStore(s => s.setCustomerTransactionModal);
+  const reminderTarget = useAppStore(s => s.reminderTarget);
+  const setReminderTarget = useAppStore(s => s.setReminderTarget);
+  const bulkReminderQueue = useAppStore(s => s.bulkReminderQueue);
+  const setBulkReminderQueue = useAppStore(s => s.setBulkReminderQueue);
+  const customerTransactionEditTarget = useAppStore(s => s.customerTransactionEditTarget);
+  const setCustomerTransactionEditTarget = useAppStore(s => s.setCustomerTransactionEditTarget);
+  const customerEditTarget = useAppStore(s => s.customerEditTarget);
+  const setCustomerEditTarget = useAppStore(s => s.setCustomerEditTarget);
+  const creditView = useAppStore(s => s.creditView);
+  const setCreditView = useAppStore(s => s.setCreditView);
+  const selectedSupplierId = useAppStore(s => s.selectedSupplierId);
+  const setSelectedSupplierId = useAppStore(s => s.setSelectedSupplierId);
+  const showSupplierForm = useAppStore(s => s.showSupplierForm);
+  const setShowSupplierForm = useAppStore(s => s.setShowSupplierForm);
+  const supplierTransactionModal = useAppStore(s => s.supplierTransactionModal);
+  const setSupplierTransactionModal = useAppStore(s => s.setSupplierTransactionModal);
+  const supplierEditTarget = useAppStore(s => s.supplierEditTarget);
+  const setSupplierEditTarget = useAppStore(s => s.setSupplierEditTarget);
+  const supplierTransactionEditTarget = useAppStore(s => s.supplierTransactionEditTarget);
+  const setSupplierTransactionEditTarget = useAppStore(s => s.setSupplierTransactionEditTarget);
+  const editTarget = useAppStore(s => s.editTarget);
+  const setEditTarget = useAppStore(s => s.setEditTarget);
+  const deleteTarget = useAppStore(s => s.deleteTarget);
+  const setDeleteTarget = useAppStore(s => s.setDeleteTarget);
+  const showShareModal = useAppStore(s => s.showShareModal);
+  const setShowShareModal = useAppStore(s => s.setShowShareModal);
+  const shareText = useAppStore(s => s.shareText);
+  const setShareText = useAppStore(s => s.setShareText);
+  const pressedBtn = useAppStore(s => s.pressedBtn);
+  const setPressedBtn = useAppStore(s => s.setPressedBtn);
+  const voiceStep = useAppStore(s => s.voiceStep);
+  const setVoiceStep = useAppStore(s => s.setVoiceStep);
+  const voiceTranscript = useAppStore(s => s.voiceTranscript);
+  const setVoiceTranscript = useAppStore(s => s.setVoiceTranscript);
+  const voiceDetectedTotal = useAppStore(s => s.voiceDetectedTotal);
+  const setVoiceDetectedTotal = useAppStore(s => s.setVoiceDetectedTotal);
+  const voiceItems = useAppStore(s => s.voiceItems);
+  const setVoiceItems = useAppStore(s => s.setVoiceItems);
+  const voiceConfidence = useAppStore(s => s.voiceConfidence);
+  const setVoiceConfidence = useAppStore(s => s.setVoiceConfidence);
+  const voiceProvider = useAppStore(s => s.voiceProvider);
+  const setVoiceProvider = useAppStore(s => s.setVoiceProvider);
+  const voiceDraft = useAppStore(s => s.voiceDraft);
+  const setVoiceDraft = useAppStore(s => s.setVoiceDraft);
+  const lastSavedSnapshot = useAppStore(s => s.lastSavedSnapshot);
+  const setLastSavedSnapshot = useAppStore(s => s.setLastSavedSnapshot);
+  const pendingTelegramCount = useAppStore(s => s.pendingTelegramCount);
+  const setPendingTelegramCount = useAppStore(s => s.setPendingTelegramCount);
+  const retryingTelegram = useAppStore(s => s.retryingTelegram);
+  const setRetryingTelegram = useAppStore(s => s.setRetryingTelegram);
+  const lastBackupAt = useAppStore(s => s.lastBackupAt);
+  const setLastBackupAt = useAppStore(s => s.setLastBackupAt);
+  const backupNudgeDismissed = useAppStore(s => s.backupNudgeDismissed);
+  const setBackupNudgeDismissed = useAppStore(s => s.setBackupNudgeDismissed);
+
+  // ─── Phase B: Auth state (Zustand) ───
+  const authUser = useAuthStore(s => s.user);
+  const authChecked = useAuthStore(s => s.checked);
+  const setAuthUser = useAuthStore(s => s.setUser);
+
+  // ─── Phase B: Shop state (Zustand) ───
+  const shopProfile = useShopStore(s => s.shopProfile);
+  const setShopProfile = useShopStore(s => s.setShopProfile);
+  const ownerAlertSettings = useShopStore(s => s.ownerAlertSettings);
+  const setOwnerAlertSettings = useShopStore(s => s.setOwnerAlertSettings);
+  const enabledProviders = useShopStore(s => s.enabledProviders);
+  const setEnabledProviders = useShopStore(s => s.setEnabledProviders);
+  const recurringExpenses = useShopStore(s => s.recurringExpenses);
+  const setRecurringExpenses = useShopStore(s => s.setRecurringExpenses);
+  const customQuickAmounts = useShopStore(s => s.customQuickAmounts);
+  const setCustomQuickAmounts = useShopStore(s => s.setCustomQuickAmounts);
+  const lastPayment = useShopStore(s => s.lastPayment);
+  const setLastPayment = useShopStore(s => s.setLastPayment);
+  const usageStats = useShopStore(s => s.usageStats);
+  const setUsageStats = useShopStore(s => s.setUsageStats);
   const buildActorSnapshot = useCallback(() => (
     resolveActorSnapshot({ shopProfile, staffMembers, activeStaffMemberId })
   ), [shopProfile, staffMembers, activeStaffMemberId]);
@@ -1001,17 +1035,17 @@ function AppInner() {
       try {
         const token = await getAuthToken();
         if (!token) {
-          if (!cancelled) { setAuthUser(false); setAuthChecked(true); }
+          if (!cancelled) { setAuthUser(false); }
           return;
         }
         // Token exists — try to get user info
         const { getCurrentUser } = await import('./utils/authClient');
         const user = await getCurrentUser(token);
-        if (!cancelled) { setAuthUser(user); setAuthChecked(true); }
+        if (!cancelled) { setAuthUser(user); }
       } catch (err) {
         // Token invalid or expired — clear it
         await clearAuthToken();
-        if (!cancelled) { setAuthUser(false); setAuthChecked(true); }
+        if (!cancelled) { setAuthUser(false); }
       }
     })();
     return () => { cancelled = true; };
@@ -3754,7 +3788,7 @@ function AppInner() {
             const engine = getSyncEngine();
             if (engine) engine.sync();
           }}
-          onSkip={() => setAuthUser({ skipped: true })}
+          onSkip={() => useAuthStore.getState().setUser({ skipped: true })}
         />
       )}
     </div>

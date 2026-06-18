@@ -1,5 +1,6 @@
 import db from '../db';
 import { getOrCreateCloudProofDeviceId } from './cloudProof';
+import { useSyncStore } from '../stores/syncStore';
 
 const SYNC_API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 const AUTH_TOKEN_KEY = 'gebya_auth_token';
@@ -47,7 +48,12 @@ class SyncEngine {
   }
 
   _notify() {
-    this.listeners.forEach((cb) => cb(this.getState()));
+    const state = this.getState();
+    this.listeners.forEach((cb) => cb(state));
+    // Phase B: Also update Zustand syncStore for global access
+    try {
+      useSyncStore.getState().setSyncState(state);
+    } catch { /* ignore if store not initialized yet */ }
   }
 
   getState() {
