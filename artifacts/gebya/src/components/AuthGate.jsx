@@ -12,12 +12,14 @@ export default function AuthGate({ onAuthenticated, onSkip, shopPhone = '', lang
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Pre-fill phone from shop profile on mount
+  // Pre-fill phone from shop profile on mount (store only the 9 local digits)
   useEffect(() => {
     if (shopPhone) {
       const digits = shopPhone.replace(/\D/g, '');
       if (digits.startsWith('251') && digits.length === 12) {
-        setPhone('+' + digits);
+        setPhone(digits.slice(3)); // strip 251, keep the 9 local digits
+      } else if (digits.length === 9 && (digits[0] === '9' || digits[0] === '7')) {
+        setPhone(digits);
       }
     }
   }, [shopPhone]);
@@ -63,18 +65,17 @@ export default function AuthGate({ onAuthenticated, onSkip, shopPhone = '', lang
     },
   }[lang];
 
-  function isValidEthiopianPhone(phone) {
-    const digits = phone.replace(/\D/g, '');
-    return digits.length === 12 && digits.startsWith('251') && digits[3] === '9';
+  // phone state holds the 9 local digits only (e.g. "912345678" or "712345678")
+  function isValidLocalPhone(localDigits) {
+    return localDigits.length === 9 && (localDigits[0] === '9' || localDigits[0] === '7');
   }
 
   async function handleRequestOtp() {
-    const digits = phone.replace(/\D/g, '');
-    if (!isValidEthiopianPhone(phone)) {
+    if (!isValidLocalPhone(phone)) {
       setError(t.invalidPhone);
       return;
     }
-    const formatted = `+${digits}`;
+    const formatted = `+251${phone}`;
     setError(null);
     setLoading(true);
     try {
@@ -89,8 +90,7 @@ export default function AuthGate({ onAuthenticated, onSkip, shopPhone = '', lang
   }
 
   async function handleVerifyOtp() {
-    const digits = phone.replace(/\D/g, '');
-    const formatted = `+${digits}`;
+    const formatted = `+251${phone}`;
     setError(null);
     setLoading(true);
     try {
@@ -137,17 +137,25 @@ export default function AuthGate({ onAuthenticated, onSkip, shopPhone = '', lang
                   type="tel"
                   inputMode="numeric"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s]/g, ''))}
-                  placeholder={t.phonePlaceholder}
+                  onChange={(e) => {
+                    // Strip non-digits, cap at 9 chars
+                    const raw = e.target.value.replace(/\D/g, '').slice(0, 9);
+                    // First digit must be 7 or 9 (or empty while typing)
+                    if (raw.length > 0 && raw[0] !== '7' && raw[0] !== '9') return;
+                    setPhone(raw);
+                    setError(null);
+                  }}
+                  placeholder="9XX XXX XXX"
+                  maxLength={9}
                   className="flex-1 px-4 py-3 border-2 rounded-r-xl text-sm focus:outline-none"
-                  style={{ borderColor: '#e8e2d8' }}
+                  style={{ borderColor: error ? '#fca5a5' : '#e8e2d8' }}
                   autoFocus
                 />
               </div>
             </div>
             <button
               onClick={handleRequestOtp}
-              disabled={loading || phone.replace(/\D/g, '').length < 9}
+              disabled={loading || !isValidLocalPhone(phone)}
               className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all min-h-[48px]"
               style={{
                 background: loading ? '#e5e7eb' : '#1B4332',

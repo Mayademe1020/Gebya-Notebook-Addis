@@ -72,6 +72,10 @@ export const useAppStore = create((set, get) => ({
   shareText: '',
   setShareText: (v) => set({ shareText: v }),
 
+  // ─── Quick-action button press animation ───
+  pressedBtn: null,
+  setPressedBtn: (v) => set({ pressedBtn: v }),
+
   // ─── Voice (disabled, keep state for compat) ───
   voiceStep: null,
   setVoiceStep: (v) => set({ voiceStep: v }),
@@ -99,6 +103,8 @@ export const useAppStore = create((set, get) => ({
   },
 
   // ─── Backup nudge ───
+  lastBackupAt: null,
+  setLastBackupAt: (v) => set({ lastBackupAt: v }),
   backupNudgeDismissed: false,
   setBackupNudgeDismissed: (v) => set({ backupNudgeDismissed: v }),
 
