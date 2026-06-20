@@ -3,14 +3,16 @@ import { db } from "@workspace/db";
 import {
   transactions, customers, customerTransactions, catalogEntries,
   suppliers, supplierTransactions, staffMembers, settings, analytics,
-  devices,
+  devices, businessMembers,
 } from "@workspace/db/schema";
-import { eq, and, gt, inArray } from "drizzle-orm";
+import { eq, and, gt, inArray, asc } from "drizzle-orm";
 import { verifyJwt } from "./auth.js";
 import { syncRateLimiter } from "../app.js";
 
-// Max rows per table per push (prevents runaway payloads)
-const MAX_ROWS_PER_TABLE = 500;
+// ─── Limits ───
+const MAX_ROWS_PER_TABLE_PUSH = 500;   // cap push payload per table
+const DEFAULT_PULL_LIMIT = 200;        // rows per table per pull page
+const MAX_PULL_LIMIT = 1000;
 
 const router = Router();
 
@@ -41,7 +43,6 @@ async function validateAndLinkDevice(userId: number, deviceId: string): Promise<
     .from(devices).where(eq(devices.deviceId, deviceId)).limit(1);
 
   if (existing.length === 0) {
-    // New device — link to this user
     await db.insert(devices).values({ userId, deviceId }).onConflictDoUpdate({
       target: devices.deviceId,
       set: { userId, lastSeenAt: new Date() },
@@ -49,12 +50,24 @@ async function validateAndLinkDevice(userId: number, deviceId: string): Promise<
     return true;
   }
 
-  // Device exists — reject if it belongs to a different user
   if (existing[0].userId !== userId) return false;
 
-  // Update last-seen
   await db.update(devices).set({ lastSeenAt: new Date() }).where(eq(devices.deviceId, deviceId));
   return true;
+}
+
+/**
+ * Returns the business_id for a user. UNIQUE(user_id) on business_members
+ * guarantees exactly one row. Returns null if the user has no business
+ * (shouldn't happen post-migration, but guarded for safety).
+ */
+async function getBusinessForUser(userId: number): Promise<number | null> {
+  const rows = await db
+    .select({ businessId: businessMembers.businessId })
+    .from(businessMembers)
+    .where(eq(businessMembers.userId, userId))
+    .limit(1);
+  return rows.length > 0 ? rows[0].businessId : null;
 }
 
 // ─── Map frontend snake_case → Drizzle camelCase ───
@@ -89,6 +102,7 @@ function mapTx(body: any) {
     actorStaffMemberId: body.actor_staff_member_id,
     actorNameSnapshot: body.actor_name_snapshot,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -109,6 +123,7 @@ function mapCustomer(body: any) {
     createdAt: body.created_at,
     updatedAt: body.updated_at,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -132,6 +147,7 @@ function mapCustomerTx(body: any) {
     actorStaffMemberId: body.actor_staff_member_id,
     actorNameSnapshot: body.actor_name_snapshot,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -149,6 +165,7 @@ function mapCatalog(body: any) {
     createdAt: body.created_at,
     updatedAt: body.updated_at,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -164,6 +181,7 @@ function mapSupplier(body: any) {
     createdAt: body.created_at,
     updatedAt: body.updated_at,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -186,6 +204,7 @@ function mapSupplierTx(body: any) {
     actorStaffMemberId: body.actor_staff_member_id,
     actorNameSnapshot: body.actor_name_snapshot,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -201,6 +220,7 @@ function mapStaff(body: any) {
     updatedAt: body.updated_at,
     deactivatedAt: body.deactivated_at,
     schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -211,6 +231,8 @@ function mapSetting(body: any, deviceId: string) {
     value: body.value,
     createdAt: body.created_at,
     updatedAt: body.updated_at,
+    schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
 }
 
@@ -220,9 +242,89 @@ function mapAnalytics(body: any, deviceId: string) {
     key: body.key,
     value: body.value,
     numericValue: body.numeric_value,
+    count: body.count,
+    lastSeenAt: body.last_seen_at,
     createdAt: body.created_at,
     updatedAt: body.updated_at,
+    schemaVersion: body.schema_version || 1,
+    syncVersion: body.sync_version || 1,
   };
+}
+
+// ─── Version-aware push helper ───
+interface ConflictRecord {
+  table: string;
+  localId: number;
+  serverRecord: any;
+}
+
+async function pushTable(
+  key: string,
+  table: any,
+  conflictTarget: any[],
+  deviceId: string,
+  rows: any[],
+  mapper: (row: any) => any,
+  localIdCol: any,
+  deviceIdCol: any,
+  syncVersionCol: any,
+  updatedAtCol: any,
+  businessId: number
+): Promise<{ count: number; conflicts: ConflictRecord[] }> {
+  const capped = (rows || []).slice(0, MAX_ROWS_PER_TABLE_PUSH);
+  let count = 0;
+  const conflicts: ConflictRecord[] = [];
+
+  for (const row of capped) {
+    const data = mapper({ ...row, device_id: deviceId });
+    // Stamp business_id if the client didn't send one (frontend doesn't know about it yet)
+    data.businessId = data.businessId ?? businessId;
+    const incomingVersion = data.syncVersion || 1;
+    const incomingUpdatedAt = data.updatedAt || 0;
+
+    // Check existing record by (deviceId, localId)
+    const existing = await db
+      .select()
+      .from(table)
+      .where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)))
+      .limit(1);
+
+    if (existing.length === 0) {
+      // New record — insert with version 1
+      await db.insert(table).values({ ...data, syncVersion: 1 });
+      count++;
+    } else {
+      const stored = existing[0];
+      const storedVersion = stored.syncVersion || 1;
+      const storedUpdatedAt = stored.updatedAt || 0;
+
+      // Conflict resolution: only update if incoming is strictly newer
+      if (incomingVersion > storedVersion) {
+        // Client has a newer version — safe to update, server increments version
+        await db
+          .update(table)
+          .set({ ...data, syncVersion: incomingVersion + 1 })
+          .where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+        count++;
+      } else if (incomingVersion === storedVersion && incomingUpdatedAt > storedUpdatedAt) {
+        // Same version but newer timestamp (client edited after last sync)
+        await db
+          .update(table)
+          .set({ ...data, syncVersion: storedVersion + 1 })
+          .where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+        count++;
+      } else {
+        // Conflict: server has newer or equal version
+        conflicts.push({
+          table: key,
+          localId: data.localId,
+          serverRecord: stored,
+        });
+      }
+    }
+  }
+
+  return { count, conflicts };
 }
 
 // ─── PUSH ───
@@ -235,7 +337,6 @@ router.post("/push", async (req, res) => {
     return res.status(400).json({ error: "device_id is required and must be a string ≤ 128 chars" });
   }
 
-  // Reject if device belongs to a different user
   const deviceOk = await validateAndLinkDevice(userId, device_id);
   if (!deviceOk) {
     return res.status(403).json({ error: "Device is registered to a different account" });
@@ -245,59 +346,68 @@ router.post("/push", async (req, res) => {
     return res.status(400).json({ error: "tables must be an object" });
   }
 
-  const results: Record<string, { count: number }> = {};
+  const businessId = await getBusinessForUser(userId);
+  if (!businessId) {
+    return res.status(403).json({ error: "No business associated with this account" });
+  }
 
-  // Helper: cap array length, then upsert rows
-  const upsertTable = async <T>(
-    key: string,
-    table: any,
-    conflictTarget: any[],
-    mapper: (row: any) => T
-  ) => {
+  const results: Record<string, { count: number; conflicts: number }> = {};
+  const allConflicts: ConflictRecord[] = [];
+
+  // Push each table with version-aware conflict resolution
+  const pushResults = await Promise.all([
+    pushTable("transactions", transactions, [transactions.deviceId, transactions.localId], device_id, tables?.transactions, mapTx, transactions.localId, transactions.deviceId, transactions.syncVersion, transactions.updatedAt, businessId),
+    pushTable("customers", customers, [customers.deviceId, customers.localId], device_id, tables?.customers, mapCustomer, customers.localId, customers.deviceId, customers.syncVersion, customers.updatedAt, businessId),
+    pushTable("customer_transactions", customerTransactions, [customerTransactions.deviceId, customerTransactions.localId], device_id, tables?.customer_transactions, mapCustomerTx, customerTransactions.localId, customerTransactions.deviceId, customerTransactions.syncVersion, customerTransactions.updatedAt, businessId),
+    pushTable("catalog_entries", catalogEntries, [catalogEntries.deviceId, catalogEntries.localId], device_id, tables?.catalog_entries, mapCatalog, catalogEntries.localId, catalogEntries.deviceId, catalogEntries.syncVersion, catalogEntries.updatedAt, businessId),
+    pushTable("suppliers", suppliers, [suppliers.deviceId, suppliers.localId], device_id, tables?.suppliers, mapSupplier, suppliers.localId, suppliers.deviceId, suppliers.syncVersion, suppliers.updatedAt, businessId),
+    pushTable("supplier_transactions", supplierTransactions, [supplierTransactions.deviceId, supplierTransactions.localId], device_id, tables?.supplier_transactions, mapSupplierTx, supplierTransactions.localId, supplierTransactions.deviceId, supplierTransactions.syncVersion, supplierTransactions.updatedAt, businessId),
+    pushTable("staff_members", staffMembers, [staffMembers.deviceId, staffMembers.localId], device_id, tables?.staff_members, mapStaff, staffMembers.localId, staffMembers.deviceId, staffMembers.syncVersion, staffMembers.updatedAt, businessId),
+  ]);
+
+  const tableKeys = [
+    "transactions", "customers", "customer_transactions", "catalog_entries",
+    "suppliers", "supplier_transactions", "staff_members",
+  ];
+
+  for (let i = 0; i < tableKeys.length; i++) {
+    const key = tableKeys[i];
+    const result = pushResults[i];
+    if (result.count > 0 || result.conflicts.length > 0) {
+      results[key] = { count: result.count, conflicts: result.conflicts.length };
+      allConflicts.push(...result.conflicts);
+    }
+  }
+
+  // Settings / analytics — simpler KV push, no version conflict resolution
+  for (const key of ["settings", "analytics"] as const) {
     const rows: any[] = tables?.[key];
-    if (!Array.isArray(rows) || rows.length === 0) return;
-    const capped = rows.slice(0, MAX_ROWS_PER_TABLE);
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+    const capped = rows.slice(0, MAX_ROWS_PER_TABLE_PUSH);
+    const mapper = key === "settings" ? mapSetting : mapAnalytics;
+    const table = key === "settings" ? settings : analytics;
+    const conflictCols = key === "settings" ? [settings.deviceId, settings.key] : [analytics.deviceId, analytics.key];
     let count = 0;
     for (const row of capped) {
-      const data = mapper({ ...row, device_id });
-      await db.insert(table).values(data).onConflictDoUpdate({ target: conflictTarget, set: data });
+      const data: any = mapper(row, device_id);
+      data.businessId = data.businessId ?? businessId;
+      await db.insert(table).values(data).onConflictDoUpdate({ target: conflictCols, set: data });
       count++;
     }
-    results[key] = { count };
-  };
-
-  await upsertTable("transactions",           transactions,           [transactions.deviceId, transactions.localId],                   mapTx);
-  await upsertTable("customers",              customers,              [customers.deviceId, customers.localId],                         mapCustomer);
-  await upsertTable("customer_transactions",  customerTransactions,   [customerTransactions.deviceId, customerTransactions.localId],   mapCustomerTx);
-  await upsertTable("catalog_entries",        catalogEntries,         [catalogEntries.deviceId, catalogEntries.localId],               mapCatalog);
-  await upsertTable("suppliers",              suppliers,              [suppliers.deviceId, suppliers.localId],                         mapSupplier);
-  await upsertTable("supplier_transactions",  supplierTransactions,   [supplierTransactions.deviceId, supplierTransactions.localId],   mapSupplierTx);
-  await upsertTable("staff_members",          staffMembers,           [staffMembers.deviceId, staffMembers.localId],                   mapStaff);
-
-  // settings / analytics use (deviceId, key) conflict target
-  if (Array.isArray(tables?.settings)) {
-    const capped = (tables.settings as any[]).slice(0, MAX_ROWS_PER_TABLE);
-    let count = 0;
-    for (const row of capped) {
-      const data = mapSetting(row, device_id);
-      await db.insert(settings).values(data).onConflictDoUpdate({ target: [settings.deviceId, settings.key], set: data });
-      count++;
-    }
-    results.settings = { count };
+    if (count > 0) results[key] = { count, conflicts: 0 };
   }
 
-  if (Array.isArray(tables?.analytics)) {
-    const capped = (tables.analytics as any[]).slice(0, MAX_ROWS_PER_TABLE);
-    let count = 0;
-    for (const row of capped) {
-      const data = mapAnalytics(row, device_id);
-      await db.insert(analytics).values(data).onConflictDoUpdate({ target: [analytics.deviceId, analytics.key], set: data });
-      count++;
-    }
-    results.analytics = { count };
-  }
-
-  return res.json({ ok: true, device_id, results });
+  return res.json({
+    ok: true,
+    device_id,
+    results,
+    conflicts: allConflicts.length > 0 ? allConflicts.map((c) => ({
+      table: c.table,
+      localId: c.localId,
+      serverVersion: c.serverRecord.syncVersion,
+      serverUpdatedAt: c.serverRecord.updatedAt,
+    })) : undefined,
+  });
 });
 
 // ─── PULL ───
@@ -307,45 +417,93 @@ router.get("/pull", async (req, res) => {
     return res.status(401).json({ error: "Authorization required" });
   }
 
-  const { since } = req.query;
+  const { since, limit } = req.query;
   const sinceMs = since ? Number(since) : 0;
+  const pullLimit = Math.min(
+    Math.max(Number(limit) || DEFAULT_PULL_LIMIT, 1),
+    MAX_PULL_LIMIT
+  );
 
-  // Get all devices for this user
-  const deviceIds = await getUserDevices(userId);
-  if (deviceIds.length === 0) {
-    return res.json({ ok: true, user_id: userId, since: sinceMs, pulled_at: Date.now(), tables: {} });
+  const businessId = await getBusinessForUser(userId);
+  if (!businessId) {
+    return res.status(403).json({ error: "No business associated with this account" });
   }
 
-  const [txRows, custRows, custTxRows, catRows, supRows, supTxRows, staffRows, setRows, anaRows] = await Promise.all([
-    db.select().from(transactions).where(and(inArray(transactions.deviceId, deviceIds), gt(transactions.updatedAt, sinceMs))),
-    db.select().from(customers).where(and(inArray(customers.deviceId, deviceIds), gt(customers.updatedAt, sinceMs))),
-    db.select().from(customerTransactions).where(and(inArray(customerTransactions.deviceId, deviceIds), gt(customerTransactions.updatedAt, sinceMs))),
-    db.select().from(catalogEntries).where(and(inArray(catalogEntries.deviceId, deviceIds), gt(catalogEntries.updatedAt, sinceMs))),
-    db.select().from(suppliers).where(and(inArray(suppliers.deviceId, deviceIds), gt(suppliers.updatedAt, sinceMs))),
-    db.select().from(supplierTransactions).where(and(inArray(supplierTransactions.deviceId, deviceIds), gt(supplierTransactions.updatedAt, sinceMs))),
-    db.select().from(staffMembers).where(and(inArray(staffMembers.deviceId, deviceIds), gt(staffMembers.updatedAt, sinceMs))),
-    db.select().from(settings).where(and(inArray(settings.deviceId, deviceIds), gt(settings.updatedAt, sinceMs))),
-    db.select().from(analytics).where(and(inArray(analytics.deviceId, deviceIds), gt(analytics.updatedAt, sinceMs))),
+  // Scope pull to all rows belonging to the user's business.
+  // This means a new staff member on a different device will receive
+  // the shop's full history on their first pull.
+  async function pullTable(table: any, businessIdCol: any, updatedAtCol: any) {
+    const rows = await db
+      .select()
+      .from(table)
+      .where(and(eq(businessIdCol, businessId), gt(updatedAtCol, sinceMs)))
+      .orderBy(asc(updatedAtCol))
+      .limit(pullLimit + 1);
+
+    const hasMore = rows.length > pullLimit;
+    const returnedRows = hasMore ? rows.slice(0, pullLimit) : rows;
+    const nextCursor = hasMore && returnedRows.length > 0
+      ? returnedRows[returnedRows.length - 1].updatedAt
+      : null;
+
+    return { rows: returnedRows, hasMore, nextCursor };
+  }
+
+  const [
+    txResult, custResult, custTxResult, catResult,
+    supResult, supTxResult, staffResult, setResult, anaResult,
+  ] = await Promise.all([
+    pullTable(transactions,          transactions.businessId,          transactions.updatedAt),
+    pullTable(customers,             customers.businessId,             customers.updatedAt),
+    pullTable(customerTransactions,  customerTransactions.businessId,  customerTransactions.updatedAt),
+    pullTable(catalogEntries,        catalogEntries.businessId,        catalogEntries.updatedAt),
+    pullTable(suppliers,             suppliers.businessId,             suppliers.updatedAt),
+    pullTable(supplierTransactions,  supplierTransactions.businessId,  supplierTransactions.updatedAt),
+    pullTable(staffMembers,          staffMembers.businessId,          staffMembers.updatedAt),
+    pullTable(settings,              settings.businessId,              settings.updatedAt),
+    pullTable(analytics,             analytics.businessId,             analytics.updatedAt),
   ]);
+
+  const tables = {
+    transactions: txResult.rows,
+    customers: custResult.rows,
+    customer_transactions: custTxResult.rows,
+    catalog_entries: catResult.rows,
+    suppliers: supResult.rows,
+    supplier_transactions: supTxResult.rows,
+    staff_members: staffResult.rows,
+    settings: setResult.rows,
+    analytics: anaResult.rows,
+  };
+
+  const hasMore =
+    txResult.hasMore || custResult.hasMore || custTxResult.hasMore ||
+    catResult.hasMore || supResult.hasMore || supTxResult.hasMore ||
+    staffResult.hasMore || setResult.hasMore || anaResult.hasMore;
+
+  const nextCursor = hasMore
+    ? Math.max(
+        txResult.nextCursor || 0,
+        custResult.nextCursor || 0,
+        custTxResult.nextCursor || 0,
+        catResult.nextCursor || 0,
+        supResult.nextCursor || 0,
+        supTxResult.nextCursor || 0,
+        staffResult.nextCursor || 0,
+        setResult.nextCursor || 0,
+        anaResult.nextCursor || 0
+      )
+    : null;
 
   return res.json({
     ok: true,
     user_id: userId,
     since: sinceMs,
     pulled_at: Date.now(),
-    tables: {
-      transactions: txRows,
-      customers: custRows,
-      customer_transactions: custTxRows,
-      catalog_entries: catRows,
-      suppliers: supRows,
-      supplier_transactions: supTxRows,
-      staff_members: staffRows,
-      settings: setRows,
-      analytics: anaRows,
-    },
+    tables,
+    hasMore,
+    nextCursor,
   });
 });
 
 export default router;
-

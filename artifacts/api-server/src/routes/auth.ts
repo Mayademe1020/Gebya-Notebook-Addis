@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { users, devices, otps } from "@workspace/db/schema";
+import { users, devices, otps, businesses, businessMembers } from "@workspace/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -140,6 +140,19 @@ router.post("/verify", async (req, res) => {
       .values({ phoneNumber: normalizedPhone, active: true })
       .returning();
     user = inserted[0];
+
+    // Every new user gets their own business and becomes the owner
+    const [biz] = await db
+      .insert(businesses)
+      .values({ ownerUserId: user.id, name: "My Shop" })
+      .returning({ id: businesses.id });
+    await db.insert(businessMembers).values({
+      businessId: biz.id,
+      userId: user.id,
+      role: "owner",
+      joinedAt: new Date(),
+      active: true,
+    });
   }
 
   const token = signJwt(user.id);
