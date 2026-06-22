@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useMemo, useRef, useState, useEffect } from 'react';
 import {
   ChevronRight,
   Download,
@@ -457,6 +457,11 @@ function ReportView({
   const [timeRange, setTimeRange] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [actorFilter, setActorFilter] = useState('');
+  const [searchLimit, setSearchLimit] = useState(6);
+
+  useEffect(() => {
+    setSearchLimit(6);
+  }, [searchQuery]);
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exportRange, setExportRange] = useState('month');
@@ -518,9 +523,9 @@ function ReportView({
   );
   const searchResults = useMemo(
     () => searchQuery.trim()
-      ? filteredTransactions.slice().sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0)).slice(0, 6)
+      ? filteredTransactions.slice().sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0)).slice(0, searchLimit)
       : [],
-    [filteredTransactions, searchQuery]
+    [filteredTransactions, searchQuery, searchLimit]
   );
   const overdueCustomers = useMemo(
     () => (enrichedCustomerSummaries || []).filter(customer => customer.has_overdue && Number(customer.balance || 0) > 0),
@@ -749,11 +754,27 @@ function ReportView({
       {searchQuery.trim() && (
         <Section title={lang === 'am' ? 'የፍለጋ ውጤት' : 'Search Results'}>
           {searchResults.length ? (
-            <div style={{ divide: '1px solid #f3f4f6' }}>
-              {searchResults.map(tx => (
-                <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
-              ))}
-            </div>
+            <>
+              <div style={{ divide: '1px solid #f3f4f6' }}>
+                {searchResults.map(tx => (
+                  <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
+                ))}
+              </div>
+              {filteredTransactions.length > searchLimit && (
+                <button
+                  type="button"
+                  onClick={() => setSearchLimit(prev => prev + 10)}
+                  className="w-full py-2.5 mt-2 text-xs font-bold text-center transition-all press-scale border rounded-xl"
+                  style={{
+                    borderColor: '#C4883A',
+                    color: '#6b4f1d',
+                    background: 'rgba(196,136,58,0.04)',
+                  }}
+                >
+                  {lang === 'am' ? 'ተጨማሪ ውጤቶች አሳይ' : 'Load more results'}
+                </button>
+              )}
+            </>
           ) : (
             <EmptyText>{lang === 'am' ? 'ምንም ውጤት የለም።' : `No results for "${searchQuery}".`}</EmptyText>
           )}
