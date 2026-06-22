@@ -3400,6 +3400,8 @@ function AppInner() {
               customers={ledgerCustomers}
               suppliers={suppliers}
               shopProfile={shopProfile}
+              staffMembers={staffMembers}
+              activeStaffMemberId={activeStaffMemberId}
               onEdit={setEditTarget}
               onChaseOverdue={() => {
                 // Jump to Credit tab — overdue customers are surfaced there

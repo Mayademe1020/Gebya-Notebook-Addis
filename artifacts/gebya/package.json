@@ -9,6 +9,7 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:ledger": "node src/__tests__/ledger.test.js",
+    "test:report": "node src/__tests__/reportSelectors.test.js",
     "test:e2e": "playwright test",
     "test:design-smoke": "playwright test tests/design-regression-smoke.spec.ts --project=chromium",
     "test:staff-events": "pnpm build && playwright test tests/staff-event-sync.spec.ts --project=chromium"
