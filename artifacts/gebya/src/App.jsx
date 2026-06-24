@@ -583,28 +583,29 @@ function AppInner() {
       {activeTab === 'today' && !showForm && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
         <div className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t" style={{ bottom:60, background:'#fff', borderColor:'#e5e7eb' }}>
           <div className="flex gap-1.5 sm:gap-2">
-            {[
-              {canAddRecords ? [
-              { type:'sale',    label:lang==='am'?'ሽያጭ':'Sale',    color:'#16a34a', Icon:Plus },
-              { type:'expense', label:lang==='am'?'ወጪ':'Expense',  color:'#dc2626', Icon:Minus },
-              { type:'credit',  label:lang==='am'?'ዱቤ':'Credit',   color:'#2563eb', Icon:RotateCw },
-            ].map(({ type, label, color, Icon }) => (({ type, label, color, Icon }) => (
-              <button
-                key={type}
-                onClick={() => {
-                  if (type === 'credit') { setActiveTab('credit'); if (!customerSummaries?.length) setShowCustomerForm(true); return; }
-                  setShowForm(type);
-                }}
-                onPointerDown={() => setPressedBtn(type)}
-                onPointerUp={() => setPressedBtn(null)}
-                onPointerLeave={() => setPressedBtn(null)}
-                className="flex-1 py-2.5 sm:py-3 min-h-[44px] flex items-center justify-center gap-1.5 transition-all min-w-0"
-                style={{ background: pressedBtn===type?`${color}15`:'#fff', border:`1.5px solid ${color}`, borderRadius:'var(--radius-md)', transform:pressedBtn===type?'scale(0.98)':'none' }}
-              >
-                <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color, strokeWidth:2.5 }} />
-                <span className="font-bold text-xs sm:text-sm truncate" style={{ color }}>{label}</span>
-              </button>
-            ))})) : (
+            {canAddRecords ? (
+              [
+                { type:'sale',    label:lang==='am'?'ሽያጭ':'Sale',    color:'#16a34a', Icon:Plus },
+                { type:'expense', label:lang==='am'?'ወጪ':'Expense',  color:'#dc2626', Icon:Minus },
+                { type:'credit',  label:lang==='am'?'ዱቤ':'Credit',   color:'#2563eb', Icon:RotateCw },
+              ].map(({ type, label, color, Icon }) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    if (type === 'credit') { setActiveTab('credit'); if (!customerSummaries?.length) setShowCustomerForm(true); return; }
+                    setShowForm(type);
+                  }}
+                  onPointerDown={() => setPressedBtn(type)}
+                  onPointerUp={() => setPressedBtn(null)}
+                  onPointerLeave={() => setPressedBtn(null)}
+                  className="flex-1 py-2.5 sm:py-3 min-h-[44px] flex items-center justify-center gap-1.5 transition-all min-w-0"
+                  style={{ background: pressedBtn===type?`${color}15`:'#fff', border:`1.5px solid ${color}`, borderRadius:'var(--radius-md)', transform:pressedBtn===type?'scale(0.98)':'none' }}
+                >
+                  <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color, strokeWidth:2.5 }} />
+                  <span className="font-bold text-xs sm:text-sm truncate" style={{ color }}>{label}</span>
+                </button>
+              ))
+            ) : (
               <div className="flex-1 py-2.5 text-center text-xs text-gray-400">
                 {lang === 'am' ? 'ሪኮርድ ማስገባት አልተፈቀደልዎትም' : 'You do not have permission to add records'}
               </div>

@@ -1,12 +1,14 @@
 import { lazy, Suspense, useMemo, useRef, useState, useEffect } from 'react';
 import {
   ChevronRight,
+  ChevronDown,
   Download,
   Eye,
   EyeOff,
   Filter,
   Search,
   X,
+  Clock,
 } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { usePrivacy } from '../context/PrivacyContext';
@@ -207,7 +209,8 @@ function displayTime(ms) {
   return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function Section({ title, action, children, refProp }) {
+// Collapsible Section Component
+function Section({ title, action, children, refProp, isCollapsible = false, isExpanded = false, onToggle = null }) {
   return (
     <section ref={refProp} style={{
       background: '#fff',
@@ -216,19 +219,46 @@ function Section({ title, action, children, refProp }) {
       boxShadow: 'var(--shadow-xs, 0 2px 8px -4px rgba(0,0,0,0.08))',
       padding: 12,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-        <h3 style={{
-          color: '#374151',
-          fontSize: 12,
-          fontWeight: 900,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-        }}>
-          {title}
-        </h3>
-        {action}
-      </div>
-      {children}
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={!isCollapsible}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          marginBottom: isExpanded ? 8 : 0,
+          border: 'none',
+          background: 'transparent',
+          cursor: isCollapsible ? 'pointer' : 'default',
+          padding: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+          <h3 style={{
+            color: '#374151',
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}>
+            {title}
+          </h3>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {action}
+          {isCollapsible && (
+            <ChevronDown className="w-4 h-4" style={{
+              color: '#d1d5db',
+              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+              transition: 'transform 0.2s ease-in-out',
+            }} />
+          )}
+        </div>
+      </button>
+      {isExpanded && children}
     </section>
   );
 }
@@ -252,21 +282,184 @@ function Amount({ value, hidden, tone = 'default', suffix = true }) {
   );
 }
 
-function SummaryCard({ label, value, hidden, tone }) {
+// Simplified KPI Card with clickable chevron
+function SummaryCard({ label, value, hidden, tone, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="press-scale"
+      style={{
+        minWidth: 0,
+        padding: '12px 10px',
+        background: '#fafaf5',
+        border: '1px solid #ece6d6',
+        borderRadius: 10,
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 6,
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ width: 16 }} />
+        <ChevronRight className="w-3.5 h-3.5" style={{ color: '#d1d5db' }} />
+      </div>
+      <div>
+        <p style={{ color: '#6b7280', fontSize: 10, fontWeight: 800, lineHeight: 1.2 }}>
+          {label}
+        </p>
+        <p style={{ marginTop: 4, fontSize: 16, lineHeight: 1.1, fontWeight: 900 }}>
+          <Amount value={value} hidden={hidden} tone={tone} suffix={false} />
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// KPI Detail Sheet Component  
+function KPIDetailSheet({ kpi, isOpen, onClose, hidden, lang }) {
+  if (!isOpen || !kpi) return null;
+
+  const getDetailContent = (kpiType) => {
+    const contents = {
+      sold: lang === 'am' ? 'ሁሉም የተጠናቀቁ ግብይቶች ከወደሚመረጡ ጊዜ ውስጥ የሸያጭ ድምር።' : 'Total sales amount from all completed transactions during the selected period.',
+      spent: lang === 'am' ? 'ሁሉም ተመዝግበው ደገፉ ወጪ ብዙ ወጪዎን እና ግዥዎን ያካትታል።' : 'Total expenses recorded including operational costs and purchases.',
+      collected: lang === 'am' ? 'ከደንበኞች ተሰብስቧል ዱቤ ክሬዲት ከእዚህ ጊዜ ውስጥ ለአስተዋወቅ።' : 'Total credit payments collected from customers during this period.',
+      cash: lang === 'am' ? 'አጠቅላይ ጥሬ ገንዘብ ተከታትል - ወጪ እና ዝውውር።' : 'Expected cash based on sales minus expenses and transfers.',
+      transfer: lang === 'am' ? 'ድምር ሞባይል ገንዘብ ወይም ባንክ ዝውውር ተጠብቋል።' : 'Total mobile money or bank transfers expected.',
+    };
+    return contents[kpiType] || '';
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          zIndex: 40,
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'opacity 0.2s ease-in-out',
+        }}
+      />
+
+      {/* Sheet */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#fff',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          zIndex: 50,
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.12)',
+          transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.3s ease-in-out',
+        }}
+      >
+        <div style={{ padding: '16px 16px 32px' }}>
+          {/* Handle bar */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <div style={{ width: 40, height: 4, background: '#e5e7eb', borderRadius: 2 }} />
+          </div>
+
+          {/* Header with close button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, color: '#1f2937' }}>
+              {kpi.title}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="press-scale"
+              style={{
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                padding: 4,
+              }}
+            >
+              <X className="w-5 h-5" style={{ color: '#9ca3af' }} />
+            </button>
+          </div>
+
+          {/* Value */}
+          <div style={{ marginBottom: 20, padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
+            <p style={{ color: '#6b7280', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+              {lang === 'am' ? 'ዋጋ' : 'Value'}
+            </p>
+            <p style={{ fontSize: 28, fontWeight: 900, color: kpi.tone === 'bad' ? '#dc2626' : kpi.tone === 'good' ? '#15803d' : '#1f2937' }}>
+              <Amount value={kpi.value} hidden={hidden} tone={kpi.tone} suffix={true} />
+            </p>
+          </div>
+
+          {/* Description */}
+          <div>
+            <p style={{ color: '#6b7280', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+              {lang === 'am' ? 'ትርጓሜ' : 'What is this?'}
+            </p>
+            <p style={{ color: '#4b5563', fontSize: 13, lineHeight: 1.6, fontWeight: 500 }}>
+              {getDetailContent(kpi.id)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Dashboard Insight Strip Component
+function DashboardInsightStrip({ stats, counts, lang }) {
   return (
     <div style={{
-      minWidth: 0,
-      padding: '9px 10px',
-      background: '#fafaf5',
-      border: '1px solid #ece6d6',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '8px 12px',
+      background: 'linear-gradient(135deg, rgba(27,67,50,0.05) 0%, rgba(27,67,50,0.02) 100%)',
       borderRadius: 10,
+      border: '1px solid rgba(27,67,50,0.1)',
+      fontSize: 12,
+      fontWeight: 700,
+      color: '#4b5563',
+      overflowX: 'auto',
+      whiteSpace: 'nowrap',
     }}>
-      <p style={{ color: '#6b7280', fontSize: 11, fontWeight: 800, lineHeight: 1.2 }}>
-        {label}
-      </p>
-      <p style={{ marginTop: 5, fontSize: 17, lineHeight: 1.1 }}>
-        <Amount value={value} hidden={hidden} tone={tone} suffix={false} />
-      </p>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        <Clock className="w-3.5 h-3.5" style={{ color: '#1B4332' }} />
+        <span>{lang === 'am' ? 'ዛሬ' : 'Today'}</span>
+      </span>
+      <span style={{ width: 1, height: 16, background: '#d1d5db', opacity: 0.5 }} />
+      <span style={{ flexShrink: 0 }}>
+        {lang === 'am' ? 'ሰራተኞች' : 'Staff'}: <strong>{counts.staffCount || 0}</strong>
+      </span>
+      <span style={{ width: 1, height: 16, background: '#d1d5db', opacity: 0.5 }} />
+      <span style={{ flexShrink: 0 }}>
+        {lang === 'am' ? 'ሽያጮች' : 'Sales'}: <strong>{counts.salesCount || 0}</strong>
+      </span>
+      <span style={{ width: 1, height: 16, background: '#d1d5db', opacity: 0.5 }} />
+      <span style={{ flexShrink: 0 }}>
+        {lang === 'am' ? 'ክሬዲት' : 'Credits'}: <strong>{counts.creditCount || 0}</strong>
+      </span>
+      <span style={{ width: 1, height: 16, background: '#d1d5db', opacity: 0.5 }} />
+      <span style={{ flexShrink: 0 }}>
+        {lang === 'am' ? 'ልውውጥ' : 'Transfers'}: <strong>{counts.transferCount || 0}</strong>
+      </span>
+      <span style={{ width: 1, height: 16, background: '#d1d5db', opacity: 0.5 }} />
+      <span style={{ flexShrink: 0 }}>
+        {lang === 'am' ? 'ልዩነት' : 'Differences'}: <strong>{counts.diffCount || 0}</strong>
+      </span>
     </div>
   );
 }
@@ -459,21 +652,46 @@ function ReportView({
   const [actorFilter, setActorFilter] = useState('');
   const [searchLimit, setSearchLimit] = useState(6);
 
+  // State for new features
+  const [selectedKPI, setSelectedKPI] = useState(null);
+  const [kpiSheetOpen, setKpiSheetOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('gebya_expanded_sections');
+      return saved ? JSON.parse(saved) : { staffSales: true, ownerAlerts: true, recent: true, history: false };
+    } catch {
+      return { staffSales: true, ownerAlerts: true, recent: true, history: false };
+    }
+  });
+
   useEffect(() => {
     setSearchLimit(6);
   }, [searchQuery]);
+
+  // Persist section expansion state
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('gebya_expanded_sections', JSON.stringify(expandedSections));
+    } catch {
+      // Silently ignore storage errors
+    }
+  }, [expandedSections]);
+
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exportRange, setExportRange] = useState('month');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [customFrom, setCustomFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [stickyTop, setStickyTop] = useState(0);
 
   const searchRef = useRef(null);
   const staffRef = useRef(null);
   const alertsRef = useRef(null);
   const recentRef = useRef(null);
   const historyRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const headerRef = useRef(null);
 
   const now = Date.now();
   const todayStart = startOfDay(now);
@@ -532,6 +750,30 @@ function ReportView({
     [enrichedCustomerSummaries]
   );
 
+  // Calculate insight counts
+  const insightCounts = useMemo(() => {
+    const uniqueStaff = new Set();
+    let salesCount = 0;
+    let creditCount = 0;
+    let transferCount = 0;
+
+    for (const tx of rangeTransactions) {
+      if (tx.actor_staff_member_id) uniqueStaff.add(tx.actor_staff_member_id);
+      if (tx.type === 'sale') salesCount++;
+      if (tx.payment_type && tx.payment_type !== 'cash') transferCount++;
+    }
+
+    creditCount = (ledgerTransactions || []).filter(tx => inRange(tx.created_at, rangeBounds[0], rangeBounds[1])).length;
+    
+    return {
+      staffCount: uniqueStaff.size + 1,
+      salesCount,
+      creditCount,
+      transferCount,
+      diffCount: 0,
+    };
+  }, [rangeTransactions, ledgerTransactions, rangeBounds]);
+
   const scrollTo = (ref) => {
     ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   };
@@ -562,6 +804,18 @@ function ReportView({
     downloadBlob(json, `gebya-${exportRange}-${stamp}.json`, 'application/json');
   };
 
+  const handleKPIClick = (kpiData) => {
+    setSelectedKPI(kpiData);
+    setKpiSheetOpen(true);
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
   const labels = {
     title: lang === 'am' ? 'የሱቅ ቼክ' : 'Shop Check',
     today: lang === 'am' ? 'ዛሬ' : 'Today',
@@ -580,339 +834,427 @@ function ReportView({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 96 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '2px 2px 0' }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ color: '#1B4332', fontSize: 22, fontWeight: 950, lineHeight: 1.05 }}>
-            {labels.title}
-          </h2>
-          <p style={{ color: '#6b7280', fontSize: 12, fontWeight: 650, marginTop: 3 }}>
-            {shopProfile?.name || (lang === 'am' ? 'በዚህ ስልክ' : 'Staff on this phone')} · {getCurrentEthiopianDate()}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={togglePrivacy}
-          aria-label={hidden ? 'Show amounts' : 'Hide amounts'}
-          className="press-scale"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            minHeight: 36,
-            padding: '7px 10px',
-            borderRadius: 999,
-            border: hidden ? '1px solid #fde68a' : '1px solid #e5e7eb',
-            background: hidden ? 'rgba(196,136,58,0.10)' : '#fff',
-            color: hidden ? '#92400e' : '#6b7280',
-            fontSize: 12,
-            fontWeight: 900,
-            cursor: 'pointer',
-          }}
-        >
-          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          {hidden ? 'Show' : 'Hide'}
-        </button>
-      </div>
+    <>
+      {/* KPI Detail Sheet */}
+      <KPIDetailSheet 
+        kpi={selectedKPI} 
+        isOpen={kpiSheetOpen} 
+        onClose={() => setKpiSheetOpen(false)} 
+        hidden={hidden} 
+        lang={lang} 
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, background: 'rgba(27,67,50,0.08)', borderRadius: 12, padding: 5 }}>
-        {[
-          ['today', labels.today],
-          ['week', labels.week],
-          ['month', labels.month],
-          ['custom', labels.custom],
-        ].map(([id, label]) => (
+      <div ref={scrollContainerRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 120 }}>
+        {/* Header - Fixed at top */}
+        <div ref={headerRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '2px 2px 0' }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ color: '#1B4332', fontSize: 22, fontWeight: 950, lineHeight: 1.05 }}>
+              {labels.title}
+            </h2>
+            <p style={{ color: '#6b7280', fontSize: 12, fontWeight: 650, marginTop: 3 }}>
+              {shopProfile?.name || (lang === 'am' ? 'በዚህ ስልክ' : 'Staff on this phone')} · {getCurrentEthiopianDate()}
+            </p>
+          </div>
           <button
-            key={id}
             type="button"
-            onClick={() => setTimeRange(id)}
+            onClick={togglePrivacy}
+            aria-label={hidden ? 'Show amounts' : 'Hide amounts'}
             className="press-scale"
             style={{
-              minHeight: 34,
-              border: 'none',
-              borderRadius: 9,
-              background: timeRange === id ? '#1B4332' : 'transparent',
-              color: timeRange === id ? '#fff' : '#6b7280',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              minHeight: 36,
+              padding: '7px 10px',
+              borderRadius: 999,
+              border: hidden ? '1px solid #fde68a' : '1px solid #e5e7eb',
+              background: hidden ? 'rgba(196,136,58,0.10)' : '#fff',
+              color: hidden ? '#92400e' : '#6b7280',
               fontSize: 12,
               fontWeight: 900,
               cursor: 'pointer',
             }}
           >
-            {label}
+            {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            {hidden ? 'Show' : 'Hide'}
           </button>
-        ))}
-      </div>
+        </div>
 
-      {timeRange === 'custom' && (
-        <Section title={lang === 'am' ? 'Custom range' : 'Custom range'}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: '#6b7280', fontSize: 11, fontWeight: 850 }}>
-              {lang === 'am' ? 'From' : 'From'}
-              <input
-                type="date"
-                value={customFrom}
-                onChange={e => setCustomFrom(e.target.value)}
-                style={{ minHeight: 38, border: '1px solid #e5e7eb', borderRadius: 9, padding: '6px 8px', fontSize: 13 }}
-              />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: '#6b7280', fontSize: 11, fontWeight: 850 }}>
-              {lang === 'am' ? 'To' : 'To'}
-              <input
-                type="date"
-                value={customTo}
-                onChange={e => setCustomTo(e.target.value)}
-                style={{ minHeight: 38, border: '1px solid #e5e7eb', borderRadius: 9, padding: '6px 8px', fontSize: 13 }}
-              />
-            </label>
-          </div>
-        </Section>
-      )}
+        {/* Dashboard Insight Strip */}
+        <DashboardInsightStrip stats={selectedStats} counts={insightCounts} lang={lang} />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '-2px 2px' }}>
-        <RangeChip timeRange={timeRange} customFrom={customFrom} customTo={customTo} lang={lang} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-        <SummaryCard label={labels.sold} value={selectedStats.sales} hidden={hidden} tone="good" />
-        <SummaryCard label={labels.spent} value={selectedStats.expenses} hidden={hidden} tone="bad" />
-        <SummaryCard label={labels.collected} value={selectedCollected} hidden={hidden} tone="warn" />
-        <SummaryCard label={labels.cashToExpect} value={selectedFlow.cash} hidden={hidden} tone={selectedFlow.cash >= 0 ? 'good' : 'bad'} />
-        <SummaryCard label={labels.transferExpected} value={selectedFlow.transfer} hidden={hidden} tone={selectedFlow.transfer >= 0 ? 'good' : 'bad'} />
-      </div>
-
-      <div style={{ position: 'relative' }}>
-        <Search className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-        <input
-          ref={searchRef}
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search item, code, amount, staff, or date"
-          style={{
-            width: '100%',
-            minHeight: 44,
-            padding: '10px 42px 10px 36px',
-            background: '#fff',
-            border: `1px solid ${searchQuery.trim() ? '#1B4332' : 'var(--color-border, #e5e7eb)'}`,
-            borderRadius: 12,
-            boxShadow: 'var(--shadow-xs, 0 2px 8px -4px rgba(0,0,0,0.08))',
-            color: '#374151',
-            fontSize: 14,
-            outline: 'none',
-          }}
-        />
-        {searchQuery.trim() ? (
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            aria-label="Clear search"
-            className="press-scale"
-            style={{ position: 'absolute', right: 38, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer' }}
-          >
-            <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setShowFilters(value => !value)}
-          aria-label="Filter report"
-          className="press-scale"
-          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 5 }}
-        >
-          <Filter className="w-4 h-4" style={{ color: actorFilter ? '#1B4332' : '#9ca3af' }} />
-        </button>
-      </div>
-
-      {showFilters && (
-        <Section title={lang === 'am' ? 'Filter' : 'Filter'}>
-          <label style={{ display: 'block', color: '#6b7280', fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-            {lang === 'am' ? 'ሻጭ' : 'Seller'}
-          </label>
-          <select
-            value={actorFilter}
-            onChange={e => setActorFilter(e.target.value)}
-            style={{
-              width: '100%',
-              minHeight: 42,
-              border: `1px solid ${actorFilter ? '#1B4332' : '#e5e7eb'}`,
-              borderRadius: 10,
-              padding: '8px 10px',
-              background: '#fff',
-              color: '#374151',
-              fontSize: 14,
-              outline: 'none',
-            }}
-          >
-            <option value="">{lang === 'am' ? 'ሁሉም ሻጮች' : 'All sellers'}</option>
-            {actorOptions.map(actor => (
-              <option key={actor.id} value={actor.id}>{actor.label}</option>
-            ))}
-          </select>
-        </Section>
-      )}
-
-      {searchQuery.trim() && (
-        <Section title={lang === 'am' ? 'የፍለጋ ውጤት' : 'Search Results'}>
-          {searchResults.length ? (
-            <>
-              <div style={{ divide: '1px solid #f3f4f6' }}>
-                {searchResults.map(tx => (
-                  <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
-                ))}
-              </div>
-              {filteredTransactions.length > searchLimit && (
-                <button
-                  type="button"
-                  onClick={() => setSearchLimit(prev => prev + 10)}
-                  className="w-full py-2.5 mt-2 text-xs font-bold text-center transition-all press-scale border rounded-xl"
-                  style={{
-                    borderColor: '#C4883A',
-                    color: '#6b4f1d',
-                    background: 'rgba(196,136,58,0.04)',
-                  }}
-                >
-                  {lang === 'am' ? 'ተጨማሪ ውጤቶች አሳይ' : 'Load more results'}
-                </button>
-              )}
-            </>
-          ) : (
-            <EmptyText>{lang === 'am' ? 'ምንም ውጤት የለም።' : `No results for "${searchQuery}".`}</EmptyText>
-          )}
-        </Section>
-      )}
-
-      <Section title={labels.staffSales} refProp={staffRef}>
-        <StaffSalesToday rows={todayStaffSalesRows} hidden={hidden} lang={lang} />
-      </Section>
-
-      <Section
-        title={labels.ownerAlerts}
-        refProp={alertsRef}
-        action={overdueCustomers.length > 0 && (
-          <button
-            type="button"
-            onClick={onChaseOverdue}
-            className="press-scale"
-            style={{ border: 'none', background: 'transparent', color: '#92400e', fontSize: 12, fontWeight: 900, cursor: 'pointer' }}
-          >
-            {lang === 'am' ? 'ዱቤ' : 'Credit'}
-          </button>
-        )}
-      >
-        <OwnerAlerts
-          alerts={ownerAlerts}
-          overdueCustomers={overdueCustomers}
-          settings={ownerAlertSettings}
-          hidden={hidden}
-          lang={lang}
-        />
-      </Section>
-
-      {!searchQuery.trim() && (
-        <Section title={labels.recent} refProp={recentRef}>
-          {recentTransactions.length ? (
-            <div>
-              {recentTransactions.map(tx => (
-                <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
-              ))}
-            </div>
-          ) : (
-            <EmptyText>{lang === 'am' ? 'ለዚህ ጊዜ መዝገብ የለም።' : 'No transactions in this period yet.'}</EmptyText>
-          )}
-        </Section>
-      )}
-
-      <Section
-        title={labels.fullHistory}
-        refProp={historyRef}
-        action={(
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(value => !value)}
-            className="press-scale"
-            style={{ border: 'none', background: 'transparent', color: '#1B4332', fontSize: 12, fontWeight: 900, cursor: 'pointer' }}
-          >
-            {historyOpen ? (lang === 'am' ? 'ዝጋ' : 'Hide') : (lang === 'am' ? 'ክፈት' : 'Open')}
-          </button>
-        )}
-      >
-        {historyOpen ? (
-          <Suspense fallback={<div style={{ padding: 12, color: '#9ca3af', fontSize: 13 }}>Loading...</div>}>
-            <HistoryView transactions={filteredTransactions} onEdit={onEdit} />
-          </Suspense>
-        ) : (
-          <button
-            type="button"
-            onClick={handleFullHistory}
-            className="press-scale"
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 10,
-              border: '1px solid #e5e7eb',
-              background: '#fafaf5',
-              borderRadius: 10,
-              padding: '11px 12px',
-              color: '#374151',
-              fontSize: 14,
-              fontWeight: 850,
-              cursor: 'pointer',
-            }}
-          >
-            <span>{filteredTransactions.length} {lang === 'am' ? 'መዝገቦች' : 'transactions'}</span>
-            <ChevronRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
-          </button>
-        )}
-      </Section>
-
-      {showExport && (
-        <Section title={lang === 'am' ? 'Export' : 'Export'}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 5, marginBottom: 9 }}>
-            {['today', 'week', 'month', 'all'].map(range => (
+        {/* Sticky Time Range Controls */}
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          background: '#fff',
+          paddingTop: 8,
+          paddingBottom: 8,
+          boxShadow: 'rgba(0,0,0,0.06) 0 2px 4px',
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6, background: 'rgba(27,67,50,0.08)', borderRadius: 12, padding: 5 }}>
+            {[
+              ['today', labels.today],
+              ['week', labels.week],
+              ['month', labels.month],
+              ['custom', labels.custom],
+            ].map(([id, label]) => (
               <button
-                key={range}
+                key={id}
                 type="button"
-                onClick={() => setExportRange(range)}
+                onClick={() => setTimeRange(id)}
                 className="press-scale"
                 style={{
-                  minHeight: 32,
+                  minHeight: 34,
                   border: 'none',
-                  borderRadius: 8,
-                  background: exportRange === range ? '#1B4332' : '#f3f4f6',
-                  color: exportRange === range ? '#fff' : '#6b7280',
+                  borderRadius: 9,
+                  background: timeRange === id ? '#1B4332' : 'transparent',
+                  color: timeRange === id ? '#fff' : '#6b7280',
                   fontSize: 12,
                   fontWeight: 900,
-                  textTransform: 'capitalize',
                   cursor: 'pointer',
                 }}
               >
-                {range}
+                {label}
               </button>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+        </div>
+
+        {timeRange === 'custom' && (
+          <Section title={lang === 'am' ? 'ጊዜ ክልል' : 'Date Range'}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: '#6b7280', fontSize: 11, fontWeight: 850 }}>
+                {lang === 'am' ? 'ከ' : 'From'}
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={e => setCustomFrom(e.target.value)}
+                  style={{ minHeight: 38, border: '1px solid #e5e7eb', borderRadius: 9, padding: '6px 8px', fontSize: 13 }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: '#6b7280', fontSize: 11, fontWeight: 850 }}>
+                {lang === 'am' ? 'ወደ' : 'To'}
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={e => setCustomTo(e.target.value)}
+                  style={{ minHeight: 38, border: '1px solid #e5e7eb', borderRadius: 9, padding: '6px 8px', fontSize: 13 }}
+                />
+              </label>
+            </div>
+          </Section>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, margin: '-2px 2px' }}>
+          <RangeChip timeRange={timeRange} customFrom={customFrom} customTo={customTo} lang={lang} />
+        </div>
+
+        {/* Simplified KPI Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+          <SummaryCard 
+            label={labels.sold} 
+            value={selectedStats.sales} 
+            hidden={hidden} 
+            tone="good"
+            onClick={() => handleKPIClick({ id: 'sold', title: labels.sold, value: selectedStats.sales, tone: 'good' })}
+          />
+          <SummaryCard 
+            label={labels.spent} 
+            value={selectedStats.expenses} 
+            hidden={hidden} 
+            tone="bad"
+            onClick={() => handleKPIClick({ id: 'spent', title: labels.spent, value: selectedStats.expenses, tone: 'bad' })}
+          />
+          <SummaryCard 
+            label={labels.collected} 
+            value={selectedCollected} 
+            hidden={hidden} 
+            tone="warn"
+            onClick={() => handleKPIClick({ id: 'collected', title: labels.collected, value: selectedCollected, tone: 'warn' })}
+          />
+          <SummaryCard 
+            label={labels.cashToExpect} 
+            value={selectedFlow.cash} 
+            hidden={hidden} 
+            tone={selectedFlow.cash >= 0 ? 'good' : 'bad'}
+            onClick={() => handleKPIClick({ id: 'cash', title: labels.cashToExpect, value: selectedFlow.cash, tone: selectedFlow.cash >= 0 ? 'good' : 'bad' })}
+          />
+          <SummaryCard 
+            label={labels.transferExpected} 
+            value={selectedFlow.transfer} 
+            hidden={hidden} 
+            tone={selectedFlow.transfer >= 0 ? 'good' : 'bad'}
+            onClick={() => handleKPIClick({ id: 'transfer', title: labels.transferExpected, value: selectedFlow.transfer, tone: selectedFlow.transfer >= 0 ? 'good' : 'bad' })}
+          />
+        </div>
+
+        {/* Sticky Search Bar */}
+        <div style={{
+          position: 'sticky',
+          top: 52,
+          zIndex: 29,
+          background: '#fff',
+          paddingBottom: 8,
+        }}>
+          <div style={{ display: 'relative' }}>
+            <Search className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search item, code, amount, staff, or date"
+              style={{
+                width: '100%',
+                minHeight: 44,
+                padding: '10px 42px 10px 36px',
+                background: '#fff',
+                border: `1px solid ${searchQuery.trim() ? '#1B4332' : 'var(--color-border, #e5e7eb)'}`,
+                borderRadius: 12,
+                boxShadow: 'var(--shadow-xs, 0 2px 8px -4px rgba(0,0,0,0.08))',
+                color: '#374151',
+                fontSize: 14,
+                outline: 'none',
+              }}
+            />
+            {searchQuery.trim() ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="press-scale"
+                style={{ position: 'absolute', right: 38, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={handleExportCSV}
+              onClick={() => setShowFilters(value => !value)}
+              aria-label="Filter report"
               className="press-scale"
-              style={{ minHeight: 40, border: '1px solid #1B4332', borderRadius: 10, background: '#fff', color: '#1B4332', fontWeight: 950, cursor: 'pointer' }}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 5 }}
             >
-              CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleExportJSON}
-              className="press-scale"
-              style={{ minHeight: 40, border: '1px solid #1B4332', borderRadius: 10, background: '#fff', color: '#1B4332', fontWeight: 950, cursor: 'pointer' }}
-            >
-              JSON
+              <Filter className="w-4 h-4" style={{ color: actorFilter ? '#1B4332' : '#9ca3af' }} />
             </button>
           </div>
-        </Section>
-      )}
+        </div>
 
+        {showFilters && (
+          <Section title={lang === 'am' ? 'ፈልግ' : 'Filter'}>
+            <label style={{ display: 'block', color: '#6b7280', fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+              {lang === 'am' ? 'ሻጭ' : 'Seller'}
+            </label>
+            <select
+              value={actorFilter}
+              onChange={e => setActorFilter(e.target.value)}
+              style={{
+                width: '100%',
+                minHeight: 42,
+                border: `1px solid ${actorFilter ? '#1B4332' : '#e5e7eb'}`,
+                borderRadius: 10,
+                padding: '8px 10px',
+                background: '#fff',
+                color: '#374151',
+                fontSize: 14,
+                outline: 'none',
+              }}
+            >
+              <option value="">{lang === 'am' ? 'ሁሉም ሻጮች' : 'All sellers'}</option>
+              {actorOptions.map(actor => (
+                <option key={actor.id} value={actor.id}>{actor.label}</option>
+              ))}
+            </select>
+          </Section>
+        )}
+
+        {searchQuery.trim() && (
+          <Section title={lang === 'am' ? 'የፍለጋ ውጤት' : 'Search Results'}>
+            {searchResults.length ? (
+              <>
+                <div style={{ divide: '1px solid #f3f4f6' }}>
+                  {searchResults.map(tx => (
+                    <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
+                  ))}
+                </div>
+                {filteredTransactions.length > searchLimit && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchLimit(prev => prev + 10)}
+                    className="w-full py-2.5 mt-2 text-xs font-bold text-center transition-all press-scale border rounded-xl"
+                    style={{
+                      borderColor: '#C4883A',
+                      color: '#6b4f1d',
+                      background: 'rgba(196,136,58,0.04)',
+                    }}
+                  >
+                    {lang === 'am' ? 'ተጨማሪ ውጤቶች አሳይ' : 'Load more results'}
+                  </button>
+                )}
+              </>
+            ) : (
+              <EmptyText>{lang === 'am' ? 'ምንም ውጤት የለም።' : `No results for "${searchQuery}".`}</EmptyText>
+            )}
+          </Section>
+        )}
+
+        {/* Collapsible Staff Sales Section */}
+        <Section 
+          title={labels.staffSales} 
+          refProp={staffRef}
+          isCollapsible={true}
+          isExpanded={expandedSections.staffSales}
+          onToggle={() => toggleSection('staffSales')}
+        >
+          <StaffSalesToday rows={todayStaffSalesRows} hidden={hidden} lang={lang} />
+        </Section>
+
+        {/* Collapsible Owner Alerts Section */}
+        <Section
+          title={labels.ownerAlerts}
+          refProp={alertsRef}
+          action={overdueCustomers.length > 0 && (
+            <button
+              type="button"
+              onClick={onChaseOverdue}
+              className="press-scale"
+              style={{ border: 'none', background: 'transparent', color: '#92400e', fontSize: 12, fontWeight: 900, cursor: 'pointer' }}
+            >
+              {lang === 'am' ? 'ዱቤ' : 'Credit'}
+            </button>
+          )}
+          isCollapsible={true}
+          isExpanded={expandedSections.ownerAlerts}
+          onToggle={() => toggleSection('ownerAlerts')}
+        >
+          <OwnerAlerts
+            alerts={ownerAlerts}
+            overdueCustomers={overdueCustomers}
+            settings={ownerAlertSettings}
+            hidden={hidden}
+            lang={lang}
+          />
+        </Section>
+
+        {!searchQuery.trim() && (
+          <Section 
+            title={labels.recent} 
+            refProp={recentRef}
+            isCollapsible={true}
+            isExpanded={expandedSections.recent}
+            onToggle={() => toggleSection('recent')}
+          >
+            {recentTransactions.length ? (
+              <div>
+                {recentTransactions.map(tx => (
+                  <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
+                ))}
+              </div>
+            ) : (
+              <EmptyText>{lang === 'am' ? 'ለዚህ ጊዜ መዝገብ የለም።' : 'No transactions in this period yet.'}</EmptyText>
+            )}
+          </Section>
+        )}
+
+        {/* Collapsible History Section */}
+        <Section
+          title={labels.fullHistory}
+          refProp={historyRef}
+          action={(
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(value => !value)}
+              className="press-scale"
+              style={{ border: 'none', background: 'transparent', color: '#1B4332', fontSize: 12, fontWeight: 900, cursor: 'pointer' }}
+            >
+              {historyOpen ? (lang === 'am' ? 'ዝጋ' : 'Hide') : (lang === 'am' ? 'ክፈት' : 'Open')}
+            </button>
+          )}
+          isCollapsible={true}
+          isExpanded={expandedSections.history}
+          onToggle={() => toggleSection('history')}
+        >
+          {historyOpen ? (
+            <Suspense fallback={<div style={{ padding: 12, color: '#9ca3af', fontSize: 13 }}>Loading...</div>}>
+              <HistoryView transactions={filteredTransactions} onEdit={onEdit} />
+            </Suspense>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFullHistory}
+              className="press-scale"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                border: '1px solid #e5e7eb',
+                background: '#fafaf5',
+                borderRadius: 10,
+                padding: '11px 12px',
+                color: '#374151',
+                fontSize: 14,
+                fontWeight: 850,
+                cursor: 'pointer',
+              }}
+            >
+              <span>{filteredTransactions.length} {lang === 'am' ? 'መዝገቦች' : 'transactions'}</span>
+              <ChevronRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
+            </button>
+          )}
+        </Section>
+
+        {showExport && (
+          <Section title={lang === 'am' ? 'Export' : 'Export'}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 5, marginBottom: 9 }}>
+              {['today', 'week', 'month', 'all'].map(range => (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setExportRange(range)}
+                  className="press-scale"
+                  style={{
+                    minHeight: 32,
+                    border: 'none',
+                    borderRadius: 8,
+                    background: exportRange === range ? '#1B4332' : '#f3f4f6',
+                    color: exportRange === range ? '#fff' : '#6b7280',
+                    fontSize: 12,
+                    fontWeight: 900,
+                    textTransform: 'capitalize',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="press-scale"
+                style={{ minHeight: 40, border: '1px solid #1B4332', borderRadius: 10, background: '#fff', color: '#1B4332', fontWeight: 950, cursor: 'pointer' }}
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleExportJSON}
+                className="press-scale"
+                style={{ minHeight: 40, border: '1px solid #1B4332', borderRadius: 10, background: '#fff', color: '#1B4332', fontWeight: 950, cursor: 'pointer' }}
+              >
+                JSON
+              </button>
+            </div>
+          </Section>
+        )}
+      </div>
+
+      {/* Fixed Action Bar above bottom navigation */}
       <div style={{
         position: 'fixed',
         left: '50%',
@@ -953,10 +1295,10 @@ function ReportView({
           className="press-scale"
           style={{ minHeight: 38, border: 'none', borderRadius: 9, background: historyOpen ? '#1B4332' : '#fff', color: historyOpen ? '#fff' : '#374151', fontSize: 12, fontWeight: 950, cursor: 'pointer' }}
         >
-          History
+          <Clock className="w-4 h-4 inline-block mr-1" /> History
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
