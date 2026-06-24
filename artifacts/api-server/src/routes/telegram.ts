@@ -535,6 +535,13 @@ router.post("/resend-latest", async (req: Request, res: Response) => {
 });
 
 router.post("/webhook", async (req: Request, res: Response) => {
+  // Phase 5: Verify Telegram webhook secret token
+  const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+  const receivedSecret = req.headers["x-telegram-bot-api-secret-token"] as string | undefined;
+  if (expectedSecret && receivedSecret !== expectedSecret) {
+    return res.status(403).json({ error: "Invalid webhook secret" });
+  }
+
   const update = req.body ?? {};
   const message = update.message ?? update.edited_message ?? null;
   const chatId = message?.chat?.id ? String(message.chat.id) : null;

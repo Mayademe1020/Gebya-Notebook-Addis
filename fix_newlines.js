@@ -1,0 +1,31 @@
+const fs = require('fs');
+let c = fs.readFileSync('d:/Gebya-Notebook-Addis/artifacts/gebya/src/App.jsx', 'utf8');
+
+c = c.replace(/const editTarget = useAppStore\(s => s\.editTarget\);\\n  const setEditTarget = useAppStore\(s => s\.setEditTarget\);\\n  const deleteTarget = useAppStore\(s => s\.deleteTarget\);\\n  const setDeleteTarget = useAppStore\(s => s\.setDeleteTarget\);\\n  const showShareModal = useAppStore\(s => s\.showShareModal\);\\n  const setShowShareModal = useAppStore\(s => s\.setShowShareModal\);\\n  const shareText = useAppStore\(s => s\.shareText\);\\n  const setShareText = useAppStore\(s => s\.setShareText\);\\n  const pressedBtn = useAppStore\(s => s\.pressedBtn\);\\n  const setPressedBtn = useAppStore\(s => s\.setPressedBtn\);\\n  const voiceStep = useAppStore\(s => s\.voiceStep\);\\n  const setVoiceStep = useAppStore\(s => s\.setVoiceStep\);\\n  const voiceTranscript = useAppStore\(s => s\.voiceTranscript\);\\n  const setVoiceTranscript = useAppStore\(s => s\.setVoiceTranscript\);\\n  const voiceDetectedTotal = useAppStore\(s => s\.voiceDetectedTotal\);\\n  const setVoiceDetectedTotal = useAppStore\(s => s\.setVoiceDetectedTotal\);\\n  const voiceItems = useAppStore\(s => s\.voiceItems\);\\n  const setVoiceItems = useAppStore\(s => s\.setVoiceItems\);\\n  const voiceConfidence = useAppStore\(s => s\.voiceConfidence\);\\n  const setVoiceConfidence = useAppStore\(s => s\.setVoiceConfidence\);\\n  const voiceProvider = useAppStore\(s => s\.voiceProvider\);\\n  const setVoiceProvider = useAppStore\(s => s\.setVoiceProvider\);\\n  const voiceDraft = useAppStore\(s => s\.voiceDraft\);\\n  const setVoiceDraft = useAppStore\(s => s\.setVoiceDraft\);\\n  const pendingTelegramCount = useAppStore\(s => s\.pendingTelegramCount\);\\n  const setPendingTelegramCount = useAppStore\(s => s\.setPendingTelegramCount\);/g, `const editTarget = useAppStore(s => s.editTarget);
+  const setEditTarget = useAppStore(s => s.setEditTarget);
+  const deleteTarget = useAppStore(s => s.deleteTarget);
+  const setDeleteTarget = useAppStore(s => s.setDeleteTarget);
+  const showShareModal = useAppStore(s => s.showShareModal);
+  const setShowShareModal = useAppStore(s => s.setShowShareModal);
+  const shareText = useAppStore(s => s.shareText);
+  const setShareText = useAppStore(s => s.setShareText);
+  const pressedBtn = useAppStore(s => s.pressedBtn);
+  const setPressedBtn = useAppStore(s => s.setPressedBtn);
+  const voiceStep = useAppStore(s => s.voiceStep);
+  const setVoiceStep = useAppStore(s => s.setVoiceStep);
+  const voiceTranscript = useAppStore(s => s.voiceTranscript);
+  const setVoiceTranscript = useAppStore(s => s.setVoiceTranscript);
+  const voiceDetectedTotal = useAppStore(s => s.voiceDetectedTotal);
+  const setVoiceDetectedTotal = useAppStore(s => s.setVoiceDetectedTotal);
+  const voiceItems = useAppStore(s => s.voiceItems);
+  const setVoiceItems = useAppStore(s => s.setVoiceItems);
+  const voiceConfidence = useAppStore(s => s.voiceConfidence);
+  const setVoiceConfidence = useAppStore(s => s.setVoiceConfidence);
+  const voiceProvider = useAppStore(s => s.voiceProvider);
+  const setVoiceProvider = useAppStore(s => s.setVoiceProvider);
+  const voiceDraft = useAppStore(s => s.voiceDraft);
+  const setVoiceDraft = useAppStore(s => s.setVoiceDraft);
+  const pendingTelegramCount = useAppStore(s => s.pendingTelegramCount);
+  const setPendingTelegramCount = useAppStore(s => s.setPendingTelegramCount);`);
+
+fs.writeFileSync('d:/Gebya-Notebook-Addis/artifacts/gebya/src/App.jsx', c);

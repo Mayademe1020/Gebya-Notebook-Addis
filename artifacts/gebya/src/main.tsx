@@ -40,7 +40,11 @@ if ("serviceWorker" in navigator) {
 // Simple path-based routing — no router library. The /pay route is a
 // standalone, public, customer-facing page (no Dexie, no auth) and the
 // rest of the URL space goes to the main shopkeeper app.
+const isJoinRoute = typeof window !== "undefined" && /^\/join\/.+/.test(window.location.pathname);
+
 const isPayRoute = typeof window !== "undefined" && window.location.pathname === "/pay";
+
+const JoinPage = lazy(() => import("./components/JoinPage.jsx"));
 
 // Minimal fallback for the lazy-loaded PayPage. Plain inline styles so it
 // renders before any CSS chunk loads.
@@ -67,7 +71,11 @@ function PayPageFallback() {
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    {isPayRoute ? (
+    {isJoinRoute ? (
+      <Suspense fallback={<PayPageFallback />}>
+        <JoinPage />
+      </Suspense>
+    ) : isPayRoute ? (
       <Suspense fallback={<PayPageFallback />}>
         <PayPage />
       </Suspense>

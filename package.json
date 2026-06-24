@@ -10,6 +10,7 @@
   },
   "private": true,
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
   },

@@ -85,11 +85,11 @@ test('staff selection is shown on new records and persists in history after relo
   await expect(page.getByText(/bread/i)).toBeVisible();
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
+  await expect(page.getByText(/almaz/i).first()).toBeVisible();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
+  await expect(page.getByText(/almaz/i).first()).toBeVisible();
 });
 
 test('inactivating the current staff member warns the owner and falls back to owner', async ({ page }) => {
@@ -162,8 +162,8 @@ test('renaming a staff member updates future attribution while keeping past snap
   await expect(page.getByText(/sugar/i)).toBeVisible();
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
-  await expect(page.getByText(/mahi/i)).toBeVisible();
+  await expect(page.getByText(/almaz/i).first()).toBeVisible();
+  await expect(page.getByText(/mahi/i).first()).toBeVisible();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openTeamSection(page);
@@ -171,6 +171,6 @@ test('renaming a staff member updates future attribution while keeping past snap
   await expect(page.getByRole('button', { name: /^current$/i })).toBeVisible();
 
   await page.locator('nav').getByRole('button', { name: /report/i }).click();
-  await expect(page.getByText(/almaz/i)).toBeVisible();
-  await expect(page.getByText(/mahi/i)).toBeVisible();
+  await expect(page.getByText(/almaz/i).first()).toBeVisible();
+  await expect(page.getByText(/mahi/i).first()).toBeVisible();
 });

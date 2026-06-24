@@ -424,6 +424,7 @@ db.version(16).stores({
   analytics: 'key, value',
 });
 
+// Version 17: Add sync_version to all records for optimistic locking
 db.version(17).stores({
   transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
   customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
@@ -437,23 +438,29 @@ db.version(17).stores({
   credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
   settings: 'key, value',
   analytics: 'key, value',
-  identity: 'key, shop_id, shop_name, device_id, device_token, staff_id, display_name, phone_number, role, permissions, device_status, phone_required, approval_required, updated_at',
-});
-
-db.version(18).stores({
-  transactions: '++id, type, amount, item_name, cost_price, quantity, profit, is_credit, customer_id, customer_name, created_at, ethiopian_date, payment_type, payment_provider, updated_at, source, raw_transcript, detected_total, was_edited, transcription_provider, parsing_confidence, voice_note, raw_audio_ref, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
-  customers: '++id, display_name, note, phone_number, telegram_username, telegram_chat_id, telegram_notify_enabled, telegram_link_token, telegram_linked_at, telegram_link_requested_at, created_at, updated_at',
-  customer_transactions: '++id, customer_id, type, amount, due_date, reference_code, telegram_delivery_state, telegram_delivery_error, telegram_delivery_attempted_at, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
-  catalog_entries: '++id, name, kind, active, created_at, updated_at',
-  suppliers: '++id, display_name, phone_number, note, active, created_at, updated_at',
-  supplier_transactions: '++id, supplier_id, type, catalog_entry_id, created_at, updated_at, actor_role, actor_staff_member_id, actor_name_snapshot, transaction_id, device_id',
-  staff_members: '++id, display_name, role, active, created_at, updated_at, deactivated_at',
-  sync_queue: '++id, kind, status, created_at, updated_at, next_attempt_at, record_table, record_id, transaction_id, &idempotency_key, record_type, device_id, client_event_id, event_type, shop_id, server_event_id',
-  credit_records: '++id, customer_id, customer_name, original_amount, paid_amount, remaining_amount, due_date, status, created_at, direction',
-  credit_payment_logs: '++id, credit_record_id, amount, payment_method, paid_at',
-  settings: 'key, value',
-  analytics: 'key, value',
-  identity: 'key, shop_id, shop_name, device_id, device_token, staff_id, display_name, phone_number, role, permissions, device_status, phone_required, approval_required, updated_at',
+}).upgrade(async (tx) => {
+  const tables = [
+    'transactions', 'customers', 'customer_transactions',
+    'catalog_entries', 'suppliers', 'supplier_transactions', 'staff_members',
+  ];
+  for (const tableName of tables) {
+    const table = tx.table(tableName);
+    const records = await table.toArray();
+    for (const record of records) {
+      if (record.sync_version === undefined || record.sync_version === null) {
+        await table.update(record.id, { sync_version: 1 });
+      }
+    }
+  }
+  for (const tableName of ['settings', 'analytics']) {
+    const table = tx.table(tableName);
+    const records = await table.toArray();
+    for (const record of records) {
+      if (record.sync_version === undefined || record.sync_version === null) {
+        await table.update(record.key, { sync_version: 1 });
+      }
+    }
+  }
 });
 
 db.on('ready', async () => {

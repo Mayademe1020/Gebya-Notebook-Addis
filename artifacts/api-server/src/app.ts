@@ -10,6 +10,15 @@ import router from "./routes/index.js";
 const app: Express = express();
 const isProduction = process.env.NODE_ENV === "production";
 
+// Fail-fast: refuse to start in production with a weak/missing JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || "";
+if (isProduction) {
+  if (!JWT_SECRET || JWT_SECRET === "gebya-dev-secret-change-me" || JWT_SECRET.length < 32) {
+    console.error("[security] FATAL: JWT_SECRET is missing, default, or < 32 chars. Set a strong secret before deploying.");
+    process.exit(1);
+  }
+}
+
 function createRequestId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -35,6 +44,12 @@ function isAllowedOrigin(origin?: string | null) {
 
   if (!isProduction && allowedOrigins.length === 0) {
     return true;
+  }
+
+  // Phase 5: In production, if no origins are configured, reject everything
+  if (isProduction && allowedOrigins.length === 0) {
+    console.error("[security] CORS_ORIGIN is not set in production. Rejecting all cross-origin requests.");
+    return false;
   }
 
   return allowedOrigins.includes(origin);
@@ -64,26 +79,24 @@ app.use(
   })
 );
 
-// ---- SAFE RATE LIMIT ----
+// ---- RATE LIMITS ----
+let syncRateLimiter: any = (_req: any, _res: any, next: any) => next(); // passthrough fallback
 try {
   const rl = (rateLimit as any)?.default ?? rateLimit;
   if (typeof rl === "function") {
-    const limiter = rl({
-      windowMs: 15 * 60 * 1000,
-      max: 200,
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: { error: "Too many requests, please try again later." },
-    });
-    app.use(limiter);
+    // Global: 200 req / 15 min
+    app.use(rl({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests." } }));
+    // Sync-specific: 60 req / 5 min per IP (prevents sync abuse)
+    syncRateLimiter = rl({ windowMs: 5 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false, message: { error: "Sync rate limit exceeded. Slow down." } });
   }
 } catch (e) {
   console.error("RateLimit failed:", e);
 }
+export { syncRateLimiter };
 
 // ---- BODY PARSING ----
-app.use(express.json({ limit: "100kb" }));
-app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // ---- REQUEST CONTEXT ----
 app.use((req, res, next) => {

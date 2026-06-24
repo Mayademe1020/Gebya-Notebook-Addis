@@ -1,4 +1,6 @@
 import db from '../db';
+import { CUSTOMER_TRANSACTION_TYPES } from './customerTransactionTypes';
+import { SUPPLIER_TRANSACTION_TYPES } from './supplierLedger';
 
 export const CLOUD_PROOF_DEVICE_ID_KEY = 'cloud_proof_device_id';
 export const CLOUD_PROOF_SCHEMA_VERSION = 1;
@@ -148,4 +150,22 @@ export async function enqueueCloudProofUpsert({ recordTable, recordId, recordTyp
     if (import.meta.env.DEV) console.warn('Cloud proof queue failed:', error);
     return null;
   }
+}
+
+export function getTransactionCloudProofRecordType(transaction) {
+  if (transaction?.type === 'sale') return 'sale';
+  if (transaction?.type === 'expense') return 'expense';
+  return null;
+}
+
+export function getCustomerCloudProofRecordType(transaction) {
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT) return 'customer_payment';
+  if (transaction?.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD) return 'customer_credit';
+  return null;
+}
+
+export function getSupplierCloudProofRecordType(transaction) {
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT) return 'supplier_payment';
+  if (transaction?.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD) return 'supplier_purchase';
+  return null;
 }

@@ -402,22 +402,21 @@ function TxRow({ tx, onEdit, t, lang }) {
   );
 }
 
-// Fix C: month-bucketed wrapper around DayGroupList. Shows month header bars;
-// only the expanded month renders its day cards. Current month auto-expands.
 function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, expandedMonths, toggleMonth, t, lang }) {
   const monthBuckets = groupDaysByMonth(dayGroups);
   const currentMonthLabel = monthLabelOf(Date.now());
+  const [monthLimit, setMonthLimit] = useState(6);
+
+  const visibleBuckets = monthBuckets.slice(0, monthLimit);
 
   return (
     <div className="space-y-3">
-      {monthBuckets.map((bucket, idx) => {
+      {visibleBuckets.map((bucket, idx) => {
         const stats = calcStats(bucket.transactions);
         const isCurrentMonth = bucket.label === currentMonthLabel;
-        // Current month + the first bucket default open; others collapsed.
         const expanded = expandedMonths[bucket.label] ?? (isCurrentMonth || idx === 0);
         return (
           <div key={bucket.label}>
-            {/* Month header bar — tappable */}
             <button
               type="button"
               onClick={() => toggleMonth(bucket.label, expanded)}
@@ -459,7 +458,6 @@ function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, 
               </div>
             </button>
 
-            {/* Day cards for this month — only rendered when the month is open */}
             {expanded && (
               <div
                 className="pt-3 px-2 pb-2"
@@ -483,6 +481,20 @@ function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, 
           </div>
         );
       })}
+      {monthBuckets.length > monthLimit && (
+        <button
+          type="button"
+          onClick={() => setMonthLimit(prev => prev + 6)}
+          className="w-full py-2.5 text-xs font-bold text-center transition-all press-scale border rounded-xl"
+          style={{
+            borderColor: '#C4883A',
+            color: '#6b4f1d',
+            background: 'rgba(196,136,58,0.04)',
+          }}
+        >
+          {lang === 'am' ? 'ተጨማሪ ወራት አሳይ' : 'Load more months'}
+        </button>
+      )}
     </div>
   );
 }
@@ -547,7 +559,9 @@ function DayGroupList({ groups, onEdit, expandedGroups, toggleGroup, t, lang }) 
   );
 }
 
-function WeekGroupList({ groups, onEdit, expandedGroups, toggleGroup, t, lang }) {
+function WeekGroupList({ groups: allGroups, onEdit, expandedGroups, toggleGroup, t, lang }) {
+  const [weekLimit, setWeekLimit] = useState(10);
+  const groups = allGroups.slice(0, weekLimit);
   return (
     <div className="space-y-3">
       {groups.map(group => {
@@ -591,6 +605,20 @@ function WeekGroupList({ groups, onEdit, expandedGroups, toggleGroup, t, lang })
           </div>
         );
       })}
+      {allGroups.length > weekLimit && (
+        <button
+          type="button"
+          onClick={() => setWeekLimit(prev => prev + 10)}
+          className="w-full py-2.5 text-xs font-bold text-center transition-all press-scale border rounded-xl"
+          style={{
+            borderColor: '#C4883A',
+            color: '#6b4f1d',
+            background: 'rgba(196,136,58,0.04)',
+          }}
+        >
+          {lang === 'am' ? 'ተጨማሪ ሳምንታት አሳይ' : 'Load more weeks'}
+        </button>
+      )}
     </div>
   );
 }
