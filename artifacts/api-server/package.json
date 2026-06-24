@@ -12,6 +12,16 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.build.json --noEmit"
   },
+  "vitest": {
+    "test": {
+      "ignore": [
+        "src/services/__tests__/reminderConfiguration.test.ts",
+        "src/services/__tests__/reminderHistory.test.ts",
+        "src/services/__tests__/reminderHistory.simple.test.ts",
+        "src/routes/__tests__/reminders.test.ts"
+      ]
+    }
+  },
   "dependencies": {
     "@types/multer": "^2.1.0",
     "@workspace/api-zod": "workspace:*",

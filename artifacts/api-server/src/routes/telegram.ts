@@ -356,6 +356,20 @@ function buildFallbackReply(linked: boolean, lang: Lang) {
   return lines.join("\n");
 }
 
+function buildUnsubscribeReply(lang: Lang): string {
+  if (lang === "am") {
+    return "👋 ዛሬ ከዚህ በኋላ ማስታወሻዎች አንሰበርሙም። /subscribe ምትያብ ለእንደገና ማገናኘት።";
+  }
+  return "👋 You won't receive reminders anymore. Type /subscribe to opt back in.";
+}
+
+function buildSubscribeReply(lang: Lang): string {
+  if (lang === "am") {
+    return "✅ ዛሬ ወደ ዋናው ተሳክተዋል! ማስታወሻዎች ሊተገብሩ ይችላሉ።";
+  }
+  return "✅ You're back! You'll receive reminders again.";
+}
+
 router.get("/status", (_req: Request, res: Response) => {
   const store = getTelegramSessionStoreStatus();
 
@@ -638,6 +652,84 @@ router.post("/webhook", async (req: Request, res: Response) => {
       });
     }
     return res.json({ ok: true });
+  }
+
+  // ─── /unsubscribe ─────────────────────────────────────────────
+  if (cmd === "/unsubscribe") {
+    const session = await getSessionByChatId(chatId);
+    if (!session) {
+      try {
+        await sendTelegramTextMessage(
+          chatId,
+          "You're not linked to a shop yet, so there's nothing to unsubscribe from."
+        );
+      } catch (error) {
+        console.error("[telegram:webhook:unsubscribe:not-linked]", {
+          chatId,
+          lang,
+          requestId: res.locals.requestId,
+          message: error instanceof Error ? error.message : "Telegram unsubscribe reply failed",
+        });
+      }
+      return res.json({ ok: true, unsubscribed: false });
+    }
+
+    try {
+      await syncTelegramCustomerState({
+        token: session.token,
+        updatesEnabled: false,
+      });
+      await sendTelegramTextMessage(chatId, buildUnsubscribeReply(lang));
+      return res.json({ ok: true, unsubscribed: true });
+    } catch (error) {
+      console.error("[telegram:webhook:unsubscribe]", {
+        chatId,
+        token: session.token,
+        lang,
+        requestId: res.locals.requestId,
+        message: error instanceof Error ? error.message : "Telegram unsubscribe failed",
+      });
+      return res.json({ ok: false, error: "Failed to unsubscribe" });
+    }
+  }
+
+  // ─── /subscribe ───────────────────────────────────────────────
+  if (cmd === "/subscribe") {
+    const session = await getSessionByChatId(chatId);
+    if (!session) {
+      try {
+        await sendTelegramTextMessage(
+          chatId,
+          "You're not linked to a shop yet. Ask your shop owner to share their Gebya link."
+        );
+      } catch (error) {
+        console.error("[telegram:webhook:subscribe:not-linked]", {
+          chatId,
+          lang,
+          requestId: res.locals.requestId,
+          message: error instanceof Error ? error.message : "Telegram subscribe reply failed",
+        });
+      }
+      return res.json({ ok: true, subscribed: false });
+    }
+
+    try {
+      await syncTelegramCustomerState({
+        token: session.token,
+        updatesEnabled: true,
+      });
+      await sendTelegramTextMessage(chatId, buildSubscribeReply(lang));
+      return res.json({ ok: true, subscribed: true });
+    } catch (error) {
+      console.error("[telegram:webhook:subscribe]", {
+        chatId,
+        token: session.token,
+        lang,
+        requestId: res.locals.requestId,
+        message: error instanceof Error ? error.message : "Telegram subscribe failed",
+      });
+      return res.json({ ok: false, error: "Failed to subscribe" });
+    }
   }
 
   // ─── Fallback for anything else ──────────────────────────────────

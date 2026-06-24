@@ -106,16 +106,12 @@ export function renderTemplate(
  */
 export function formatCurrencyAm(amount: number): string {
   if (amount === null || amount === undefined) {
-    amount = 0;
+    return `0 ${CURRENCY_SUFFIX.am}`;
   }
   if (typeof amount !== "number" || isNaN(amount)) {
     return `0 ${CURRENCY_SUFFIX.am}`;
   }
-  const formatted = amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `${formatted} ${CURRENCY_SUFFIX.am}`;
+  return `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${CURRENCY_SUFFIX.am}`;
 }
 
 /**
@@ -125,16 +121,12 @@ export function formatCurrencyAm(amount: number): string {
  */
 export function formatCurrencyEn(amount: number): string {
   if (amount === null || amount === undefined) {
-    amount = 0;
+    return `0 ${CURRENCY_SUFFIX.en}`;
   }
   if (typeof amount !== "number" || isNaN(amount)) {
     return `0 ${CURRENCY_SUFFIX.en}`;
   }
-  const formatted = amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `${formatted} ${CURRENCY_SUFFIX.en}`;
+  return `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${CURRENCY_SUFFIX.en}`;
 }
 
 /**

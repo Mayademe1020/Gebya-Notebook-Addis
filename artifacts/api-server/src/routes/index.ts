@@ -6,6 +6,7 @@ import syncRouter from "./sync.js";
 import authRouter from "./auth.js";
 import backupRouter from "./backup.js";
 import businessRouter from "./business.js";
+import remindersRouter from "./reminders.js";
 
 const router: IRouter = Router();
 
@@ -17,5 +18,6 @@ router.use("/sync", syncRouter);
 router.use("/auth", authRouter);
 router.use("/backup", backupRouter);
 router.use("/business", businessRouter);
+router.use("/telegram/reminders", remindersRouter);
 
 export default router;
