@@ -1,21 +1,12 @@
-import { lazy, Suspense, useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import {
-  AlertTriangle,
-  Banknote,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ChevronDown,
   Download,
   Eye,
   EyeOff,
   Filter,
-  History,
   Search,
-  Settings2,
-  ShoppingCart,
-  UserRound,
-  Wallet,
   X,
   Clock,
 } from 'lucide-react';
@@ -119,10 +110,6 @@ function actorKey(tx) {
   return tx.actor_staff_member_id ? String(tx.actor_staff_member_id) : '__owner__';
 }
 
-function actorName(tx) {
-  return tx.actor_name_snapshot || (actorKey(tx) === '__owner__' ? 'Owner' : 'Unknown');
-}
-
 function matchesActor(tx, actorFilter) {
   if (!actorFilter) return true;
   if (actorFilter === '__owner__') return !tx.actor_staff_member_id;
@@ -146,9 +133,23 @@ function displayItem(tx, lang) {
   return tx.item_note || tx.item_name || tx.note || (lang === 'am' ? 'መዝገብ' : 'Record');
 }
 
-function displayTime(ms) {
-  if (!ms) return '';
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function inRange(ts, from, to) {
+  if (!ts) return false;
+  return ts >= from && ts < to;
+}
+
+function matchesSearch(tx, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    String(amountOf(tx) || '').includes(q) ||
+    String(tx.item_name || '').toLowerCase().includes(q) ||
+    String(tx.item_note || '').toLowerCase().includes(q) ||
+    String(tx.customer_name || '').toLowerCase().includes(q) ||
+    String(tx.note || '').toLowerCase().includes(q) ||
+    String(tx.report_kind || tx.type || '').toLowerCase().includes(q) ||
+    String(actorName(tx) || '').toLowerCase().includes(q)
+  );
 }
 
 // Collapsible Section Component
@@ -524,45 +525,6 @@ function OwnerAlerts({ alerts, overdueCustomers, settings, hidden, lang }) {
   );
 }
 
-function TransactionRow({ tx, hidden, lang, onEdit }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(item)}
-      className="press-scale"
-      style={{
-        minWidth: 0,
-        minHeight: 120,
-        padding: 12,
-        background: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        boxShadow: '0 2px 8px -6px rgba(0,0,0,0.22)',
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr 16px', gap: 8, alignItems: 'start' }}>
-        <span style={{ width: 34, height: 34, borderRadius: 8, background: item.bg, display: 'grid', placeItems: 'center' }}>
-          <Icon className="w-5 h-5" style={{ color: item.color }} />
-        </span>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ color: '#1f2937', fontSize: 13, fontWeight: 950, lineHeight: 1.15 }}>
-            {item.label}
-          </p>
-          <p style={{ color: '#6b7280', fontSize: 11, fontWeight: 700, marginTop: 3, lineHeight: 1.2 }}>
-            {item.helper}
-          </p>
-        </div>
-        <ChevronRight className="w-4 h-4" style={{ color: '#6b7280', marginTop: 8 }} />
-      </div>
-      <p style={{ marginTop: 14, fontSize: 'clamp(18px, 6vw, 22px)', lineHeight: 1.05 }}>
-        <Amount value={item.value} hidden={hidden} tone={item.tone} />
-      </p>
-    </button>
-  );
-}
-
 function RecordRow({ row, hidden, onEdit }) {
   const isOut = row.report_kind === 'expense';
   return (
@@ -611,6 +573,36 @@ function SelectRow({ label, value, onChange, options }) {
   );
 }
 
+function EmptyText({ children }) {
+  return (
+    <p style={{ color: '#9ca3af', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: '12px 0' }}>
+      {children}
+    </p>
+  );
+}
+
+function getExportBounds(range) {
+  const now = Date.now();
+  const today = startOfLocalDay(now);
+  if (range === 'today') return [today, today + DAY_MS];
+  if (range === 'week') return [startOfWeek(now), startOfWeek(now) + 7 * DAY_MS];
+  if (range === 'month') return [startOfMonth(now), endOfMonth(now)];
+  return [0, now + DAY_MS];
+}
+
+function buildJSON({ transactions, ledgerTransactions, customers, suppliers }, from, to) {
+  return JSON.stringify({ exported_at: new Date().toISOString(), period: { from, to }, transactions, ledgerTransactions, customers, suppliers }, null, 2);
+}
+
+const HistoryView = ({ transactions, onEdit }) => (
+  <div>
+    {transactions.map(tx => (
+      <RecordRow key={tx.id} row={tx} hidden={false} onEdit={onEdit} />
+    ))}
+    {transactions.length === 0 && <EmptyText>No transactions found.</EmptyText>}
+  </div>
+);
+
 export default function ReportView({
   transactions = [],
   ledgerTransactions = [],
@@ -623,6 +615,13 @@ export default function ReportView({
   ownerAlerts = [],
   staffMembers = [],
   activeStaffMemberId = null,
+  lang = 'en',
+  selectedStats = { sales: 0, expenses: 0 },
+  selectedCollected = 0,
+  selectedFlow = { cash: 0, transfer: 0 },
+  todayStaffSalesRows = [],
+  ownerAlertSettings = {},
+  scope = 'all',
 }) {
   const { hidden, toggle: togglePrivacy } = usePrivacy();
   const [timeRange, setTimeRange] = useState('today');
@@ -661,7 +660,6 @@ export default function ReportView({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [customFrom, setCustomFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
-  const [stickyTop, setStickyTop] = useState(0);
 
   const searchRef = useRef(null);
   const staffRef = useRef(null);
@@ -676,8 +674,8 @@ export default function ReportView({
   const activeStaff = staffMembers.find(member => String(member.id) === String(activeStaffMemberId));
   const isStaffView = Boolean(activeStaffMemberId);
   const viewerStaffId = isStaffView ? activeStaffMemberId : null;
-
-  const [from, to] = useMemo(() => {
+  const filters = actorFilter ? { actor: actorFilter } : EMPTY_FILTERS;
+  const rangeBounds = (() => {
     if (timeRange === 'week') return [startOfWeek(now), startOfWeek(now) + 7 * DAY_MS];
     if (timeRange === 'month') return [startOfMonth(now), endOfMonth(now)];
     if (timeRange === 'custom') {
@@ -687,15 +685,13 @@ export default function ReportView({
       return [start, endDate.getTime()];
     }
     return [todayStart, todayStart + DAY_MS];
-  }, [timeRange, customFrom, customTo, todayStart, now]);
+  })();
+
+  const [from, to] = rangeBounds;
 
   const reportRows = useMemo(() => buildReportRows({ transactions, ledgerTransactions, customers, from, to, scope, viewerStaffId, filters }), [transactions, ledgerTransactions, customers, from, to, scope, viewerStaffId, filters]);
   const metrics = useMemo(() => computeReportMetrics(reportRows), [reportRows]);
   const staffRows = useMemo(() => buildStaffReportRows(reportRows), [reportRows]);
-  const searchRows = useMemo(() => {
-    if (!searchQuery) return [];
-    return reportRows.filter(row => reportRowSearchText(row).includes(searchQuery)).slice(0, 8);
-  }, [reportRows, searchQuery]);
 
   const rangeTransactions = useMemo(
     () => (transactions || []).filter(tx => inRange(tx.created_at, rangeBounds[0], rangeBounds[1])),
@@ -745,29 +741,21 @@ export default function ReportView({
     };
   }, [rangeTransactions, ledgerTransactions, rangeBounds]);
 
-  const scrollTo = (ref) => {
-    ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  const handleExportJSON = () => {
+    const [exportFrom, exportTo] = getExportBounds(exportRange);
+    const json = buildJSON({ transactions, ledgerTransactions, customers, suppliers }, exportFrom, exportTo);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob(json, `gebya-${exportRange}-${stamp}.json`, 'application/json');
   };
 
-  const exportRows = (format) => {
-    if (isStaffView) {
-      setActionMessage('Export is owner-only on this device.');
-      return;
-    }
-    setActionMessage('');
+  const handleExportCSV = () => {
+    if (isStaffView) return;
     const stamp = new Date().toISOString().slice(0, 10);
-    if (format === 'json') {
-      downloadBlob(JSON.stringify({ exported_at: new Date().toISOString(), period: { from, to }, scope: selectedScope.label, filters, rows: reportRows, customers, suppliers }, null, 2), `gebya-report-${stamp}.json`, 'application/json');
-      return;
-    }
     downloadBlob(buildCSV(reportRows), `gebya-report-${stamp}.csv`, 'text/csv;charset=utf-8');
   };
 
-  const handleExportJSON = () => {
-    const [from, to] = getExportBounds(exportRange);
-    const json = buildJSON({ transactions, ledgerTransactions, customers, suppliers }, from, to);
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadBlob(json, `gebya-${exportRange}-${stamp}.json`, 'application/json');
+  const handleFullHistory = () => {
+    setHistoryOpen(prev => !prev);
   };
 
   const handleKPIClick = (kpiData) => {
@@ -964,7 +952,7 @@ export default function ReportView({
           background: '#fff',
           paddingBottom: 8,
         }}>
-          <div style={{ display: 'relative' }}>
+          <div style={{ position: 'relative' }}>
             <Search className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input
               ref={searchRef}
@@ -1040,20 +1028,27 @@ export default function ReportView({
           <Section title={lang === 'am' ? 'የፍለጋ ውጤት' : 'Search Results'}>
             {searchResults.length ? (
               <>
-                <div style={{ divide: '1px solid #f3f4f6' }}>
+                <div>
                   {searchResults.map(tx => (
-                    <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
+                    <RecordRow key={tx.id} row={tx} hidden={hidden} onEdit={onEdit} />
                   ))}
                 </div>
                 {filteredTransactions.length > searchLimit && (
                   <button
                     type="button"
                     onClick={() => setSearchLimit(prev => prev + 10)}
-                    className="w-full py-2.5 mt-2 text-xs font-bold text-center transition-all press-scale border rounded-xl"
+                    className="press-scale"
                     style={{
-                      borderColor: '#C4883A',
+                      width: '100%',
+                      padding: '10px',
+                      marginTop: 8,
+                      fontWeight: 900,
+                      fontSize: 12,
+                      border: '1px solid #C4883A',
+                      borderRadius: 12,
                       color: '#6b4f1d',
                       background: 'rgba(196,136,58,0.04)',
+                      cursor: 'pointer',
                     }}
                   >
                     {lang === 'am' ? 'ተጨማሪ ውጤቶች አሳይ' : 'Load more results'}
@@ -1115,7 +1110,7 @@ export default function ReportView({
             {recentTransactions.length ? (
               <div>
                 {recentTransactions.map(tx => (
-                  <TransactionRow key={tx.id} tx={tx} hidden={hidden} lang={lang} onEdit={onEdit} />
+                  <RecordRow key={tx.id} row={tx} hidden={hidden} onEdit={onEdit} />
                 ))}
               </div>
             ) : (
@@ -1143,9 +1138,7 @@ export default function ReportView({
           onToggle={() => toggleSection('history')}
         >
           {historyOpen ? (
-            <Suspense fallback={<div style={{ padding: 12, color: '#9ca3af', fontSize: 13 }}>Loading...</div>}>
-              <HistoryView transactions={filteredTransactions} onEdit={onEdit} />
-            </Suspense>
+            <HistoryView transactions={filteredTransactions} onEdit={onEdit} />
           ) : (
             <button
               type="button"
@@ -1253,7 +1246,7 @@ export default function ReportView({
           className="press-scale"
           style={{ minHeight: 38, border: 'none', borderRadius: 9, background: showExport ? '#1B4332' : '#fff', color: showExport ? '#fff' : '#374151', fontSize: 12, fontWeight: 950, cursor: 'pointer' }}
         >
-          <Download className="w-4 h-4 inline-block mr-1" /> Export
+          <Download className="w-4 h-4" style={{ display: 'inline-block', marginRight: 4 }} /> Export
         </button>
         <button
           type="button"
@@ -1261,7 +1254,7 @@ export default function ReportView({
           className="press-scale"
           style={{ minHeight: 38, border: 'none', borderRadius: 9, background: historyOpen ? '#1B4332' : '#fff', color: historyOpen ? '#fff' : '#374151', fontSize: 12, fontWeight: 950, cursor: 'pointer' }}
         >
-          <Clock className="w-4 h-4 inline-block mr-1" /> History
+          <Clock className="w-4 h-4" style={{ display: 'inline-block', marginRight: 4 }} /> History
         </button>
       </div>
     </>
