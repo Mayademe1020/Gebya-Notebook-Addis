@@ -13,3 +13,5 @@ export * from "./snapshots";
 export * from "./businesses";
 export * from "./business_members";
 export * from "./invites";
+export * from "./store";
+export * from "./phone";
