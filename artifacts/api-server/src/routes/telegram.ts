@@ -624,6 +624,76 @@ router.post("/webhook", async (req: Request, res: Response) => {
     return res.json({ ok: true });
   }
 
+  // ─── /unsubscribe ─────────────────────────────────────────────
+  if (cmd === "/unsubscribe") {
+    const session = await getSessionByChatId(chatId);
+    if (session) {
+      try {
+        await syncTelegramCustomerState({
+          token: session.token,
+          updatesEnabled: false,
+        });
+      } catch (error) {
+        console.error("[telegram:webhook:unsubscribe]", {
+          chatId,
+          requestId: res.locals.requestId,
+          message: error instanceof Error ? error.message : "Unsubscribe failed",
+        });
+      }
+    }
+    try {
+      await sendTelegramTextMessage(
+        chatId,
+        lang === "am"
+          ? "ማሳወቂያዎችን ማጥፋት ተሳክቷል። ለማንቃት /subscribe ይተይቡ።"
+          : "You've unsubscribed from reminders. Type /subscribe to opt back in.",
+      );
+    } catch (error) {
+      console.error("[telegram:webhook:unsubscribe:reply]", {
+        chatId,
+        lang,
+        requestId: res.locals.requestId,
+        message: error instanceof Error ? error.message : "Reply failed",
+      });
+    }
+    return res.json({ ok: true, unsubscribed: true });
+  }
+
+  // ─── /subscribe ────────────────────────────────────────────────
+  if (cmd === "/subscribe") {
+    const session = await getSessionByChatId(chatId);
+    if (session) {
+      try {
+        await syncTelegramCustomerState({
+          token: session.token,
+          updatesEnabled: true,
+        });
+      } catch (error) {
+        console.error("[telegram:webhook:subscribe]", {
+          chatId,
+          requestId: res.locals.requestId,
+          message: error instanceof Error ? error.message : "Subscribe failed",
+        });
+      }
+    }
+    try {
+      await sendTelegramTextMessage(
+        chatId,
+        lang === "am"
+          ? "ማሳወቂያዎች እንደገና ተበርተዋል። ለማጥፋት /unsubscribe ይተይቡ።"
+          : "You'll receive reminders again. Type /unsubscribe to opt out.",
+      );
+    } catch (error) {
+      console.error("[telegram:webhook:subscribe:reply]", {
+        chatId,
+        lang,
+        requestId: res.locals.requestId,
+        message: error instanceof Error ? error.message : "Reply failed",
+      });
+    }
+    return res.json({ ok: true, subscribed: true });
+  }
+
   // ─── /paid [amount] ────────────────────────────────────────────
   if (cmd === "/paid") {
     const session = await getSessionByChatId(chatId);

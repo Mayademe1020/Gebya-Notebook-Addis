@@ -34,6 +34,10 @@ const allowedOrigins = [
     ? `https://${process.env.REPLIT_DEV_DOMAIN}`
     : null,
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  // Frontend deployment: gebya-notebook-addis on Vercel
+  process.env.FRONTEND_URL || null,
+  // Also explicitly allow known frontend domains for this deployment
+  "https://gebya-notebook-addis-gebya.vercel.app",
   ...configuredOrigins,
 ].filter(Boolean) as string[];
 

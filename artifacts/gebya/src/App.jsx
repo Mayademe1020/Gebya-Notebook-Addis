@@ -97,6 +97,7 @@ function AppInner() {
   const setCustomerTransactionModal = useAppStore(s => s.setCustomerTransactionModal);
   const customerTransactionEditTarget = useAppStore(s => s.customerTransactionEditTarget);
   const showSupplierForm = useAppStore(s => s.showSupplierForm);
+  const setShowSupplierForm = useAppStore(s => s.setShowSupplierForm);
   const supplierEditTarget = useAppStore(s => s.supplierEditTarget);
   const supplierTransactionModal = useAppStore(s => s.supplierTransactionModal);
   const supplierTransactionEditTarget = useAppStore(s => s.supplierTransactionEditTarget);
