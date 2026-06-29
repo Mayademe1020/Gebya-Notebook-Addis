@@ -21,7 +21,7 @@
 // Preserves all existing handlers, save data shape, success screen, recurring popup.
 // NEW: photo capture (B-009) — base64 stored on transaction record.
 
-import { useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import {
   X,
   ChevronDown,
@@ -34,7 +34,6 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import PaymentTypeChips from './PaymentTypeChips';
 import EthiopianDatePicker from './EthiopianDatePicker';
 import { getDueDateOptions, formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
@@ -51,24 +50,184 @@ function handleNumericInput(e, setter) {
 
 const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
+function safeMathTotal(input) {
+  const normalized = String(input || '')
+    .replace(/[×x]/gi, '*')
+    .replace(/÷/g, '/')
+    .replace(/\s+/g, '');
+  if (!normalized || !/^\d+(?:\.\d+)?(?:[+\-*/]\d+(?:\.\d+)?)*$/.test(normalized)) return null;
+
+  const tokens = normalized.match(/\d+(?:\.\d+)?|[+\-*/]/g);
+  if (!tokens || tokens.length === 0) return null;
+
+  const values = [Number(tokens[0])];
+  const ops = [];
+  for (let i = 1; i < tokens.length; i += 2) {
+    const op = tokens[i];
+    const next = Number(tokens[i + 1]);
+    if (!Number.isFinite(next)) return null;
+    if (op === '*') {
+      values[values.length - 1] *= next;
+    } else if (op === '/') {
+      if (next === 0) return null;
+      values[values.length - 1] /= next;
+    } else {
+      ops.push(op);
+      values.push(next);
+    }
+  }
+
+  const result = values.reduce((sum, value, index) => (
+    index === 0 ? value : (ops[index - 1] === '-' ? sum - value : sum + value)
+  ), 0);
+  return Number.isFinite(result) && result > 0 ? Math.round(result * 100) / 100 : null;
+}
+
+function parseItemDraft(input, catalogEntries = []) {
+  const raw = String(input || '').trim();
+  if (!raw) return { kind: 'empty', raw: '' };
+  const query = raw.toLowerCase();
+  const exactCatalog = catalogEntries.find((entry) => {
+    const name = String(entry?.name || '').trim().toLowerCase();
+    const code = String(entry?.code || entry?.sku || entry?.item_code || '').trim().toLowerCase();
+    return query && (query === name || query === code);
+  });
+  if (exactCatalog) return { kind: 'catalog', entry: exactCatalog, raw };
+
+  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+  if (qtyMatch) {
+    const qty = Number(qtyMatch[2]);
+    const unitPrice = Number(qtyMatch[3]);
+    if (qty > 0 && unitPrice > 0) {
+      return { kind: 'item', name: qtyMatch[1].trim(), qty, unitPrice, raw };
+    }
+  }
+
+  const itemAmountMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr))?$/i);
+  if (itemAmountMatch) {
+    const unitPrice = Number(itemAmountMatch[2]);
+    if (unitPrice > 0) return { kind: 'item', name: itemAmountMatch[1].trim(), qty: 1, unitPrice, raw };
+  }
+
+  return { kind: 'item', name: raw, qty: 1, unitPrice: null, raw };
+}
+
+function parseItemInput(raw) {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  const namePrice = trimmed.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr))?$/i)
+  if (namePrice) {
+    return { kind: 'item', name: namePrice[1].trim(), unitPrice: Number(namePrice[2]), qty: 1, raw }
+  }
+
+  const qtyName = trimmed.match(/^(\d+)\s*[x×]\s*(.+)$/i)
+  if (qtyName) {
+    return { kind: 'item', name: qtyName[2].trim(), qty: Number(qtyName[1]), unitPrice: null, raw }
+  }
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    return { kind: 'amount', value: Number(trimmed), raw }
+  }
+
+  return { kind: 'item', name: trimmed, unitPrice: null, qty: 1, raw }
+}
+
+
+function MerchantKeypad({ onChange, onDismiss }) {
+  const [display, setDisplay] = useState('')
+  const [entries, setEntries] = useState([])
+
+  const committedTotal = entries.reduce((sum, n) => sum + n, 0)
+
+  const handleDigit = (digit) => {
+    if (digit === '.' && display.includes('.')) return
+    if (digit === '0' && display === '0') return
+    setDisplay(prev => prev + digit)
+  }
+
+  const handleAdd = () => {
+    const val = parseFloat(display)
+    if (!display || isNaN(val) || val <= 0) return
+    setEntries(prev => [...prev, val])
+    setDisplay('')
+  }
+
+  const handleSubtract = () => {
+    setEntries(prev => prev.slice(0, -1))
+  }
+
+  const handleBackspace = () => {
+    setDisplay(prev => prev.slice(0, -1))
+  }
+
+  const handleDone = () => {
+    const val = parseFloat(display) || 0
+    const allEntries = val > 0 ? [...entries, val] : entries
+    const total = allEntries.reduce((sum, n) => sum + n, 0)
+    if (total <= 0) return
+    onChange(total % 1 === 0 ? String(total) : total.toFixed(2))
+    onDismiss()
+  }
+
+  return (
+    <div className="bg-white border-t border-gray-200 rounded-t-xl shadow-lg select-none">
+      <div className="px-4 py-2 bg-gray-50 rounded-t-xl flex items-center justify-between">
+        <span className="text-sm text-gray-500">Running total</span>
+        <span className="text-lg font-semibold text-gray-900">
+          {committedTotal > 0 ? `${committedTotal} ETB` : '—'}
+        </span>
+      </div>
+      <div className="px-4 py-1 text-right">
+        <span className="text-2xl font-medium text-gray-800">
+          {display || '0'}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1 px-2 pb-1">
+        <button onPointerDown={(e) => { e.preventDefault(); handleAdd() }}
+          className="py-3 rounded-lg bg-blue-50 text-blue-700 text-xl font-semibold active:bg-blue-100">+</button>
+        <button onPointerDown={(e) => { e.preventDefault(); handleSubtract() }}
+          className="py-3 rounded-lg bg-gray-100 text-gray-700 text-xl font-semibold active:bg-gray-200">−</button>
+        <button onPointerDown={(e) => { e.preventDefault(); handleBackspace() }}
+          className="py-3 rounded-lg bg-gray-100 text-gray-600 text-lg active:bg-gray-200">⌫</button>
+      </div>
+      <div className="grid grid-cols-3 gap-1 px-2 pb-1">
+        {['7','8','9','4','5','6','1','2','3'].map(d => (
+          <button key={d} onPointerDown={(e) => { e.preventDefault(); handleDigit(d) }}
+            className="py-4 rounded-lg bg-white border border-gray-200 text-xl font-medium text-gray-900 active:bg-gray-100">{d}</button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1 px-2 pb-3">
+        <button onPointerDown={(e) => { e.preventDefault(); handleDigit('.') }}
+          className="py-4 rounded-lg bg-white border border-gray-200 text-xl text-gray-900 active:bg-gray-100">.</button>
+        <button onPointerDown={(e) => { e.preventDefault(); handleDigit('0') }}
+          className="py-4 rounded-lg bg-white border border-gray-200 text-xl font-medium text-gray-900 active:bg-gray-100">0</button>
+        <button onPointerDown={(e) => { e.preventDefault(); handleDone() }}
+          className="py-4 rounded-lg bg-blue-600 text-white text-base font-semibold active:bg-blue-700">Done</button>
+      </div>
+    </div>
+  )
+}
+
 function TransactionForm({
-  type,
-  onSave,
-  onDone,
-  actorLabel,
-  enabledProviders,
-  catalogEntries = [],
-  recurringExpenses,
-  onRecurringChange,
-  onSaveCatalogEntry,
-  customQuickAmounts = [],
-  onCustomQuickAmountsChange,
-  customers = [],
-  onAddCustomerInline,
-  initialPaymentType,
-  initialPaymentProvider,
-  lastPaymentHistory,
-}) {
+   type,
+   onSave,
+   onDone,
+   onUndo,
+   actorLabel,
+   enabledProviders,
+   catalogEntries = [],
+   recurringExpenses,
+   onRecurringChange,
+   onSaveCatalogEntry,
+   customQuickAmounts = [],
+   onCustomQuickAmountsChange,
+   customers = [],
+   onAddCustomerInline,
+   initialPaymentType,
+   initialPaymentProvider,
+   lastPaymentHistory,
+ }) {
   const { lang, t } = useLang();
 
   // ─── Type config (color, header label, icon, save button text) ─────────
@@ -122,37 +281,23 @@ function TransactionForm({
   const [paymentType, setPaymentType] = useState(initialPaymentType || 'cash');
   const [paymentProvider, setPaymentProvider] = useState(initialPaymentProvider || '');
   const [creditDirection, setCreditDirection] = useState('owes_me');
-  const [showAddRecurring, setShowAddRecurring] = useState(false);
-  const [popupName, setPopupName] = useState('');
-  const [popupAmount, setPopupAmount] = useState('');
-  const [popupFreq, setPopupFreq] = useState('monthly');
-  const [addRecurringHint, setAddRecurringHint] = useState(false);
-  // Multi-item breakdown
-  const [lineItems, setLineItems] = useState([]); // [{id, name, amount}]
-  const [showBreakdown, setShowBreakdown] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  // Inline custom-amount add (+ button on amount chips)
-  const [showCustomAmount, setShowCustomAmount] = useState(false);
-  const [customAmountValue, setCustomAmountValue] = useState('');
-  // Inline catalog add (+ button on quick items)
-  const [showAddCatalog, setShowAddCatalog] = useState(false);
-  const [showAddCatalogBreakdown, setShowAddCatalogBreakdown] = useState(false);
-  const [newCatalogName, setNewCatalogName] = useState('');
-  const [newCatalogPrice, setNewCatalogPrice] = useState('');
-  const [catalogSaving, setCatalogSaving] = useState(false);
-  // Paid · Partial · Pay Later (sale/expense only)
-  const [settlementMode, setSettlementMode] = useState('paid'); // 'paid' | 'partial' | 'later'
-  const [partialReceived, setPartialReceived] = useState('');
-  const [selectedCustomerForCredit, setSelectedCustomerForCredit] = useState(null);
-  const [showNewCustomerInline, setShowNewCustomerInline] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [customerMatch, setCustomerMatch] = useState(null);
+  const [amountDisplay, setAmountDisplay] = useState('');
+  const [keypayVisible, setKeypayVisible] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [undoStack, setUndoStack] = useState(null);
+
+  useEffect(() => {
+    if (!undoStack) return
+    const timer = setTimeout(() => setUndoStack(null), 5000)
+    return () => clearTimeout(timer)
+  }, [undoStack]);
 
   // ─── Derived ────────────────────────────────────────────────────────────
   const dueDateOptions = getDueDateOptions();
   const selectedCatalogEntry =
     catalogEntries.find(entry => String(entry.id) === String(catalogEntryId)) || null;
-  const sellingPrice = parseFloat(parseInput(amount)) || 0;
+  const sellingPrice = parseFloat(parseInput(amountDisplay || amount)) || 0;
   const cost = parseFloat(parseInput(costPrice)) || 0;
   const qty = Math.max(1, parseInt(quantity) || 1);
   const belowCost = !isCredit && cost > 0 && sellingPrice < cost * qty;
@@ -166,9 +311,17 @@ function TransactionForm({
     : true;
 
   // Top catalog items (active ones) — shown as chips below item input
-  const topCatalogItems = catalogEntries
-    .filter(e => e && e.is_active !== false && e.name)
-    .slice(0, 8);
+  const activeCatalogItems = useMemo(() => (
+    catalogEntries
+      .filter(e => e && e.is_active !== false && e.name)
+      .slice()
+      .sort((a, b) => {
+        const bScore = Number(b.use_count || 0) * 10000000000000 + Number(b.last_used_at || b.updated_at || 0);
+        const aScore = Number(a.use_count || 0) * 10000000000000 + Number(a.last_used_at || a.updated_at || 0);
+        return bScore - aScore;
+      })
+  ), [catalogEntries]);
+  const topCatalogItems = activeCatalogItems.slice(0, 8);
 
   // Multi-item breakdown — derived
   const lineItemsTotal = lineItems.reduce((sum, l) => {
@@ -180,31 +333,63 @@ function TransactionForm({
   );
   const breakdownDelta = sellingPrice - lineItemsTotal; // +ve: items < total, -ve: items > total
 
-  // Paid / Partial / Pay Later — derived (must come BEFORE canSave because canSave uses them)
-  const partialReceivedAmount = parseFloat(parseInput(partialReceived)) || 0;
-  const creditAmount = !isCredit
-    ? (settlementMode === 'paid'
-        ? 0
-        : settlementMode === 'partial'
-          ? Math.max(0, sellingPrice - partialReceivedAmount)
-          : sellingPrice)
-    : 0;
-  const needsCustomer = !isCredit && settlementMode !== 'paid';
-  const recentCustomers = (customers || [])
-    .slice()
-    .sort((a, b) => (b.last_activity_at || b.updated_at || 0) - (a.last_activity_at || a.updated_at || 0))
-    .slice(0, 5);
+  // Credit payment handling
+  const creditAmount = !isCredit && paymentType === 'credit' ? effectiveSellingPrice : 0;
+  const saleItemDraft = useMemo(
+    () => parseItemDraft(saleItemInput, activeCatalogItems),
+    [activeCatalogItems, saleItemInput]
+  );
+  const saleItemSuggestions = useMemo(() => {
+    const query = saleItemInput.trim().toLowerCase();
+    if (!query) return [];
+    return activeCatalogItems
+      .filter(entry => {
+        const haystack = [
+          entry.name,
+          entry.code,
+          entry.sku,
+          entry.item_code,
+          entry.note,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 5);
+  }, [activeCatalogItems, saleItemInput]);
+  const saleItemsSubtotal = saleItems.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
+  const saleUnitCount = saleItems.reduce((sum, line) => sum + Number(line.qty || 0), 0);
+  const saleFinalAmount = isCredit || isExpense
+    ? sellingPrice
+    : (saleAmountBasis === 'items' && saleItemsSubtotal > 0 ? saleItemsSubtotal : sellingPrice);
+  const saleHasMismatch = type === 'sale'
+    && sellingPrice > 0
+    && saleItemsSubtotal > 0
+    && Math.abs(sellingPrice - saleItemsSubtotal) >= 0.01;
+  const salePaymentOptions = useMemo(() => {
+    const banks = enabledProviders?.banks || ['CBE', 'Dashen', 'Awash', 'Abyssinia'];
+    const wallets = enabledProviders?.wallets || ['telebirr', 'CBE Birr'];
+    return [
+      { id: 'cash', label: 'Cash', paymentType: 'cash', provider: '' },
+      ...wallets.map(provider => ({ id: `wallet:${provider}`, label: provider, paymentType: 'wallet', provider })),
+      ...banks.map(provider => ({ id: `bank:${provider}`, label: provider, paymentType: 'bank', provider })),
+      { id: 'credit', label: 'Credit', paymentType: 'credit', provider: '' },
+    ];
+  }, [enabledProviders]);
+  const selectedSalePaymentId = paymentType === 'cash'
+    ? 'cash'
+    : paymentType === 'credit'
+      ? 'credit'
+      : `${paymentType}:${paymentProvider}`;
+  const activeSalePayment = salePaymentOptions.find(option => option.id === selectedSalePaymentId) || salePaymentOptions[0];
+  const isCreditSale = paymentType === 'credit';
 
   // Item is OPTIONAL for sale/expense; REQUIRED (as customer name) for credit
-  // For Partial/Later settlement modes, a customer is also required.
-  const canSave =
-    sellingPrice > 0
-    && (isCredit ? item.trim() && hasDueDate : true)
-    && (!phoneEntered || phoneValid)
-    && !isSaving
-    && (!needsCustomer || !!selectedCustomerForCredit)
-    && (settlementMode !== 'partial' || (partialReceivedAmount > 0 && partialReceivedAmount < sellingPrice));
-
+  // For Credit payment mode, a customer is required.
+   const canSave =
+     (type === 'sale' ? saleFinalAmount : sellingPrice) > 0
+     && (isCredit ? item.trim() && hasDueDate : true)
+     && (!phoneEntered || phoneValid)
+     && !isSaving
+     && (!isCreditSale || !!customerMatch);
   // ─── Handlers ───────────────────────────────────────────────────────────
   const getEffectiveDueDate = () => {
     if (selectedDue === 'custom' && customDue) return new Date(customDue).getTime();
@@ -242,59 +427,138 @@ function TransactionForm({
 
     // If breakdown has valid items, build a clean items array; let item_name
     // derive from the items so the row is self-describing in History/Reports.
-    const cleanedItems = validLineItems.map(l => ({
-      name: l.name.trim(),
-      amount: parseFloat(parseInput(l.amount)),
+    const saleCleanedItems = saleItems.map(line => ({
+      name: line.name,
+      code: line.code || null,
+      amount: Number(line.line_total || 0),
+      qty: Number(line.qty || 1),
+      unit_price: Number(line.unit_price || 0),
+      line_total: Number(line.line_total || 0),
+      catalog_entry_id: line.catalog_entry_id || null,
+      item_kind: line.item_kind || 'item',
+      photo_uri: line.photo_uri || null,
     }));
+    const cleanedItems = type === 'sale'
+      ? saleCleanedItems
+      : validLineItems.map(l => ({
+          name: l.name.trim(),
+          amount: parseFloat(parseInput(l.amount)),
+        }));
+    const effectiveSellingPrice = type === 'sale' ? saleFinalAmount : sellingPrice;
     const itemNameForSave = (!isCredit && cleanedItems.length > 0)
       ? cleanedItems.map(li => li.name).join(', ').substring(0, 200)
       : item.trim();
 
     // Cash actually received from this sale (drives Today's cash tally vs gross sales)
-    const cashReceived = !isCredit
-      ? (settlementMode === 'paid'
-          ? sellingPrice
-          : settlementMode === 'partial'
-            ? partialReceivedAmount
-            : 0)
-      : null;
+    const cashReceived = !isCredit && !isCreditSale ? effectiveSellingPrice : 0;
 
     const photoFields = buildPhotoFields(photos);
     const data = {
       type,
       item_name: itemNameForSave,
-      catalog_entry_id: catalogEntryId ? Number(catalogEntryId) : null,
-      item_kind: selectedCatalogEntry?.kind || null,
-      quantity: isCredit ? 1 : qty,
-      amount: sellingPrice,
+      catalog_entry_id: type === 'sale'
+        ? (saleItems[0]?.catalog_entry_id ? Number(saleItems[0].catalog_entry_id) : null)
+        : (catalogEntryId ? Number(catalogEntryId) : null),
+      item_kind: type === 'sale' ? (saleItems[0]?.item_kind || null) : (selectedCatalogEntry?.kind || null),
+      quantity: isCredit ? 1 : (type === 'sale' && saleUnitCount > 0 ? saleUnitCount : qty),
+      amount: effectiveSellingPrice,
       cost_price: isCredit ? 0 : cost,
-      profit: (!isCredit && cost > 0) ? (sellingPrice - cost * qty) : null,
+      profit: (!isCredit && !isCreditSale && cost > 0) ? (effectiveSellingPrice - cost * qty) : null,
       is_credit: isCredit,
-      customer_id: !isCredit && settlementMode !== 'paid' ? (selectedCustomerForCredit?.id || null) : null,
-      customer_name: !isCredit && settlementMode !== 'paid' ? (selectedCustomerForCredit?.display_name || null) : null,
+      customer_id: null,
+      customer_name: null,
       customer_phone: isCredit ? fullPhone : null,
       due_date: isCredit ? getEffectiveDueDate() : null,
-      // 'credit' payment_type marks a Pay-later sale (no cash exchanged this turn)
-      payment_type: isCredit ? null : (settlementMode === 'later' ? 'credit' : paymentType),
-      payment_provider: (!isCredit && settlementMode !== 'later' && paymentType !== 'cash') ? paymentProvider || null : null,
+      payment_type: isCredit ? null : (isCreditSale ? 'credit' : paymentType),
+      payment_provider: (!isCredit && !isCreditSale && paymentType !== 'cash') ? paymentProvider || null : null,
       direction: isCredit ? creditDirection : null,
       ...photoFields,
-      items: cleanedItems.length > 0 ? cleanedItems : null,  // multi-item breakdown
-      // Paid · Partial · Pay Later metadata
-      settlement_mode: !isCredit ? settlementMode : null,
+      items: cleanedItems.length > 0 ? cleanedItems : null,
+      settlement_mode: isCreditSale ? 'credit' : 'paid',
       cash_received: cashReceived,
-      credit_amount: !isCredit && creditAmount > 0 ? creditAmount : null,
+      credit_amount: isCreditSale ? effectiveSellingPrice : 0,
+      entered_total: type === 'sale' && sellingPrice > 0 ? sellingPrice : null,
+      items_subtotal: type === 'sale' && saleItemsSubtotal > 0 ? saleItemsSubtotal : null,
+      amount_basis: type === 'sale' ? saleAmountBasis : null,
       created_at: Date.now(),
     };
-    try {
+try {
       await onSave(data);
-      // Auto-return — no success screen. App.jsx shows the new entry on Today.
-      onDone();
+      setLastSavedTransaction(data);
+      setUndoStack({
+        createdAt: data.created_at,
+        customerCreated: data.customer_id || null,
+        saleItems: saleItems.map(i => ({ name: i.name })),
+      });
+      await updateLearning({ items: saleItems });
+      resetFormInternal();
     } catch (err) {
       setIsSaving(false);
       // error surfaced via App.jsx
     }
   };
+
+  async function updateLearning({ items }) {
+    for (const item of items) {
+      if (!item.name) continue
+      const existing = await db.catalogEntries
+        .where('name').equalsIgnoreCase(item.name).first()
+      if (existing) {
+        await db.catalogEntries.update(existing.id, {
+          use_count: (existing.use_count || 0) + 1,
+          last_unit_price: item.unitPrice ?? existing.last_unit_price,
+          last_used: new Date().toISOString()
+        })
+      } else if (item.unitPrice) {
+        const newId = await db.catalogEntries.add({
+          name: item.name,
+          unit_price: item.unitPrice,
+          use_count: 1,
+          last_used: new Date().toISOString()
+        })
+        onSaveCatalogEntry?.({ id: newId, name: item.name, unit_price: item.unitPrice })
+      }
+    }
+  }
+
+  async function executeUndo(snapshot) {
+    try {
+      const txn = await db.transactions.where('created_at').equals(snapshot.createdAt).first()
+      if (txn?.id) {
+        await db.transactions.delete(txn.id)
+        if (txn.customer_id) {
+          await db.customer_transactions.where('source_transaction_id').equals(txn.id).delete()
+        }
+      }
+      if (snapshot.customerCreated) {
+        const cust = await db.customers.get(snapshot.customerCreated)
+        if (cust && !cust.total_debt) {
+          await db.customers.delete(snapshot.customerCreated)
+        }
+      }
+    } catch (err) {
+      console.error('Undo failed:', err)
+    }
+    setUndoStack(null)
+    resetFormInternal()
+    onUndo?.()
+  }
+
+  function resetFormInternal() {
+    setAmountDisplay('')
+    setKeypayVisible(false)
+    setSaleItems([])
+    setSaleItemInput('')
+    setPhotos([])
+    setCustomerQuery('')
+    setCustomerMatch(null)
+    setParsedPreview(null)
+    setTimeout(() => {
+      amountInputRef.current?.focus()
+      setKeypayVisible(true)
+    }, 50)
+  }
+
 
   // ─── Multi-item breakdown handlers ─────────────────────────────────────
   const addLineItem = (preset = {}) => {
@@ -375,25 +639,6 @@ function TransactionForm({
     }
   };
 
-  // ─── Inline customer add (for Partial / Pay Later flows) ──────────────
-  const submitNewCustomerInline = async () => {
-    if (!newCustomerName.trim() || !onAddCustomerInline || savingCustomer) return;
-    setSavingCustomer(true);
-    try {
-      const saved = await onAddCustomerInline({
-        display_name: newCustomerName.trim(),
-      });
-      if (saved && saved.id) {
-        setSelectedCustomerForCredit(saved);
-        setNewCustomerName('');
-        setShowNewCustomerInline(false);
-      }
-    } catch (err) {
-      // surface via App.jsx
-    } finally {
-      setSavingCustomer(false);
-    }
-  };
 
   const submitNewCatalogToBreakdown = async () => {
     if (!newCatalogName.trim() || !onSaveCatalogEntry || catalogSaving) return;
@@ -424,6 +669,115 @@ function TransactionForm({
     if (!costPrice && entry.default_cost != null) setCostPrice(String(entry.default_cost));
   };
 
+  const addSaleItem = (draft) => {
+    if (!draft?.name) return;
+    const qtyValue = Math.max(1, Number(draft.qty || 1));
+    const unitPrice = Number(draft.unitPrice || 0);
+    const lineTotal = Math.round(qtyValue * unitPrice * 100) / 100;
+    const nextItem = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: draft.name.trim(),
+      code: draft.code || '',
+      qty: qtyValue,
+      unit_price: unitPrice,
+      line_total: lineTotal,
+      catalog_entry_id: draft.catalog_entry_id || null,
+      item_kind: draft.item_kind || 'item',
+      photo_uri: photos[0]?.dataUrl || null,
+    };
+    setSaleItems(prev => {
+      const matchKey = String(nextItem.catalog_entry_id || nextItem.code || nextItem.name).toLowerCase();
+      const existing = prev.find(line => String(line.catalog_entry_id || line.code || line.name).toLowerCase() === matchKey);
+      if (existing) {
+        return prev.map(line => {
+          const lineKey = String(line.catalog_entry_id || line.code || line.name).toLowerCase();
+          if (lineKey !== matchKey) return line;
+          const nextQty = Number(line.qty || 1) + nextItem.qty;
+          const nextUnitPrice = Number(line.unit_price || nextItem.unit_price || 0);
+          return {
+            ...line,
+            qty: nextQty,
+            unit_price: nextUnitPrice,
+            line_total: Math.round(nextQty * nextUnitPrice * 100) / 100,
+            photo_uri: line.photo_uri || nextItem.photo_uri || null,
+          };
+        });
+      }
+      return [...prev, nextItem];
+    });
+    if (!amount && lineTotal > 0) {
+      setAmount(String(lineTotal));
+      setSaleAmountBasis('items');
+    }
+    setSaleItemInput('');
+    navigator.vibrate?.(40);
+  };
+
+  const addSaleCatalogItem = (entry) => {
+    const unitPrice = Number(entry?.default_price || entry?.last_price || 0);
+    addSaleItem({
+      name: entry?.name || '',
+      code: entry?.code || entry?.sku || entry?.item_code || '',
+      qty: 1,
+      unitPrice: unitPrice || (saleItems.length === 0 ? sellingPrice : 0),
+      catalog_entry_id: entry?.id || null,
+      item_kind: entry?.kind || 'item',
+    });
+    setCatalogEntryId(String(entry?.id || ''));
+    setItem(entry?.name || '');
+  };
+
+  const handleSaleAddItem = () => {
+    if (saleItemDraft.kind === 'catalog' && saleItemDraft.entry) {
+      addSaleCatalogItem(saleItemDraft.entry);
+      return;
+    }
+    if (saleItemDraft.kind === 'item') {
+      const fallbackUnitPrice = saleItemDraft.unitPrice ?? (saleItems.length === 0 ? sellingPrice : 0);
+      addSaleItem({ ...saleItemDraft, unitPrice: fallbackUnitPrice });
+      if (!item) setItem(saleItemDraft.name || '');
+    }
+  };
+
+  const updateSaleItemQty = (id, nextQty) => {
+    setSaleItems(prev => prev.map(line => {
+      if (line.id !== id) return line;
+      const qtyValue = Math.max(1, Number(nextQty || 1));
+      const unitPrice = Number(line.unit_price || 0);
+      return { ...line, qty: qtyValue, line_total: Math.round(qtyValue * unitPrice * 100) / 100 };
+    }));
+    setSaleAmountBasis(current => (current === 'items' ? 'items' : current));
+  };
+
+  const removeSaleItem = (id) => {
+    setSaleItems(prev => prev.filter(line => line.id !== id));
+  };
+
+  const handleSalePaymentSelect = (option) => {
+    if (option.id === 'credit') {
+      setPaymentType('credit');
+      setPaymentProvider('');
+      return;
+    }
+    setPaymentType(option.paymentType);
+    setPaymentProvider(option.provider || '');
+  };
+
+
+  const buildSaleSaveLabel = () => {
+    if (saleFinalAmount <= 0) return photos.length > 0 ? 'Add amount to save photo sale' : 'Save';
+    if (isCreditSale) {
+      return `Save Credit · ${fmt(saleFinalAmount)} ETB`;
+    }
+    if (saleItems.length > 0) {
+      const itemCount = saleUnitCount || saleItems.length;
+      return `Save ${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`;
+    }
+    if (photos.length > 0) return `Save photo sale · ${fmt(saleFinalAmount)} ETB`;
+    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(saleFinalAmount)} ETB`;
+    return `Save ${fmt(saleFinalAmount)} ETB`;
+  };
+
   const openAddRecurring = (demoName = '') => {
     setPopupName(demoName);
     setPopupAmount('');
@@ -447,6 +801,276 @@ function TransactionForm({
   };
 
   // ─── Main form ──────────────────────────────────────────────────────────
+  if (type === 'sale') {
+    const saleSaveLabel = buildSaleSaveLabel();
+    const canAddSaleItem = saleItemDraft.kind === 'item' || saleItemDraft.kind === 'catalog';
+
+    return (
+      <div
+        className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col"
+        style={{ background: '#ffffff' }}
+      >
+        <div
+          className="flex-shrink-0 px-3 sm:px-4 py-3 flex items-center justify-between"
+          style={{ borderBottom: '1px solid #e8e2d8' }}
+        >
+          <button
+            onClick={onDone}
+            aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
+            className="press-scale flex items-center justify-center"
+            style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
+          >
+            <ArrowLeft className="w-5 h-5" style={{ color: '#6b7280' }} />
+          </button>
+          <div className="text-center min-w-0">
+            <h2 className="text-base font-bold" style={{ color: accentColor }}>{headerLabel}</h2>
+            {actorLabel && (
+              <p className="text-[11px] font-semibold truncate" style={{ color: '#6b7280', maxWidth: '220px' }}>
+                Recording as {actorLabel}
+              </p>
+            )}
+          </div>
+          <div style={{ width: '36px' }} />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-28 space-y-3">
+          <section className="border" style={{ borderColor: '#d8eadf', borderRadius: 'var(--radius-md)', background: '#f7fcf8' }}>
+            <div className="px-3 py-2.5 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold" style={{ color: '#4b6855' }}>Total amount</p>
+                <p className="text-2xl font-black leading-tight" style={{ color: saleFinalAmount > 0 ? '#14532d' : '#9ca3af' }}>
+                  {fmt(saleFinalAmount)} ETB
+                </p>
+              </div>
+              <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>
+                {activeSalePayment.label} ▾
+              </span>
+            </div>
+<div className="px-3 pb-3">
+               <input
+                 type="text"
+                 inputMode="decimal"
+                 autoFocus
+                 value={fmtInput(amount)}
+                 onChange={event => {
+                   handleNumericInput(event, setAmount);
+                   setSaleAmountBasis('entered');
+                 }}
+                 onFocus={() => setShowCalculator(true)}
+                 placeholder="0"
+                 className="w-full px-3 py-3 border-2 focus:outline-none text-2xl font-black"
+                 style={{ borderRadius: 'var(--radius-md)', borderColor: amount ? '#86efac' : '#d7e3da', color: amount ? '#14532d' : '#9ca3af' }}
+               />
+             </div>
+          </section>
+
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>
+                Item details - optional
+              </p>
+              {saleItems.length > 0 && (
+                <p className="text-[11px] font-bold" style={{ color: '#14532d' }}>
+                  {saleItems.length} {saleItems.length === 1 ? 'item' : 'items'}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 items-stretch">
+              <label
+                className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+                style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }}
+                aria-label="Take or choose photo"
+              >
+                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS} />
+                {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
+              </label>
+              <input
+                type="text"
+                inputMode="text"
+                value={saleItemInput}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setSaleItemInput(val)
+                  setParsedPreview(parseItemInput(val))
+                }}
+                onKeyDown={event => { if (event.key === 'Enter' && canAddSaleItem) handleSaleAddItem(); }}
+                placeholder={lang === 'am' ? 'ንጥል ወይም "ስንዴ 40"' : 'Item  or  "Sugar 40"'}
+                className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-base"
+                style={{ borderRadius: 'var(--radius-md)', borderColor: saleItemInput ? '#86efac' : '#d7e3da' }}
+              />
+              {parsedPreview?.kind === 'item' && parsedPreview.unitPrice && (
+                <div className="text-xs text-gray-400 mt-1 px-1">
+                  → {parsedPreview.name} · {parsedPreview.unitPrice} ETB
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleSaleAddItem}
+                disabled={!canAddSaleItem}
+                className="px-3 py-2 text-sm font-black press-scale flex-shrink-0"
+                style={{ borderRadius: 'var(--radius-md)', background: canAddSaleItem ? '#14532d' : '#e5e7eb', color: canAddSaleItem ? '#fff' : '#6b7280', minWidth: 66 }}
+              >
+                Add Item
+              </button>
+            </div>
+{photos.length > 0 && (
+               <p className="text-xs font-black" style={{ color: '#14532d' }}>✓ {photos.length} photo attached</p>
+             )}
+            {photoError && <p className="text-xs font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
+          </section>
+
+          <section className="space-y-1.5">
+<p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>
+               Quick Items
+             </p>
+            {saleItemInput.trim() ? (
+              saleItemSuggestions.length > 0 ? (
+                <div className="space-y-1.5">
+                  {saleItemSuggestions.map(entry => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => addSaleCatalogItem(entry)}
+                      className="w-full p-2.5 border text-left press-scale flex items-center justify-between gap-2"
+                      style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black truncate" style={{ color: '#111827' }}>{entry.name}</span>
+                        {(entry.code || entry.sku || entry.item_code) && <span className="block text-xs truncate" style={{ color: '#6b7280' }}>Code: {entry.code || entry.sku || entry.item_code}</span>}
+                      </span>
+                      {(entry.default_price || entry.last_price) && <span className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(entry.default_price || entry.last_price)} ETB</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs border p-2.5" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>No local item match. Add it as typed.</p>
+              )
+            ) : topCatalogItems.length > 0 ? (
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {topCatalogItems.map(entry => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => addSaleCatalogItem(entry)}
+                    className="flex-shrink-0 px-3 py-2 text-xs font-black border press-scale"
+                    style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}
+                  >
+                    {entry.code || entry.sku || entry.item_code || entry.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 border text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>
+                <p className="font-bold" style={{ color: '#374151' }}>No items yet</p>
+                <p>Saved items will appear here after you use them.</p>
+              </div>
+            )}
+          </section>
+
+          {saleItems.length > 0 && (
+            <section className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Items in this sale</p>
+              {saleItems.map(line => (
+                <div key={line.id} className="p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black truncate" style={{ color: '#111827' }}>{line.name}</p>
+                      {line.code && <p className="text-xs" style={{ color: '#6b7280' }}>{line.code}</p>}
+                      <p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} · Unit: {fmt(line.unit_price)}</p>
+                    </div>
+                    <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(line.line_total)} ETB</p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) - 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Minus className="w-4 h-4" /></button>
+                      <span className="text-sm font-black min-w-6 text-center">{line.qty}</span>
+                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) + 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Plus className="w-4 h-4" /></button>
+                    </div>
+                    <button type="button" onClick={() => removeSaleItem(line.id)} className="px-3 py-2 text-xs font-bold border press-scale" style={{ borderColor: '#fecaca', color: '#b91c1c', borderRadius: 6 }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between text-sm font-black px-1" style={{ color: '#374151' }}>
+                <span>Items subtotal ({saleUnitCount || saleItems.length} units)</span>
+                <span>{fmt(saleItemsSubtotal)} ETB</span>
+              </div>
+              {saleHasMismatch && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaleAmountBasis('entered')}
+                    className="p-2 text-xs font-black border-2 press-scale"
+                    style={{ borderColor: saleAmountBasis === 'entered' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'entered' ? '#ecfdf3' : '#fff', color: '#14532d' }}
+                  >
+                    Use entered total {fmt(sellingPrice)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaleAmountBasis('items')}
+                    className="p-2 text-xs font-black border-2 press-scale"
+                    style={{ borderColor: saleAmountBasis === 'items' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'items' ? '#ecfdf3' : '#fff', color: '#14532d' }}
+                  >
+                    Use item subtotal {fmt(saleItemsSubtotal)}
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+<div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar">
+          <button
+            onPointerDown={() => setPaymentType('cash')}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'cash' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
+          >
+            {lang === 'am' ? 'ጥሬ' : 'Cash'}
+          </button>
+          {(enabledProviders || []).map(provider => (
+            <button
+              key={provider}
+              onPointerDown={() => { setPaymentType('provider'); setPaymentProvider(provider); }}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'provider' && paymentProvider === provider ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
+            >
+              {provider}
+            </button>
+          ))}
+          <button
+            onPointerDown={() => setPaymentType('credit')}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'credit' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
+          >
+            {lang === 'am' ? 'ዱቤ' : 'Credit'}
+          </button>
+        </div>
+
+        </div>
+
+        <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8', background: '#fff' }}>
+          {!canSave && saleFinalAmount > 0 && isCreditSale && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>Add or pick a customer above</p>}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!canSave}
+            className="w-full p-3 font-black text-base flex items-center justify-center gap-2 transition-all press-scale"
+            style={{ background: canSave ? '#14532d' : '#e5e7eb', color: canSave ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-md)' }}
+          >
+            <Save className="w-5 h-5" />
+            {saleSaveLabel}
+          </button>
+          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone · Syncs later</p>
+        </div>
+
+        {showUndo && (
+          <div className="fixed bottom-16 left-0 right-0 mx-auto max-w-md px-3 z-50">
+            <div className="bg-white border shadow-lg flex items-center justify-between px-4 py-3" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-md)' }}>
+              <span className="text-sm font-bold" style={{ color: '#14532d' }}>Sale saved</span>
+              <button type="button" onClick={handleUndo} className="text-sm font-black" style={{ color: '#dc2626' }}>UNDO</button>
+            </div>
+          </div>
+        )}
+
+      </div>
+      );
+  }
+
   return (
     <div
       className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col"
@@ -605,19 +1229,26 @@ function TransactionForm({
           </label>
           <div className="relative">
             <input
+              ref={amountInputRef}
               type="text"
-              inputMode="decimal"
-              autoFocus
-              value={fmtInput(amount)}
-              onChange={e => handleNumericInput(e, setAmount)}
+              inputMode="none"
+              readOnly
+              value={amountDisplay}
+              onFocus={() => setKeypayVisible(true)}
               placeholder="0"
               className="w-full py-3 pr-20 text-3xl sm:text-4xl font-bold text-center focus:outline-none"
               style={{
-                borderBottom: `2px solid ${amount ? accentColor : '#e8e2d8'}`,
+                borderBottom: `2px solid ${amountDisplay ? accentColor : '#e8e2d8'}`,
                 background: 'transparent',
-                color: amount ? accentColor : '#9ca3af',
+                color: amountDisplay ? accentColor : '#9ca3af',
               }}
             />
+            {keypayVisible && (
+              <MerchantKeypad
+                onChange={(finalTotal) => setAmountDisplay(finalTotal)}
+                onDismiss={() => setKeypayVisible(false)}
+              />
+            )}
             <span
               className="absolute right-2 top-1/2 -translate-y-1/2 text-base sm:text-lg font-semibold"
               style={{ color: '#9ca3af' }}
@@ -1284,194 +1915,8 @@ function TransactionForm({
           lang={lang}
         />
 
-        {/* Settlement: Paid · Partial · Pay Later (sale/expense only) */}
-        {!isCredit && (
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'ክፍያ' : 'Settlement'}
-            </label>
-            <div className="flex gap-1.5">
-              {[
-                { id: 'paid',    label: lang === 'am' ? 'ሙሉ' : 'Paid',    emoji: '💵' },
-                { id: 'partial', label: lang === 'am' ? 'ከፊል' : 'Partial', emoji: '½' },
-                { id: 'later',   label: lang === 'am' ? 'ኋላ' : 'Later',   emoji: '⏳' },
-              ].map(opt => {
-                const active = settlementMode === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      setSettlementMode(opt.id);
-                      // Reset partial value when leaving partial mode
-                      if (opt.id !== 'partial') setPartialReceived('');
-                      // Reset customer selection when going back to paid
-                      if (opt.id === 'paid') {
-                        setSelectedCustomerForCredit(null);
-                        setShowNewCustomerInline(false);
-                      }
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-1 border-2 text-xs font-bold transition-all min-h-[44px] press-scale"
-                    style={{
-                      borderRadius: 'var(--radius-sm)',
-                      borderColor: active ? accentColor : '#e8e2d8',
-                      background: active ? `${accentColor}10` : '#fff',
-                      color: active ? accentColor : '#6b7280',
-                    }}
-                  >
-                    <span className="text-base">{opt.emoji}</span>
-                    <span>{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
 
-            {/* Partial: amount received input + remaining-credit hint */}
-            {settlementMode === 'partial' && (
-              <div className="mt-2">
-                <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-                  {lang === 'am' ? 'የተቀበሉት መጠን' : 'Amount received'} <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={fmtInput(partialReceived)}
-                    onChange={e => handleNumericInput(e, setPartialReceived)}
-                    placeholder="0"
-                    className="w-full p-2.5 pr-14 border-2 focus:outline-none text-base"
-                    style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: '#9ca3af' }}>
-                    {lang === 'am' ? 'ብር' : 'birr'}
-                  </span>
-                </div>
-                {sellingPrice > 0 && partialReceivedAmount > 0 && partialReceivedAmount < sellingPrice && (
-                  <p className="text-xs mt-1.5 font-semibold" style={{ color: '#C4883A' }}>
-                    {lang === 'am' ? 'ቀሪ ዱቤ' : 'Credit owed'}: {fmt(creditAmount)} {lang === 'am' ? 'ብር' : 'birr'}
-                  </p>
-                )}
-                {partialReceivedAmount > 0 && partialReceivedAmount >= sellingPrice && (
-                  <p className="text-xs mt-1.5 font-medium" style={{ color: '#dc2626' }}>
-                    {lang === 'am'
-                      ? 'የተቀበሉት ሙሉ ነው — "ሙሉ" ይምረጡ'
-                      : 'Amount received is the full sale — use "Paid" instead.'}
-                  </p>
-                )}
-              </div>
-            )}
 
-            {/* Customer picker (Partial or Later) */}
-            {needsCustomer && (
-              <div className="mt-2">
-                <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-                  {lang === 'am' ? 'ለማን?' : 'For whom?'} <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-
-                {selectedCustomerForCredit ? (
-                  <div
-                    className="flex items-center gap-2 p-2.5 border-2"
-                    style={{ borderColor: accentColor, background: `${accentColor}10`, borderRadius: 'var(--radius-md)' }}
-                  >
-                    <span className="flex-1 font-bold text-sm truncate" style={{ color: '#1a1a1a' }}>
-                      {selectedCustomerForCredit.display_name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCustomerForCredit(null)}
-                      className="press-scale flex items-center justify-center"
-                      style={{ minWidth: '32px', minHeight: '32px' }}
-                      aria-label={lang === 'am' ? 'አስወግድ' : 'Clear'}
-                    >
-                      <X className="w-4 h-4" style={{ color: '#6b7280' }} />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 items-center">
-                      {recentCustomers.map(c => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setSelectedCustomerForCredit(c)}
-                          className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border press-scale"
-                          style={{
-                            borderColor: '#e8e2d8',
-                            borderRadius: 'var(--radius-sm)',
-                            background: '#fff',
-                            color: '#374151',
-                          }}
-                        >
-                          {c.display_name}
-                        </button>
-                      ))}
-                      {onAddCustomerInline && (
-                        <button
-                          type="button"
-                          onClick={() => setShowNewCustomerInline(v => !v)}
-                          className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center gap-1"
-                          style={{
-                            borderColor: showNewCustomerInline ? accentColor : '#c9bfa8',
-                            borderStyle: 'dashed',
-                            borderRadius: 'var(--radius-sm)',
-                            background: showNewCustomerInline ? `${accentColor}10` : '#faf9f7',
-                            color: showNewCustomerInline ? accentColor : '#6b7280',
-                          }}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          {lang === 'am' ? 'አዲስ ደንበኛ' : 'New'}
-                        </button>
-                      )}
-                    </div>
-
-                    {showNewCustomerInline && (
-                      <div className="mt-2 flex gap-2">
-                        <input
-                          type="text"
-                          autoFocus
-                          value={newCustomerName}
-                          onChange={e => setNewCustomerName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') submitNewCustomerInline(); }}
-                          placeholder={lang === 'am' ? 'ስም' : 'Customer name'}
-                          className="flex-1 p-2 border focus:outline-none text-sm"
-                          style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={submitNewCustomerInline}
-                          disabled={!newCustomerName.trim() || savingCustomer}
-                          className="px-3 py-2 text-xs font-bold press-scale flex items-center gap-1"
-                          style={{
-                            background: newCustomerName.trim() ? accentColor : '#e5e7eb',
-                            color: newCustomerName.trim() ? '#fff' : '#9ca3af',
-                            borderRadius: 'var(--radius-sm)',
-                            cursor: newCustomerName.trim() ? 'pointer' : 'not-allowed',
-                            minHeight: '36px',
-                          }}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          {lang === 'am' ? 'ጨምር' : 'Add'}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Payment chips (sale/expense, but hidden when settlementMode is 'later' — no cash to record) */}
-        {!isCredit && settlementMode !== 'later' && (
-          <PaymentTypeChips
-            paymentType={paymentType}
-            provider={paymentProvider}
-            onTypeChange={setPaymentType}
-            onProviderChange={setPaymentProvider}
-            enabledProviders={enabledProviders}
-            lastProviderByType={lastPaymentHistory}
-          />
-        )}
 
         {/* More options toggle (sale/expense) — collapses quantity + cost price */}
         {!isCredit && (
@@ -1616,15 +2061,7 @@ function TransactionForm({
         {!canSave && sellingPrice > 0 && (() => {
           // Identify the blocker, in priority order
           let blocker = null;
-          if (settlementMode === 'partial' && !(partialReceivedAmount > 0 && partialReceivedAmount < sellingPrice)) {
-            blocker = lang === 'am'
-              ? '↑ የተቀበሉት መጠን ይተይቡ (ከመጠን ያነሰ)'
-              : '↑ Enter amount received (must be less than total)';
-          } else if (needsCustomer && !selectedCustomerForCredit) {
-            blocker = lang === 'am'
-              ? '↑ ለማን? በላይ ላይ ይምረጡ ወይም ይጨምሩ'
-              : '↑ Add or pick a customer above';
-          } else if (isCredit && !item.trim()) {
+          if (isCredit && !item.trim()) {
             blocker = lang === 'am' ? '↑ ስም ይተይቡ' : '↑ Enter customer name';
           } else if (isCredit && !hasDueDate) {
             blocker = lang === 'am' ? '↑ የመክፈያ ቀን ይምረጡ' : '↑ Pick due date';
@@ -1766,6 +2203,17 @@ function TransactionForm({
               {lang === 'am' ? 'አስቀምጥ እና ተጠቀም' : 'Add & Use'}
             </button>
           </div>
+        </div>
+      )}
+      {undoStack && (
+        <div className="fixed bottom-16 left-4 right-4 bg-gray-900 text-white rounded-xl px-4 py-3 flex items-center justify-between z-40">
+          <span className="text-sm text-gray-300">Sale saved</span>
+          <button
+            onPointerDown={() => executeUndo(undoStack)}
+            className="text-sm font-bold text-yellow-400 tracking-wide"
+          >
+            UNDO
+          </button>
         </div>
       )}
     </div>
