@@ -227,6 +227,7 @@ function TransactionForm({
    initialPaymentType,
    initialPaymentProvider,
    lastPaymentHistory,
+   setActiveTab,
  }) {
   const { lang, t } = useLang();
 
