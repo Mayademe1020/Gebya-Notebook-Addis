@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
-import { businessMembers, auditLog } from "@workspace/db/schema";
+import { businessMembers } from "@workspace/db/schema";
+import { auditLog } from "@workspace/db/schema/audit_log";
 import { eq, and, sql } from "drizzle-orm";
 
 type PermissionKey = "can_add_records" | "can_delete_records" | "can_edit_settings" | "can_view_reports";

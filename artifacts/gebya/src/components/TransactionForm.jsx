@@ -286,11 +286,42 @@ function TransactionForm({
   const [keypayVisible, setKeypayVisible] = useState(false);
   const [customerQuery, setCustomerQuery] = useState('');
   const [undoStack, setUndoStack] = useState(null);
+  const [lineItems, setLineItems] = useState([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [saleItemInput, setSaleItemInput] = useState('');
+  const [saleItems, setSaleItems] = useState([]);
+  const [saleAmountBasis, setSaleAmountBasis] = useState('entered');
+  const [parsedPreview, setParsedPreview] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedTransaction, setLastSavedTransaction] = useState(null);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [customAmountValue, setCustomAmountValue] = useState('');
+  const [showCustomAmount, setShowCustomAmount] = useState(false);
+  const [newCatalogName, setNewCatalogName] = useState('');
+  const [newCatalogPrice, setNewCatalogPrice] = useState('');
+  const [catalogSaving, setCatalogSaving] = useState(false);
+  const [showAddCatalog, setShowAddCatalog] = useState(false);
+  const [showAddCatalogBreakdown, setShowAddCatalogBreakdown] = useState(false);
+  const [popupName, setPopupName] = useState('');
+  const [popupAmount, setPopupAmount] = useState('');
+  const [popupFreq, setPopupFreq] = useState('monthly');
+  const [showAddRecurring, setShowAddRecurring] = useState(false);
+  const [addRecurringHint, setAddRecurringHint] = useState(false);
+  const [showUndo, setShowUndo] = useState(false);
+  const amountInputRef = useRef(null);
+
+  const handleUndo = () => {
+    if (undoStack) executeUndo(undoStack);
+  };
 
   useEffect(() => {
-    if (!undoStack) return
-    const timer = setTimeout(() => setUndoStack(null), 5000)
-    return () => clearTimeout(timer)
+    if (!undoStack) {
+      setShowUndo(false);
+      return;
+    }
+    setShowUndo(true);
+    const timer = setTimeout(() => setUndoStack(null), 5000);
+    return () => clearTimeout(timer);
   }, [undoStack]);
 
   // ─── Derived ────────────────────────────────────────────────────────────
@@ -943,7 +974,23 @@ try {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs border p-2.5" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>No local item match. Add it as typed.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const draft = parseItemInput(saleItemInput);
+                    if (draft?.kind === 'item') {
+                      addSaleItem({ name: draft.name, unitPrice: draft.unitPrice, qty: 1 });
+                    } else if (draft?.kind === 'amount') {
+                      setAmount(String(draft.value));
+                    }
+                  }}
+                  className="w-full p-2.5 border text-left press-scale"
+                  style={{ borderColor: '#1B4332', borderRadius: 'var(--radius-sm)', background: '#f7fcf8' }}
+                >
+                  <span className="text-sm font-bold" style={{ color: '#1B4332' }}>
+                    + Use "{saleItemInput.trim()}"
+                  </span>
+                </button>
               )
             ) : topCatalogItems.length > 0 ? (
               <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -1038,6 +1085,15 @@ try {
             className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'credit' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
           >
             {lang === 'am' ? 'ዱቤ' : 'Credit'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab?.('settings')}
+            className="shrink-0 px-3 py-2 rounded-full text-sm font-bold border-2 border-dashed press-scale"
+            style={{ borderColor: '#c9bfa8', background: '#faf9f7', color: '#9ca3af', whiteSpace: 'nowrap' }}
+            aria-label={lang === 'am' ? 'አክል' : 'Add provider'}
+          >
+            +
           </button>
         </div>
 
