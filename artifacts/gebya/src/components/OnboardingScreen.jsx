@@ -33,83 +33,87 @@ const BUSINESS_TYPE_OPTIONS_AM = [
 
 function OnboardingScreen({ onComplete }) {
   const { t, lang, toggleLang } = useLang();
-  const onboardKicker = lang === 'am' ? 'ማዋቀሪያ' : 'SETUP';
-
-  const renderAmharicOptions = () => (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => setMode('owner')}
-        className="w-full text-left press-scale p-4 border-2"
-        style={{ borderColor: '#1B4332', background: '#F5FBF7', borderRadius: 'var(--radius-lg)' }}
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-2xl" aria-hidden="true">🏪</span>
-          <div>
-            <p className="font-black text-gray-900">የሱቅ ባለቤት / አሰሪ ነኝ</p>
-            <p className="text-xs mt-1 leading-5 text-gray-500">
-              የራስዎን የሱቅ መረጃ ለመመዝገብ እና ሰራተኞችን ለማስገባት።
-            </p>
-          </div>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={() => onComplete({ __staff_join: true })}
-        className="w-full text-left press-scale p-4 border-2"
-        style={{ borderColor: '#e8e2d8', background: '#FAF8F5', borderRadius: 'var(--radius-lg)' }}
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-2xl" aria-hidden="true">👥</span>
-          <div>
-            <p className="font-black text-gray-900">አሰሪ ወደ ሱቅ ተጋብደለሁ</p>
-            <p className="text-xs mt-1 leading-5 text-gray-500">
-              በገባት ውስጥ ያስገቡዎትን የሱቅ ኮድ ተጠቀሉ።
-            </p>
-          </div>
-        </div>
-      </button>
-    </div>
-  );
-
-  const renderEnglishOptions = () => (
-    <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => setMode('owner')}
-        className="w-full text-left press-scale p-4 border-2"
-        style={{ borderColor: '#1B4332', background: '#F5FBF7', borderRadius: 'var(--radius-lg)' }}
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-2xl" aria-hidden="true">🏪</span>
-          <div>
-            <p className="font-black text-gray-900">I am a Shop Owner / Employer</p>
-            <p className="text-xs mt-1 leading-5 text-gray-500">
-              To record your shop data and manage your sales staff.
-            </p>
-          </div>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={() => onComplete({ __staff_join: true })}
-        className="w-full text-left press-scale p-4 border-2"
-        style={{ borderColor: '#e8e2d8', background: '#FAF8F5', borderRadius: 'var(--radius-lg)' }}
-      >
-        <div className="flex items-start gap-3">
-          <span className="text-2xl" aria-hidden="true">👥</span>
-          <div>
-            <p className="font-black text-gray-900">Join as Sales Staff</p>
-            <p className="text-xs mt-1 leading-5 text-gray-500">
-              Enter your given code to access the shop notebook.
-            </p>
-          </div>
-        </div>
-      </button>
-    </div>
-  );
+  const phoneOptionalLabel = t.onboardPhoneOptional || '(optional)';
+  const phoneHelper = t.onboardPhoneHelper || 'You can add your phone later in Settings.';
+  const onboardingPromises = [
+    t.onboardPromiseSimple || 'Simple notebook for sales, spending, and Dubie',
+    t.onboardPromiseFast || 'Start with your name only',
+    t.onboardPromisePrivate || 'Your records stay on this phone',
+  ];
+  const businessTypeOptions = lang === 'am' ? BUSINESS_TYPE_OPTIONS_AM : BUSINESS_TYPE_OPTIONS_EN;
 
   const [mode, setMode] = useState('choice');
+  const [name, setName] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState('');
+  const [businessType, setBusinessType] = useState('retail-shop');
+  const [saving, setSaving] = useState(false);
+  const [touched, setTouched] = useState({ name: false, phone: false });
+
+  const nameValid = name.trim().length > 0;
+  const phoneEntered = phoneDigits.length > 0;
+  const phoneValid = !phoneEntered || isValidPhone(phoneDigits);
+  const canProceed = nameValid && phoneValid;
+
+  const handlePhoneChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    if (raw.length <= 9) setPhoneDigits(raw);
+  };
+
+  const handleStart = async () => {
+    if (!canProceed || saving) return;
+    setSaving(true);
+    const fullPhone = phoneEntered ? `+251${phoneDigits}` : '';
+    try {
+      const result = await identityApi.createShop({
+        display_name: name.trim(),
+        phone: fullPhone || undefined,
+        business_type: businessType,
+      });
+      const identity = {
+        shop_id: result.shop_id,
+        shop_name: result.shop_name || name.trim(),
+        join_code: result.join_code,
+        join_url: result.join_url,
+        device_id: result.device_id,
+        device_token: result.device_token,
+        staff_id: result.staff_id,
+        display_name: result.display_name || name.trim(),
+        phone_number: fullPhone,
+        role: 'owner',
+        permissions: result.permissions || {},
+        device_status: result.device_status || 'active',
+        phone_required: result.phone_required ?? false,
+        approval_required: result.approval_required ?? false,
+      };
+      await setIdentity(identity);
+      await db.settings.put({ key: 'intro_seen', value: 'yes' });
+      await db.settings.put({ key: 'shop_name', value: identity.shop_name });
+      await db.settings.put({ key: 'shop_phone', value: fullPhone });
+      await db.settings.put({ key: 'shop_business_type', value: businessType });
+      onComplete({
+        id: result.shop_id,
+        shop_id: result.shop_id,
+        name: identity.shop_name,
+        phone: fullPhone,
+        businessType,
+        role: 'owner',
+        join_code: result.join_code,
+        join_url: result.join_url,
+        staff_id: result.staff_id,
+        device_id: result.device_id,
+        display_name: result.display_name || name.trim(),
+        device_status: result.device_status || 'active',
+      });
+    } catch {
+      await db.settings.put({ key: 'intro_seen', value: 'yes' });
+      await db.settings.put({ key: 'shop_name', value: name.trim() });
+      await db.settings.put({ key: 'shop_phone', value: fullPhone });
+      await db.settings.put({ key: 'shop_business_type', value: businessType });
+      onComplete({ name: name.trim(), phone: fullPhone, businessType });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (mode === 'choice') {
     return (
