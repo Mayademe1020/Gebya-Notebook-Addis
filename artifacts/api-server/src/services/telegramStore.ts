@@ -273,6 +273,15 @@ export async function getSessionByChatId(chatId: string): Promise<TelegramLinkSe
   return getTelegramLinkSession(token);
 }
 
+/**
+ * Look up a session by phone number.
+ * Currently unsupported in KV mode (no phone → session index).
+ * Intended for invite notifications. Returns null until phone-indexing is added.
+ */
+export async function getSessionByPhone(_phone: string): Promise<TelegramLinkSession | null> {
+  return null;
+}
+
 export function formatTelegramSessionState(session: TelegramLinkSession | null) {
   if (!session) return 'not_linked';
   if (session.chatId) return session.updatesEnabled ? 'updates_enabled' : 'linked';
