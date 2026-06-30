@@ -52,7 +52,7 @@ router.get("/violations", async (req, res) => {
     .orderBy(desc(auditLog.createdAt))
     .limit(200);
 
-  res.json({ violations });
+  return res.json({ violations });
 });
 
 /**
@@ -150,7 +150,7 @@ router.get("/activity", async (req, res) => {
     .orderBy(desc(auditLog.createdAt))
     .limit(200);
 
-  res.json({ activity });
+  return res.json({ activity });
 });
 
 export default router;
