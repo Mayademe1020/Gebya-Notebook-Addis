@@ -87,6 +87,12 @@ class SyncEngine {
     } catch { /* ignore if store not initialized yet */ }
   }
 
+  _warnConflict(message) {
+    try {
+      useSyncStore.getState().setConflictWarning(message);
+    } catch { /* ignore */ }
+  }
+
   getState() {
     return {
       status: this.status,
@@ -326,7 +332,24 @@ class SyncEngine {
       body: JSON.stringify(payload),
     }, 3);
 
-    if (!res.ok) throw new Error(`Push failed: ${res.status}`);
+    if (!res.ok) {
+      let friendly = `Push failed: ${res.status}`;
+      try {
+        const errBody = await res.json();
+        if (res.status === 403 && errBody.missing_permission) {
+          const permLabel = {
+            can_add_records: 'record sales & expenses',
+            can_delete_records: 'delete records',
+            can_edit_settings: 'edit shop settings',
+            can_view_reports: 'view reports',
+          }[errBody.missing_permission] || errBody.missing_permission;
+          friendly = `You don't have permission to ${permLabel}. Ask your shop owner to enable it in Team settings.`;
+        } else if (errBody.error) {
+          friendly = errBody.error;
+        }
+      } catch { /* ignore */ }
+      throw new Error(friendly);
+    }
 
     const response = await res.json();
 
@@ -338,7 +361,12 @@ class SyncEngine {
 
     // Handle conflicts: re-pull and re-merge conflicting records
     if (response.conflicts && response.conflicts.length > 0) {
+      const count = response.conflicts.length;
+      const summary = `${count} record${count > 1 ? 's' : ''} had conflicting edits. The latest version was kept.`;
+      this._warnConflict(summary);
+      try { useSyncStore.getState().setLastConflicts(response.conflicts); } catch { /* ignore */ }
       await this._resolveConflicts(response.conflicts, token);
+      try { useSyncStore.getState().setLastConflicts([]); } catch { /* ignore */ }
     }
   }
 

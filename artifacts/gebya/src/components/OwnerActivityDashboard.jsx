@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Shield, AlertTriangle, User, Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, AlertTriangle, User, Calendar, Filter, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { usePermissionsStore } from '../stores/permissionsStore';
 import { getAuthToken } from '../utils/syncEngine';
+import { useSyncStore } from '../stores/syncStore';
 
 const API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 
@@ -81,6 +82,52 @@ function summaryLabel(action, entityType, lang) {
 function todayStartMs() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+function ConflictsCard({ lang }) {
+  const lastConflicts = useSyncStore(s => s.lastConflicts);
+  const clearConflicts = useSyncStore(s => s.setLastConflicts);
+
+  if (!lastConflicts || lastConflicts.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#f59e0b', background: '#fffbeb' }}>
+      <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: '#fcd34d', background: '#fef3c7' }}>
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+          <span className="text-xs font-black text-amber-800">
+            {lang === 'am' ? 'የሁከት ሪኮርዶች' : 'Conflicts'}
+          </span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
+            {lastConflicts.length}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => clearConflicts([])}
+          className="press-scale flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-lg px-2 py-1"
+        >
+          <RefreshCw className="w-3 h-3" />
+          {lang === 'am' ? 'አጽዳ' : 'Dismiss'}
+        </button>
+      </div>
+      <div className="px-4 py-3 space-y-2">
+        {lastConflicts.map((conflict, idx) => (
+          <div key={idx} className="rounded-xl border px-3 py-2" style={{ borderColor: '#fcd34d', background: '#fff' }}>
+            <div className="text-xs font-bold text-amber-900">
+              {conflict.table} · localId {conflict.localId}
+            </div>
+            <div className="text-[10px] text-gray-600 mt-0.5">
+              Server version: {conflict.serverVersion ? `v${conflict.serverVersion}` : '—'} · {conflict.serverUpdatedAt ? new Date(conflict.serverUpdatedAt).toLocaleString() : '—'}
+            </div>
+          </div>
+        ))}
+        <div className="text-[10px] text-amber-700 mt-1">
+          {lang === 'am' ? 'የኋላ ሪኮርዱ ተቀምጧል። የሰራተኞች የላቀ ስሪት ተቀብሏል።' : 'Latest version kept. Staff changes were merged automatically.'}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
@@ -200,6 +247,9 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
           </div>
         )}
       </div>
+
+      {/* Conflicts */}
+      <ConflictsCard lang={lang} />
 
       {/* Blocked actions */}
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#fecaca', background: '#fff' }}>

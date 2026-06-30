@@ -35,11 +35,12 @@ export default function GlobalModals({
   handleCustomerReminderSent,
   handleToggleCustomerTelegramNotify,
   handleConfirmCustomerTelegramConnection,
-  handleResendCustomerTelegramUpdate,
-  handleSaveCatalogEntry,
-  handleCustomQuickAmountsChange,
-  handleAddCustomerInline,
-  setRecurringExpenses,
+handleResendCustomerTelegramUpdate,
+   handleSaveCatalogEntry,
+   handleCustomQuickAmountsChange,
+   handleAddCustomerInline,
+   handleUndo,
+   setRecurringExpenses,
   // voice
   voiceWorkspace,
   voiceContext,
@@ -120,24 +121,25 @@ export default function GlobalModals({
     <>
       {showForm && (
         <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <TransactionForm
-            type={showForm}
-            onSave={handleAddTransaction}
-            onDone={() => setShowForm(null)}
-            actorLabel={currentActorLabel}
-            enabledProviders={enabledProviders}
-            catalogEntries={activeCatalogEntries}
-            recurringExpenses={recurringExpenses}
-            onRecurringChange={setRecurringExpenses}
-            onSaveCatalogEntry={handleSaveCatalogEntry}
-            customQuickAmounts={customQuickAmounts}
-            onCustomQuickAmountsChange={handleCustomQuickAmountsChange}
-            customers={customerSummaries}
-            onAddCustomerInline={handleAddCustomerInline}
-            initialPaymentType={(showForm === 'sale' || showForm === 'expense') ? lastPayment[showForm]?.type : undefined}
-            initialPaymentProvider={(showForm === 'sale' || showForm === 'expense') ? lastPayment[showForm]?.provider : undefined}
-            lastPaymentHistory={(showForm === 'sale' || showForm === 'expense') ? { bank: lastPayment[showForm]?.bankProvider || '', wallet: lastPayment[showForm]?.walletProvider || '' } : undefined}
-          />
+<TransactionForm
+             type={showForm}
+             onSave={handleAddTransaction}
+             onDone={() => setShowForm(null)}
+             onUndo={handleUndo}
+             actorLabel={currentActorLabel}
+             enabledProviders={enabledProviders}
+             catalogEntries={activeCatalogEntries}
+             recurringExpenses={recurringExpenses}
+             onRecurringChange={setRecurringExpenses}
+             onSaveCatalogEntry={handleSaveCatalogEntry}
+             customQuickAmounts={customQuickAmounts}
+             onCustomQuickAmountsChange={handleCustomQuickAmountsChange}
+             customers={customerSummaries}
+             onAddCustomerInline={handleAddCustomerInline}
+             initialPaymentType={(showForm === 'sale' || showForm === 'expense') ? lastPayment[showForm]?.type : undefined}
+             initialPaymentProvider={(showForm === 'sale' || showForm === 'expense') ? lastPayment[showForm]?.provider : undefined}
+             lastPaymentHistory={(showForm === 'sale' || showForm === 'expense') ? { bank: lastPayment[showForm]?.bankProvider || '', wallet: lastPayment[showForm]?.walletProvider || '' } : undefined}
+           />
         </Suspense>
       )}
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Users, Copy, Check, ChevronDown, ChevronUp, Shield, KeyRound } from 'lucide-react';
+import { Users, Copy, Check, ChevronDown, ChevronUp, Shield, KeyRound, Upload } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { useShopStore } from '../stores/shopStore';
 import { usePermissionsStore } from '../stores/permissionsStore';
@@ -183,6 +183,98 @@ function MemberPermissionPanel({ member, onUpdatePermission, lang }) {
   );
 }
 
+function parseCsvToInvites(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  const result = [];
+  for (const line of lines) {
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 2) continue;
+    const [name, phone, role = 'cashier'] = parts;
+    if (!name || !phone) continue;
+    result.push({
+      staff_name: name,
+      phone_number: phone.replace(/^0+/, ''),
+      role: ['cashier', 'viewer', 'owner'].includes(role) ? role : 'cashier',
+    });
+  }
+  return result;
+}
+
+function BulkInviteModal({ onClose, onImported, lang }) {
+  const [csv, setCsv] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [results, setResults] = useState([]);
+
+  const handleImport = async () => {
+    const rows = parseCsvToInvites(csv);
+    setImporting(true);
+    const out = [];
+    for (const row of rows) {
+      try {
+        const res = await apiFetch('/business/invite', { method: 'POST', body: JSON.stringify(row) });
+        out.push({ ...row, ok: true, data: res });
+      } catch (err) {
+        out.push({ ...row, ok: false, error: err.message || 'Failed' });
+      }
+    }
+    setResults(out);
+    setImporting(false);
+    try { await onImported?.(); } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
+      <div className="w-full max-w-md rounded-2xl border bg-white p-4" style={{ borderColor: '#e8e2d8' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-black text-gray-900">{lang === 'am' ? 'ከ CSV አስገባ' : 'Import from CSV'}</div>
+            <div className="text-[10px] text-gray-500">{lang === 'am' ? 'ስም, ስልክ, ቦታ' : 'name, phone, role'}</div>
+          </div>
+          <button type="button" onClick={onClose} className="text-xs font-bold text-gray-500">✕</button>
+        </div>
+        <textarea
+          value={csv}
+          onChange={e => setCsv(e.target.value)}
+          placeholder={`Abebe Bekele,911223344,cashier\nSara Hailu,922334455,viewer`}
+          className="w-full h-32 rounded-xl border px-3 py-2 text-xs font-mono"
+          style={{ borderColor: '#e8e2d8' }}
+        />
+        <div className="flex items-center justify-between mt-3">
+          <div className="text-[10px] text-gray-500">{lang === 'am' ? 'ቻር ለማድረግ ይጠቀሙ' : 'Use commas to separate columns'}</div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="px-3 py-2 rounded-xl border text-xs font-bold" style={{ borderColor: '#e8e2d8' }}>{lang === 'am' ? 'መውጫ' : 'Cancel'}</button>
+            <button type="button" disabled={importing || !csv.trim()} onClick={handleImport} className="px-3 py-2 rounded-xl bg-[#1B4332] text-white text-xs font-bold disabled:opacity-50">
+              {importing ? (lang === 'am' ? 'በመጫን ላይ...' : 'Importing...') : (lang === 'am' ? 'አስገባ' : 'Import')}
+            </button>
+          </div>
+        </div>
+        {results.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <div className="text-[10px] font-bold text-gray-700">
+              {lang === 'am' ? 'ውጤት' : 'Results'} · {results.filter(r => r.ok).length} {lang === 'am' ? 'ተሳክቷል' : 'success'} / {results.filter(r => !r.ok).length} {lang === 'am' ? 'ዉረደ' : 'failed'}
+            </div>
+            {results.map((r, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg border px-2 py-1.5" style={{ borderColor: r.ok ? '#bbf7d0' : '#fecaca', background: r.ok ? '#ecfdf5' : '#fef2f2' }}>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-gray-900 truncate">{r.staff_name}</div>
+                  <div className="text-[10px] text-gray-600">{r.phone_number} · {r.role}</div>
+                </div>
+                <div className="text-[10px] font-black" style={{ color: r.ok ? '#166534' : '#b91c1c' }}>
+                  {r.ok ? (lang === 'am' ? 'ተሳክቷል' : 'OK') : (r.error || 'Failed')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TeamPage({
   staffMembers,
   activeStaffMemberId,
@@ -204,6 +296,7 @@ export default function TeamPage({
   const [inviteLink, setInviteLink] = useState(null);
   const [copied, setCopied] = useState(false);
   const [copiedToken, setCopiedToken] = useState(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const [cloudMembers, setCloudMembers] = useState(null);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -345,6 +438,16 @@ export default function TeamPage({
               style={{ background: (phone.trim() && staffName.trim()) ? '#1B4332' : '#e5e7eb', color: (phone.trim() && staffName.trim()) ? '#fff' : '#9ca3af' }}
             >
               {inviting ? '...' : (lang === 'am' ? 'ጥሪ ፍጠር' : 'Invite')}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowBulkImport(true)}
+              className="w-full py-2 rounded-xl text-xs font-bold border-2 border-dashed flex items-center justify-center gap-2"
+              style={{ borderColor: '#e8e2d8', color: '#6b7280', background: '#fafaf9' }}
+            >
+              <Upload className="w-4 h-4" />
+              {lang === 'am' ? 'ከ CSV ፋይል አስገባ' : 'Import from CSV'}
             </button>
 
             {inviteLink && (
@@ -496,6 +599,14 @@ export default function TeamPage({
           ))}
         </div>
       </div>
+
+      {showBulkImport && (
+        <BulkInviteModal
+          onClose={() => setShowBulkImport(false)}
+          onImported={() => { loadPending(); loadMembers(); }}
+          lang={lang}
+        />
+      )}
     </div>
   );
 }

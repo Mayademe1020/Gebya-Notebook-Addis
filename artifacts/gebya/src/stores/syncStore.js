@@ -10,6 +10,10 @@ export const useSyncStore = create((set) => ({
   error: null,
   lastSyncAt: 0,
   online: true,
+  conflictWarning: null,
+  lastConflicts: [],
 
   setSyncState: (state) => set(state),
+  setConflictWarning: (warning) => set({ conflictWarning: warning }),
+  setLastConflicts: (conflicts) => set({ lastConflicts: conflicts }),
 }));

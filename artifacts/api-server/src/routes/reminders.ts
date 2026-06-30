@@ -27,6 +27,7 @@ import { queryHistory } from "../services/reminderSender.js";
 import { getSessionByChatId, getTelegramLinkSession } from "../services/telegramStore.js";
 import { buildReminderMessage } from "../services/reminderMessageBuilder.js";
 import { sendTelegramTextMessage } from "../services/telegramBotService.js";
+import { requirePermission } from "./rbac.js";
 import type {
   ReminderFrequency,
   EligibleCustomer,
@@ -84,7 +85,10 @@ function getShopId(req: Request): number {
  * If customers is not provided, the scheduler runs with empty data
  * (production would query the DB).
  */
-router.post("/run", async (req: Request, res: Response) => {
+router.post("/run", 
+  requirePermission("can_add_records"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_run";
   try {
     const parsed = runSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -165,7 +169,10 @@ router.get("/config", async (req: Request, res: Response) => {
  * POST /config — Set shop default reminder frequency.
  * Body: { shopId, frequency }
  */
-router.post("/config", async (req: Request, res: Response) => {
+router.post("/config",
+  requirePermission("can_edit_settings"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_settings";
   try {
     const shopId = getShopId(req);
     const parsed = frequencySchema.safeParse(req.body);
@@ -220,7 +227,10 @@ router.get("/config/:customerId", async (req: Request, res: Response) => {
  * POST /config/:customerId — Set customer-specific override.
  * Body: { frequency, shopId }
  */
-router.post("/config/:customerId", async (req: Request, res: Response) => {
+router.post("/config/:customerId",
+  requirePermission("can_edit_settings"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_customer_config";
   try {
     const shopId = getShopId(req);
     const customerId = parseInt(String(req.params.customerId), 10);
@@ -253,7 +263,10 @@ router.post("/config/:customerId", async (req: Request, res: Response) => {
 /**
  * DELETE /config/:customerId — Clear customer override (revert to shop default).
  */
-router.delete("/config/:customerId", async (req: Request, res: Response) => {
+router.delete("/config/:customerId",
+  requirePermission("can_edit_settings"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_customer_config";
   try {
     const shopId = getShopId(req);
     const customerId = parseInt(String(req.params.customerId), 10);
@@ -279,7 +292,10 @@ router.delete("/config/:customerId", async (req: Request, res: Response) => {
  * GET /history — Query reminder history.
  * Query: ?shopId=123&limit=50&offset=0&customerId=456
  */
-router.get("/history", async (req: Request, res: Response) => {
+router.get("/history",
+  requirePermission("can_view_reports"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_history";
   try {
     const shopId = getShopId(req);
     const limit = parseInt(String(req.query?.limit ?? "50"), 10);
@@ -376,7 +392,10 @@ router.post("/test/:customerId", async (req: Request, res: Response) => {
  * Body: { shopId }
  * Sets shop default to 'disabled' (can be re-enabled via POST /config).
  */
-router.post("/pause", async (req: Request, res: Response) => {
+router.post("/pause",
+  requirePermission("can_edit_settings"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_settings";
   try {
     const shopId = getShopId(req);
     await setShopDefault(shopId, "disabled");
@@ -398,7 +417,10 @@ router.post("/pause", async (req: Request, res: Response) => {
  * Body: { shopId }
  * Sets shop default back to 'daily'.
  */
-router.post("/resume", async (req: Request, res: Response) => {
+router.post("/resume",
+  requirePermission("can_edit_settings"),
+  async (req: Request, res: Response) => {
+    (req as any).rbacEntityType = "reminders_settings";
   try {
     const shopId = getShopId(req);
     await setShopDefault(shopId, "daily");

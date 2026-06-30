@@ -8,6 +8,7 @@ import backupRouter from "./backup.js";
 import businessRouter from "./business.js";
 import remindersRouter from "./reminders.js";
 import identityRouter from "./identity.js";
+import auditRouter from "./audit.js";
 
 const router: IRouter = Router();
 
@@ -23,5 +24,7 @@ router.use("/telegram/reminders", remindersRouter);
 // Identity routes: defines /shops, /shops/join, /shops/:shop_id/staff etc.
 // Mounted at root so full paths become /api/shops, /api/shops/join etc.
 router.use("/", identityRouter);
+// Audit routes: owner violation log
+router.use("/audit", auditRouter);
 
 export default router;

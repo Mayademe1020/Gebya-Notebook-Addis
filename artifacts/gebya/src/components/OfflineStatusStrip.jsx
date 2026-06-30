@@ -4,6 +4,7 @@ export default function OfflineStatusStrip({
   lang = 'en',
   onRetryTelegram,
   retryingTelegram = false,
+  conflictWarning = null,
 }) {
   let tone = null;
   let label = '';
@@ -54,6 +55,21 @@ export default function OfflineStatusStrip({
     tone = 'ready';
     label = lang === 'am' ? 'ከመስመር ውጭ ዝግጁ' : 'Offline ready';
     detail = lang === 'am' ? 'ያለ ኢንተርኔት ይሰራል' : 'works without internet';
+  }
+
+  if (conflictWarning) {
+    return (
+      <div
+        role="alert"
+        className="mt-2 flex items-center justify-between gap-2"
+        style={{ minHeight: 36, padding: '7px 9px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fcd34d', color: '#92400e', fontSize: 12, fontWeight: 800 }}
+      >
+        <span className="min-w-0 truncate">
+          ⚠️ {lang === 'am' ? 'ሁከት ተፈጠረ' : 'Sync conflict'}
+          <span style={{ fontWeight: 700 }}> · {conflictWarning}</span>
+        </span>
+      </div>
+    );
   }
 
   if (!tone) return null;
