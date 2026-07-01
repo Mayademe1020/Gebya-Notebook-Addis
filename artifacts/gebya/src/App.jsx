@@ -740,6 +740,8 @@ function AppInner() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareText, setShareText] = useState('');
   const [pressedBtn, setPressedBtn] = useState(null);
+  const [showCreditPicker, setShowCreditPicker] = useState(false);
+  const creditPickerRef = useRef(null);
   const [voiceStep, setVoiceStep] = useState(null);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [voiceDetectedTotal, setVoiceDetectedTotal] = useState(null);
@@ -750,6 +752,18 @@ function AppInner() {
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [pendingTelegramCount, setPendingTelegramCount] = useState(0);
   const [retryingTelegram, setRetryingTelegram] = useState(false);
+
+  // Close credit picker on outside click
+  useEffect(() => {
+    if (!showCreditPicker) return;
+    const handleClick = (e) => {
+      if (creditPickerRef.current && !creditPickerRef.current.contains(e.target)) {
+        setShowCreditPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showCreditPicker]);
 
   const buildActorSnapshot = useCallback(() => (
     resolveActorSnapshot({ shopProfile, staffMembers, activeStaffMemberId })
@@ -3326,31 +3340,34 @@ function AppInner() {
 
         {activeTab === 'credit' && (
           <>
-            {/* Segmented control: Customers (people who owe me) vs Suppliers (people I owe) */}
+            {/* Header + subtle toggle */}
             {!selectedCustomer && !selectedSupplier && (
-              <div className="flex gap-1.5 p-1 mb-4" style={{ background: '#f5f1ea', borderRadius: 'var(--radius-md)' }}>
-                {[
-                  { id: 'customers', label: lang === 'am' ? 'ደንበኞች (ያለባቸው)' : 'Customers (owe me)', accent: '#C4883A' },
-                  { id: 'suppliers', label: lang === 'am' ? 'አቅራቢዎች (ያለብኝ)' : 'Suppliers (I owe)', accent: '#dc2626' },
-                ].map((view) => {
-                  const active = creditView === view.id;
-                  return (
-                    <button
-                      key={view.id}
-                      type="button"
-                      onClick={() => setCreditView(view.id)}
-                      className="flex-1 py-2 px-3 text-xs font-bold transition-all min-h-[40px] press-scale"
-                      style={{
-                        borderRadius: 'var(--radius-sm)',
-                        background: active ? '#fff' : 'transparent',
-                        color: active ? view.accent : '#6b7280',
-                        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                      }}
-                    >
-                      {view.label}
-                    </button>
-                  );
-                })}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 12, paddingBottom: 8,
+                borderBottom: '1px solid #f5f1ea',
+              }}>
+                <p style={{
+                  fontSize: '0.82rem', fontWeight: 800, color: '#1a1a1a',
+                }}>
+                  {creditView === 'customers'
+                    ? (lang === 'am' ? 'ደንበኞች' : 'Customers')
+                    : (lang === 'am' ? 'አቅራቢዎች' : 'Suppliers')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCreditView(creditView === 'customers' ? 'suppliers' : 'customers')}
+                  className="press-scale"
+                  style={{
+                    fontSize: '0.68rem', fontWeight: 600, color: '#C4883A',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '4px 8px', borderRadius: 6,
+                  }}
+                >
+                  {creditView === 'customers'
+                    ? (lang === 'am' ? 'አቅራቢዎች ይመልከቱ →' : 'See suppliers →')
+                    : (lang === 'am' ? '← ደንበኞች' : '← Customers')}
+                </button>
               </div>
             )}
 
@@ -3607,6 +3624,122 @@ function AppInner() {
         </div>
       )}
 
+      {/* Action bar (Credit tab) — fixed above bottom nav for thumb reach */}
+      {activeTab === 'credit' && !selectedCustomer && !selectedSupplier && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
+        <div
+          className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
+          style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
+        >
+          <div className="flex gap-1.5 sm:gap-2">
+            {enrichedCustomerSummaries.length === 1 ? (
+              <button
+                onClick={() => setCustomerTransactionModal({
+                  mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+                  customerId: enrichedCustomerSummaries[0].id,
+                })}
+                className="flex-1 py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0 press-scale"
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px solid #2563eb',
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#2563eb', strokeWidth: 2.5 }} />
+                <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#2563eb' }}>
+                  {lang === 'am' ? 'ዱቤ ጨምር' : 'Add Credit'}
+                </span>
+              </button>
+            ) : enrichedCustomerSummaries.length > 1 ? (
+              <div className="flex-1 relative" ref={creditPickerRef}>
+                <button
+                  onClick={() => setShowCreditPicker(v => !v)}
+                  className="w-full py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all press-scale"
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #2563eb',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#2563eb', strokeWidth: 2.5 }} />
+                  <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#2563eb' }}>
+                    {lang === 'am' ? 'ዱቤ ጨምር' : 'Add Credit'}
+                  </span>
+                </button>
+                {showCreditPicker && (
+                  <div style={{
+                    position: 'absolute', bottom: '100%', left: 0, right: 0,
+                    background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+                    boxShadow: '0 -4px 16px rgba(0,0,0,0.12)',
+                    maxHeight: 200, overflowY: 'auto', marginBottom: 4, zIndex: 50,
+                  }}>
+                    {enrichedCustomerSummaries.filter(c => Number(c.balance || 0) > 0).slice(0, 8).map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setShowCreditPicker(false);
+                          setCustomerTransactionModal({
+                            mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
+                            customerId: c.id,
+                          });
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          width: '100%', padding: '10px 12px', border: 'none',
+                          background: 'transparent', cursor: 'pointer',
+                          borderBottom: '1px solid #f5f1ea', textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1a1a1a', flex: 1 }}>
+                          {c.display_name}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#b8842c', fontWeight: 600 }}>
+                          {fmt(c.balance)}
+                        </span>
+                      </button>
+                    ))}
+                    {enrichedCustomerSummaries.filter(c => Number(c.balance || 0) > 0).length === 0 && (
+                      <p style={{ padding: '12px', textAlign: 'center', fontSize: '0.75rem', color: '#9ca3af' }}>
+                        {lang === 'am' ? 'መዝጋት ያለላቸው ደንበኞች የሉም' : 'No customers with balance'}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCustomerForm(true)}
+                className="flex-1 py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0 press-scale"
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px dashed #9ca3af',
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#9ca3af', strokeWidth: 2.5 }} />
+                <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#9ca3af' }}>
+                  {lang === 'am' ? 'የመጀመሪያ ደንበኛ ጨምር' : 'Add first customer'}
+                </span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowCustomerForm(true)}
+              className="flex-1 py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0 press-scale"
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #C4883A',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#C4883A', strokeWidth: 2.5 }} />
+              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#C4883A' }}>
+                {lang === 'am' ? 'ደንበኛ ጨምር' : 'Add Customer'}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 border-t"
         style={{ background: '#ffffff', borderColor: '#e5e7eb' }}>
         <div className="flex">
@@ -3625,6 +3758,7 @@ function AppInner() {
                   setCustomerTransactionEditTarget(null);
                   setSupplierTransactionModal(null);
                   setReminderTarget(null);
+                  setShowCreditPicker(false);
                   setActiveTab(tab.id);
                   setSelectedCustomerId(null);
                   setSelectedSupplierId(null);
