@@ -24,7 +24,7 @@ import {
 } from "../services/reminderConfiguration.js";
 import { runRemindersForShop } from "../services/reminderScheduler.js";
 import { queryHistory } from "../services/reminderSender.js";
-import { getSessionByChatId, getTelegramLinkSession } from "../services/telegramStore.js";
+import { getTelegramLinkSession } from "../services/telegramStore.js";
 import { buildReminderMessage } from "../services/reminderMessageBuilder.js";
 import { sendTelegramTextMessage } from "../services/telegramBotService.js";
 import { requirePermission } from "./rbac.js";
@@ -78,14 +78,17 @@ function getShopId(req: Request): number {
 // ─── endpoints ─────────────────────────────────────────────────────────
 
 /**
- * POST /run — Cron trigger: execute daily reminders for a shop.
- * Callable by Vercel Cron Jobs or external scheduler.
- *
- * Body: { shopId, customers?: [...], shopName?: string }
- * If customers is not provided, the scheduler runs with empty data
- * (production would query the DB).
- */
-router.post("/run", 
+  * POST /run — Cron trigger: execute daily reminders for a shop.
+  * Callable by Vercel Cron Jobs or external scheduler.
+  *
+  * Body: { shopId, customers?: [...], shopName?: string }
+  *
+  * If `customers` is omitted, the handler falls back to querying the
+  * transaction ledger (`customer_transactions`) directly to compute
+  * outstanding balances. This makes the endpoint self-sufficient for
+  * production cron jobs that don't pre-build the customer array.
+  */
+router.post("/run",
   requirePermission("can_add_records"),
   async (req: Request, res: Response) => {
     (req as any).rbacEntityType = "reminders_run";
@@ -100,27 +103,82 @@ router.post("/run",
 
     const { shopId, customers, shopName } = parsed.data;
 
-    // Map provided customers to EligibleCustomer format
-    const eligibleCustomers: EligibleCustomer[] = (customers || []).map((c) => ({
-      customerId: c.customerId,
-      customerName: c.customerName,
-      balance: c.balance,
-      dueDate: c.dueDate ?? null,
-      customerCreatedAt: c.customerCreatedAt,
-      chatId: c.chatId,
-      updatesEnabled: c.updatesEnabled ?? true,
-      telegramLanguage: c.telegramLanguage ?? "en",
-      reminderConfig: {
-        id: "",
-        shopId,
+    let eligibleCustomers: EligibleCustomer[];
+
+    if (customers && customers.length > 0) {
+      // Fast path: caller supplied the full customer list.
+      eligibleCustomers = customers.map((c) => ({
         customerId: c.customerId,
-        frequency: "daily",
-        lastReminderSentAt: null,
-        enabled: true,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    }));
+        customerName: c.customerName,
+        balance: c.balance,
+        dueDate: c.dueDate ?? null,
+        customerCreatedAt: c.customerCreatedAt,
+        chatId: c.chatId,
+        updatesEnabled: c.updatesEnabled ?? true,
+        telegramLanguage: c.telegramLanguage ?? "en",
+        reminderConfig: {
+          id: `${shopId}-${c.customerId}-cfg`,
+          shopId,
+          customerId: c.customerId,
+          frequency: "daily",
+          lastReminderSentAt: null,
+          enabled: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      }));
+    } else {
+      // Slow path: compute from the ledger and enrich with Telegram data.
+      try {
+        const { db, getCustomerBalances, enrichWithTelegram } = await import("@workspace/db");
+        const { eq } = await import("drizzle-orm/expressions");
+
+        const ledgerRows = await getCustomerBalances(db, { businessId: shopId, onlyPositiveBalance: true });
+        const customerIds = ledgerRows.map((row) => row.customerId);
+
+        // Enrich with Telegram data from the customers table.
+        const { customers: customersTable } = await import("@workspace/db");
+        const shopCustomers = await db
+          .select({
+            customerId: customersTable.id,
+            name: customersTable.displayName,
+            chatId: customersTable.telegramChatId,
+            telegramUsername: customersTable.telegramUsername,
+            telegramNotifyEnabled: customersTable.telegramNotifyEnabled,
+          })
+          .from(customersTable)
+          .where(eq(customersTable.businessId, shopId));
+
+        const customerMap = new Map(
+          shopCustomers.map((c) => [c.customerId, c]),
+        );
+
+        eligibleCustomers = ledgerRows
+          .map((row) => {
+            const customer = customerMap.get(row.customerId);
+            if (!customer) return null;
+            return enrichWithTelegram(row, {
+              customerId: customer.customerId,
+              name: customer.name,
+              balance: row.balance,
+              dueDate: row.dueDate,
+              createdAt: row.createdAt,
+              chatId: customer.chatId,
+              telegramUsername: customer.telegramUsername,
+              telegramNotifyEnabled: customer.telegramNotifyEnabled,
+            });
+          })
+          .filter((c): c is EligibleCustomer => c !== null);
+      } catch (dbError) {
+        console.error("[reminders:run:db]", {
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+          shopId,
+        });
+        return res.status(500).json({
+          error: "Failed to query customer balances from ledger",
+        });
+      }
+    }
 
     const stats = await runRemindersForShop(shopId, eligibleCustomers, shopName);
 

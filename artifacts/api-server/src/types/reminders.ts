@@ -79,13 +79,13 @@ export interface ReminderHistoryEntry {
   chatId: string;
 
   /** Customer balance in ETB at time of send */
-  balanceAtSendTime: number;
+  balanceAtSendTime: string;
 
   /** Due date of the credit (unix timestamp ms), or null if no due date */
-  dueDate: number | null;
+  dueDate?: number;
 
   /** Number of days the balance has been held (calculated at send time) */
-  daysHeld: number;
+  daysHeld?: number;
 
   /** When the reminder was sent or attempted */
   sentAt: number;
@@ -106,13 +106,22 @@ export interface ReminderHistoryEntry {
   retryCount: number;
 
   /** Timestamp of the last send/retry attempt */
-  lastAttemptAt: number;
+  lastAttemptAt?: number;
 
   /** Optional: customer name snapshot at time of send (for audit) */
   customerNameSnapshot?: string;
 
   /** Optional: shop name snapshot at time of send (for audit) */
   shopNameSnapshot?: string;
+
+  /** When the record was created */
+  createdAt: Date;
+
+  /** Whether the customer acknowledged this reminder */
+  acknowledged?: boolean;
+
+  /** When the customer acknowledged the reminder */
+  acknowledgedAt?: number;
 }
 
 /**
@@ -354,6 +363,18 @@ export interface ReminderHistoryResult {
     offset: number;
     hasMore: boolean;
   };
+}
+
+/**
+ * Stats for reminder history
+ */
+export interface ReminderHistoryStats {
+  totalRemindersSentAllTime: number;
+  remindersSentThisWeek: number;
+  remindersFailedThisWeek: number;
+  averageDeliveryTimeMs: number;
+  uniqueCustomersRemindedThisWeek: number;
+  unlinkedCustomersCount: number;
 }
 
 /**

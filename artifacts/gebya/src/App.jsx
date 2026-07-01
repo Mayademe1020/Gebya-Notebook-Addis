@@ -3705,7 +3705,22 @@ function AppInner() {
                 className="flex-1 flex flex-col items-center gap-1 py-2 min-h-[56px] press-scale"
                 style={{ color: isActive ? '#1B4332' : '#9ca3af' }}
               >
-                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                <div style={{ position: 'relative' }}>
+                  <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                  {tab.id === 'credit' && creditMetrics.overdueCount > 0 && (
+                    <span style={{
+                      position: 'absolute', top: -4, right: -8,
+                      minWidth: 16, height: 16, borderRadius: 999,
+                      background: '#dc2626', color: '#fff',
+                      fontSize: '0.55rem', fontWeight: 800,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 4px',
+                      border: '1.5px solid #fff',
+                    }}>
+                      {creditMetrics.overdueCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[11px]" style={{ fontWeight: isActive ? 700 : 500 }}>
                   {tab.label}
                 </span>

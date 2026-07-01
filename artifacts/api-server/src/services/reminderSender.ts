@@ -9,10 +9,10 @@
  */
 import { sendTelegramTextMessage } from "./telegramBotService.js";
 import { getSessionByChatId, syncTelegramCustomerState } from "./telegramStore.js";
+import { createHistoryEntry } from "./reminderHistory.js";
 import type {
   QueuedReminder,
   SendReminderResult,
-  ReminderHistoryEntry,
 } from "../types/reminders.js";
 
 // ─── error classification ──────────────────────────────────────────────
@@ -25,6 +25,13 @@ type ErrorClass =
   | "invalid_chat"
   | "invalid_token"
   | "other";
+
+function log(level: "info" | "warn" | "error", message: string, context?: Record<string, unknown>): void {
+  const logLine = [`[ReminderSender] ${level.toUpperCase()}`, message, context ? JSON.stringify(context) : ""].join(" ");
+  if (level === "error") console.error(logLine);
+  else if (level === "warn") console.warn(logLine);
+  else console.log(logLine);
+}
 
 function classifyError(error: unknown, httpStatus?: number): ErrorClass {
   if (httpStatus === 429) return "rate_limit";
@@ -138,6 +145,8 @@ export async function sendReminder(
     reminder.daysHeld,
   );
 
+  log("info", "Sending reminder", { customerId: reminder.customerId, shopId: reminder.shopId });
+
   for (let attempt = 0; attempt <= BACKOFF_DELAYS.length; attempt++) {
     try {
       const result = await sendTelegramTextMessage(reminder.chatId, message);
@@ -146,13 +155,12 @@ export async function sendReminder(
         (result as { message_id?: string })?.message_id ?? "",
       );
 
-      await storeHistoryEntry({
-        id: `${reminder.shopId}-${reminder.customerId}-${reminder.queuedAt}`,
+      await createHistoryEntry({
         shopId: reminder.shopId,
         customerId: reminder.customerId,
         chatId: reminder.chatId,
-        balanceAtSendTime: reminder.balance,
-        dueDate: reminder.dueDate,
+        balanceAtSendTime: String(reminder.balance),
+        dueDate: reminder.dueDate ?? undefined,
         daysHeld: reminder.daysHeld,
         sentAt: Date.now(),
         status: "sent",
@@ -194,13 +202,12 @@ export async function sendReminder(
           // silent — don't let unlink failure mask the original error
         }
 
-        await storeHistoryEntry({
-          id: `${reminder.shopId}-${reminder.customerId}-${reminder.queuedAt}`,
+        await createHistoryEntry({
           shopId: reminder.shopId,
           customerId: reminder.customerId,
           chatId: reminder.chatId,
-          balanceAtSendTime: reminder.balance,
-          dueDate: reminder.dueDate,
+          balanceAtSendTime: String(reminder.balance),
+          dueDate: reminder.dueDate ?? undefined,
           daysHeld: reminder.daysHeld,
           sentAt: Date.now(),
           status: "failed",
@@ -233,13 +240,12 @@ export async function sendReminder(
       }
 
       // All retries exhausted
-      await storeHistoryEntry({
-        id: `${reminder.shopId}-${reminder.customerId}-${reminder.queuedAt}`,
+      await createHistoryEntry({
         shopId: reminder.shopId,
         customerId: reminder.customerId,
         chatId: reminder.chatId,
-        balanceAtSendTime: reminder.balance,
-        dueDate: reminder.dueDate,
+        balanceAtSendTime: String(reminder.balance),
+        dueDate: reminder.dueDate ?? undefined,
         daysHeld: reminder.daysHeld,
         sentAt: Date.now(),
         status: "failed",

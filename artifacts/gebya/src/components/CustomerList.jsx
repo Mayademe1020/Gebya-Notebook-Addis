@@ -198,8 +198,8 @@ function CustomerList({
         </p>
         <div style={{ opacity: 0.55 }}>
           {[
-            { name: 'Abebe Tilahun', meta: lang === 'am' ? '3 መዝገቦች · ከ2 ቀን በፊት' : '3 entries · 2d ago', amt: 4500, urg: '#f59e0b' },
-            { name: 'Tigist Kebede',  meta: lang === 'am' ? '5 መዝገቦች · 5 ቀን ዘገይቷል' : '5 entries · 5d overdue', amt: 3200, urg: '#dc2626' },
+            { name: 'Abebe Tilahun', status: lang === 'am' ? 'መታወቂያ አለ' : 'Can remind', amt: 4500, urg: '#f59e0b' },
+            { name: 'Tigist Kebede',  status: lang === 'am' ? 'ያለፈ ጊዜ' : 'Overdue', amt: 3200, urg: '#dc2626' },
           ].map((ex, i) => (
             <div
               key={i}
@@ -226,11 +226,14 @@ function CustomerList({
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937' }}>{ex.name}</p>
-                <p style={{ fontSize: '0.7rem', color: '#9ca3af' }}>{ex.meta}</p>
+                <p style={{ fontSize: '0.68rem', color: ex.urg }}>{ex.status}</p>
               </div>
-              <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.95rem', fontWeight: 700, color: ex.urg }}>
-                {fmt(ex.amt)}
-              </p>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.95rem', fontWeight: 700, color: ex.urg }}>
+                  {fmt(ex.amt)}
+                </p>
+                <p style={{ fontSize: '0.6rem', color: '#9ca3af' }}>{lang === 'am' ? 'ብር' : 'birr'}</p>
+              </div>
             </div>
           ))}
         </div>

@@ -707,6 +707,30 @@ router.post("/webhook", async (req: Request, res: Response) => {
         message: error instanceof Error ? error.message : "Telegram paid reply failed",
       });
     }
+
+    // Record customer acknowledgement in reminder history.
+    // We intentionally do not modify balances here — that happens
+    // when the shop owner records the payment in Gebya.
+    try {
+      if (session?.customerId) {
+        const { getLatestQueuedReminderForCustomer, acknowledgeReminder } = await import("../services/reminderHistory.js");
+        const latest = await getLatestQueuedReminderForCustomer(Number(session.customerId));
+        if (latest && !latest.acknowledged) {
+          await acknowledgeReminder(latest.id);
+          console.log("[telegram:webhook:paid:ack]", {
+            customerId: session.customerId,
+            reminderId: latest.id,
+            chatId,
+          });
+        }
+      }
+    } catch (ackError) {
+      console.error("[telegram:webhook:paid:ack]", {
+        chatId,
+        error: ackError instanceof Error ? ackError.message : String(ackError),
+      });
+    }
+
     return res.json({ ok: true });
   }
 

@@ -17,6 +17,13 @@ import type {
   ReminderLanguage,
 } from "../types/reminders.js";
 
+function log(level: "info" | "warn" | "error", message: string, context?: Record<string, unknown>): void {
+  const logLine = [`[ReminderScheduler] ${level.toUpperCase()}`, message, context ? JSON.stringify(context) : ""].join(" ");
+  if (level === "error") console.error(logLine);
+  else if (level === "warn") console.warn(logLine);
+  else console.log(logLine);
+}
+
 // ─── helper: language detection ────────────────────────────────────────
 
 function detectLanguage(langCode?: string | null): ReminderLanguage {
@@ -130,6 +137,8 @@ export async function scheduleReminders(
     shopsProcessed: 1,
     success: false,
   };
+
+  log("info", "Starting reminder scheduling", { shopId, customerCount: customersWithBalance.length });
 
   for (const customer of customersWithBalance) {
     try {
