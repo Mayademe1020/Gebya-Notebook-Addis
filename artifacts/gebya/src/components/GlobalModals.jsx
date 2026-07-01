@@ -11,7 +11,6 @@ import {
   TransactionForm, EditTransactionSheet, ReminderSheet,
   CustomerForm, CustomerTransactionSheet, CustomerTelegramConnectSheet,
   SupplierForm, SupplierTransactionSheet,
-  VOICE_ENABLED, VoiceRecordScreen, VoiceResultScreen, VoiceFixScreen,
 } from '../utils/lazyImports';
 import { getSyncEngine } from '../utils/syncEngine';
 
@@ -41,15 +40,6 @@ handleResendCustomerTelegramUpdate,
    handleAddCustomerInline,
    handleUndo,
    setRecurringExpenses,
-  // voice
-  voiceWorkspace,
-  voiceContext,
-  handleVoiceRepeatSale,
-  handleVoiceUseItemShortcut,
-  handleVoiceUseCustomerShortcut,
-  handleVoiceSave,
-  mergedVoiceDraft,
-  recordVoiceTelemetry,
 }) {
   const { lang, t } = useLang();
   const shopProfile = useShopStore(s => s.shopProfile);
@@ -89,19 +79,6 @@ handleResendCustomerTelegramUpdate,
   const setEditTarget = useAppStore(s => s.setEditTarget);
   const deleteTarget = useAppStore(s => s.deleteTarget);
   const setDeleteTarget = useAppStore(s => s.setDeleteTarget);
-  const voiceStep = useAppStore(s => s.voiceStep);
-  const setVoiceStep = useAppStore(s => s.setVoiceStep);
-  const voiceTranscript = useAppStore(s => s.voiceTranscript);
-  const setVoiceTranscript = useAppStore(s => s.setVoiceTranscript);
-  const voiceDetectedTotal = useAppStore(s => s.voiceDetectedTotal);
-  const setVoiceDetectedTotal = useAppStore(s => s.setVoiceDetectedTotal);
-  const voiceItems = useAppStore(s => s.voiceItems);
-  const setVoiceItems = useAppStore(s => s.setVoiceItems);
-  const voiceConfidence = useAppStore(s => s.voiceConfidence);
-  const setVoiceConfidence = useAppStore(s => s.setVoiceConfidence);
-  const voiceProvider = useAppStore(s => s.voiceProvider);
-  const setVoiceProvider = useAppStore(s => s.setVoiceProvider);
-  const setVoiceDraft = useAppStore(s => s.setVoiceDraft);
   const authChecked = useAuthStore(s => s.checked);
   const authUser = useAuthStore(s => s.user);
 
@@ -306,73 +283,6 @@ handleResendCustomerTelegramUpdate,
         <ShareModal summary={shareText} telegram={shopProfile?.telegram} onClose={() => setShowShareModal(false)} t={t} />
       )}
 
-      {/* Voice — disabled per D-027 */}
-      {VOICE_ENABLED && voiceStep === 'record' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceRecordScreen
-            workspace={voiceWorkspace}
-            voiceContext={voiceContext}
-            onRepeatSale={handleVoiceRepeatSale}
-            onUseItem={handleVoiceUseItemShortcut}
-            onUseCustomer={handleVoiceUseCustomerShortcut}
-            onTranscript={(transcript, detectedTotal, confidence, draft, provider) => {
-              const newItem = { transcript, detectedTotal, draft };
-              setVoiceItems(prev => [...prev, newItem]);
-              setVoiceTranscript(transcript);
-              setVoiceDetectedTotal(detectedTotal);
-              setVoiceConfidence(confidence ?? null);
-              setVoiceProvider(provider ?? null);
-              setVoiceDraft(draft ?? null);
-              recordVoiceTelemetry({ action: 'captured', transcript, provider: provider ?? null, draft: draft ?? null });
-              setVoiceStep('result');
-            }}
-            onTypeInstead={() => {
-              recordVoiceTelemetry({ action: 'type_instead' });
-              setVoiceStep(null);
-              setVoiceItems([]);
-              setVoiceConfidence(null);
-              setVoiceProvider(null);
-              setVoiceDraft(null);
-              setShowForm('sale');
-            }}
-          />
-        </Suspense>
-      )}
-
-      {VOICE_ENABLED && voiceStep === 'result' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceResultScreen
-            transcript={voiceTranscript}
-            detectedTotal={voiceDetectedTotal}
-            items={voiceItems}
-            draft={mergedVoiceDraft}
-            workspace={voiceWorkspace}
-            onRepeatSale={handleVoiceRepeatSale}
-            onUseItem={handleVoiceUseItemShortcut}
-            onUseCustomer={handleVoiceUseCustomerShortcut}
-            onSave={handleVoiceSave}
-            onFix={() => { recordVoiceTelemetry({ action: 'fix_opened' }); setVoiceStep('fix'); }}
-            onAddAnother={() => setVoiceStep('record')}
-            onReRecord={() => { setVoiceTranscript(''); setVoiceDetectedTotal(null); setVoiceItems([]); setVoiceConfidence(null); setVoiceProvider(null); setVoiceDraft(null); setVoiceStep('record'); }}
-            onTypeInstead={() => { setVoiceStep(null); setVoiceItems([]); setShowForm('sale'); }}
-          />
-        </Suspense>
-      )}
-
-      {VOICE_ENABLED && voiceStep === 'fix' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceFixScreen
-            transcript={voiceTranscript}
-            detectedTotal={voiceDetectedTotal}
-            items={voiceItems}
-            draft={mergedVoiceDraft}
-            onSave={(data) => handleVoiceSave({ ...data, wasEdited: true })}
-            onCancel={() => setVoiceStep('result')}
-            enabledProviders={enabledProviders}
-            lastProviderByType={{ bank: lastPayment.sale?.bankProvider || '', wallet: lastPayment.sale?.walletProvider || '' }}
-          />
-        </Suspense>
-      )}
     </>
   );
 }

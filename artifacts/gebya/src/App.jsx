@@ -107,15 +107,6 @@ const ReportView = lazyWithRetry(importReportView, 'ReportView');
 const SettingsPage = lazyWithRetry(importSettingsPage, 'SettingsPage');
 const DailySuggestions = lazyWithRetry(importDailySuggestions, 'DailySuggestions');
 
-// Voice subsystem hidden per D-027 (Amharic/Oromifa STT quality insufficient today).
-// Files preserved (VoiceButton, VoiceRecordScreen, VoiceResultScreen, VoiceFixScreen,
-// hooks/useSpeechRecognition); flip VOICE_ENABLED to true to re-enable when local-language
-// voice tech improves.
-const VOICE_ENABLED = false;
-const VoiceRecordScreen = lazyWithRetry(() => import('./components/VoiceRecordScreen'), 'VoiceRecordScreen');
-const VoiceResultScreen = lazyWithRetry(() => import('./components/VoiceResultScreen'), 'VoiceResultScreen');
-const VoiceFixScreen = lazyWithRetry(() => import('./components/VoiceFixScreen'), 'VoiceFixScreen');
-
 const P = {
   bg: 'var(--color-bg)',
   header: 'var(--color-primary)',
@@ -137,77 +128,6 @@ const BUSINESS_TYPE_PROMPT_LABELS = {
   pharmacy: 'Pharmacy / cosmetics',
   other: 'Other',
 };
-
-function buildVoiceSummaryFromDraft(draft) {
-  if (!draft?.items?.length) return '';
-  return draft.items
-    .map((item) => {
-      const qty = item.quantity && item.quantity !== 1 ? `${item.quantity}x ` : '';
-      const price = item.unit_price != null ? ` ${item.unit_price}` : '';
-      return `${qty}${item.name}${price}`.trim();
-    })
-    .join(', ');
-}
-function buildVoiceDraftFromTransaction(tx) {
-  const quantity = Number(tx?.quantity || 1) || 1;
-  const amount = tx?.amount != null ? Number(tx.amount) : null;
-  const singleLineTotal = amount != null && Number.isFinite(amount) ? amount : null;
-  const unitPrice = singleLineTotal != null && quantity > 0 ? Math.round((singleLineTotal / quantity) * 100) / 100 : null;
-
-  return {
-    customer_name: tx?.customer_name || null,
-    items: tx?.item_name ? [{
-      name: tx.item_name,
-      quantity,
-      unit_price: unitPrice,
-      line_total: singleLineTotal,
-    }] : [],
-    total_amount: singleLineTotal,
-    intent: 'sale',
-    needs_review: false,
-  };
-}
-
-function mergeVoiceDrafts(utterances = [], fallbackDraft = null) {
-  if (utterances.length <= 1) {
-    return fallbackDraft;
-  }
-
-  const drafts = utterances
-    .map((entry) => entry.draft)
-    .filter(Boolean);
-
-  const items = drafts.flatMap((draft) => draft.items || []);
-  const allTotalsKnown = items.length > 0 && items.every((item) => item.line_total != null);
-
-  return {
-    customer_name: drafts.find((draft) => draft.customer_name)?.customer_name || fallbackDraft?.customer_name || null,
-    items,
-    total_amount: allTotalsKnown ? items.reduce((sum, item) => sum + (item.line_total || 0), 0) : (drafts.reduce((sum, draft) => sum + (draft.total_amount || 0), 0) || fallbackDraft?.total_amount || null),
-    intent: drafts.find((draft) => draft.intent && draft.intent !== 'sale')?.intent || fallbackDraft?.intent || 'sale',
-    needs_review: drafts.some((draft) => draft.needs_review) || items.some((item) => item.unit_price == null),
-  };
-}
-
-function normalizeVoiceTelemetryItems(items = []) {
-  return items.map((item) => ({
-    name: String(item?.name || '').trim().toLowerCase(),
-    quantity: Number(item?.quantity || 1),
-    unit_price: item?.unit_price == null ? null : Number(item.unit_price),
-  }));
-}
-
-function normalizeVoiceTelemetryText(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
-function parseAnalyticsJson(value, fallback) {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function isBrowserOnline() {
   if (typeof navigator === 'undefined') return true;
@@ -740,13 +660,6 @@ function AppInner() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareText, setShareText] = useState('');
   const [pressedBtn, setPressedBtn] = useState(null);
-  const [voiceStep, setVoiceStep] = useState(null);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [voiceDetectedTotal, setVoiceDetectedTotal] = useState(null);
-  const [voiceItems, setVoiceItems] = useState([]);
-  const [voiceConfidence, setVoiceConfidence] = useState(null);
-  const [voiceProvider, setVoiceProvider] = useState(null);
-  const [voiceDraft, setVoiceDraft] = useState(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [pendingTelegramCount, setPendingTelegramCount] = useState(0);
   const [retryingTelegram, setRetryingTelegram] = useState(false);
@@ -773,70 +686,6 @@ function AppInner() {
       await db.settings.delete('last_saved_snapshot');
     } catch { /* non-critical */ }
   }, []);
-
-  const appendVoiceQualityEvent = useCallback(async (event) => {
-    try {
-      const existing = await db.analytics.get('voice_quality_events');
-      const events = parseAnalyticsJson(existing?.value, []);
-      const nextEvents = [...events, event].slice(-100);
-      await db.analytics.put({ key: 'voice_quality_events', value: JSON.stringify(nextEvents) });
-    } catch { /* non-critical */ }
-  }, []);
-
-  const updateVoiceQualityStats = useCallback(async (updater) => {
-    try {
-      const existing = await db.analytics.get('voice_quality_stats');
-      const current = parseAnalyticsJson(existing?.value, {
-        captured: 0,
-        fix_opened: 0,
-        saved: 0,
-        saved_without_edit: 0,
-        saved_with_edit: 0,
-        type_instead: 0,
-        re_recorded: 0,
-        amount_changed: 0,
-        customer_changed: 0,
-        items_changed: 0,
-        note_changed: 0,
-      });
-      const next = updater(current);
-      await db.analytics.put({ key: 'voice_quality_stats', value: JSON.stringify(next) });
-    } catch { /* non-critical */ }
-  }, []);
-
-  const recordVoiceTelemetry = useCallback(async ({ action, wasEdited = false, changeSet = {}, transcript = null, provider = null, draft = null }) => {
-    await updateVoiceQualityStats((current) => ({
-      ...current,
-      captured: current.captured + (action === 'captured' ? 1 : 0),
-      fix_opened: current.fix_opened + (action === 'fix_opened' ? 1 : 0),
-      saved: current.saved + (action === 'saved' ? 1 : 0),
-      saved_without_edit: current.saved_without_edit + (action === 'saved' && !wasEdited ? 1 : 0),
-      saved_with_edit: current.saved_with_edit + (action === 'saved' && wasEdited ? 1 : 0),
-      type_instead: current.type_instead + (action === 'type_instead' ? 1 : 0),
-      re_recorded: current.re_recorded + (action === 're_recorded' ? 1 : 0),
-      amount_changed: current.amount_changed + (changeSet.amount ? 1 : 0),
-      customer_changed: current.customer_changed + (changeSet.customer ? 1 : 0),
-      items_changed: current.items_changed + (changeSet.items ? 1 : 0),
-      note_changed: current.note_changed + (changeSet.note ? 1 : 0),
-    }));
-
-    await appendVoiceQualityEvent({
-      timestamp: Date.now(),
-      action,
-      wasEdited,
-      provider,
-      transcript_length: transcript ? String(transcript).trim().length : 0,
-      detected_items: draft?.items?.length || 0,
-      detected_total: draft?.total_amount ?? null,
-      needs_review: !!draft?.needs_review,
-      changeSet: {
-        amount: !!changeSet.amount,
-        customer: !!changeSet.customer,
-        items: !!changeSet.items,
-        note: !!changeSet.note,
-      },
-    });
-  }, [appendVoiceQualityEvent, updateVoiceQualityStats]);
 
   const loadData = useCallback(async () => {
     try {
@@ -1446,77 +1295,6 @@ function AppInner() {
     }
   };
 
-  const handleVoiceSave = useCallback(async ({ amount, note, paymentType = 'cash', paymentProvider = '', wasEdited = false, draft = null }) => {
-    const now = Date.now();
-    const hasMultiple = voiceItems.length > 1;
-    const originalDraft = hasMultiple ? mergeVoiceDrafts(voiceItems, voiceDraft) : voiceDraft;
-    const mergedDraft = hasMultiple ? mergeVoiceDrafts(voiceItems, draft || voiceDraft) : (draft || voiceDraft);
-    if (mergedDraft?.intent && mergedDraft.intent !== 'sale' && !wasEdited) {
-      fireToast('Voice only saves sales right now. Review the draft before saving.', 2800);
-      setVoiceStep('fix');
-      return;
-    }
-    const combinedTranscript = hasMultiple
-      ? voiceItems.map(it => it.transcript).join(' | ')
-      : (voiceTranscript || null);
-    const savedDetectedTotal = hasMultiple
-      ? (mergedDraft?.total_amount ?? voiceItems.reduce((sum, it) => sum + (it.detectedTotal || 0), 0))
-      : (mergedDraft?.total_amount ?? voiceDetectedTotal ?? null);
-    const originalSummaryNote = buildVoiceSummaryFromDraft(originalDraft) || combinedTranscript || 'Voice sale';
-    const summaryNote = note || buildVoiceSummaryFromDraft(mergedDraft) || 'Voice sale';
-    const primaryItem = mergedDraft?.items?.length === 1 ? mergedDraft.items[0] : null;
-    const amountChanged = Math.abs(Number(amount || 0) - Number(savedDetectedTotal || 0)) > 0.01;
-    const customerChanged = normalizeVoiceTelemetryText(mergedDraft?.customer_name) !== normalizeVoiceTelemetryText(originalDraft?.customer_name);
-    const itemsChanged = JSON.stringify(normalizeVoiceTelemetryItems(mergedDraft?.items || [])) !== JSON.stringify(normalizeVoiceTelemetryItems(originalDraft?.items || []));
-    const noteChanged = normalizeVoiceTelemetryText(summaryNote) !== normalizeVoiceTelemetryText(originalSummaryNote);
-
-    const transaction = {
-      type: 'sale',
-      item_name: primaryItem?.name || summaryNote,
-      quantity: primaryItem?.quantity || 1,
-      amount,
-      cost_price: 0,
-      profit: null,
-      is_credit: false,
-      customer_phone: null,
-      customer_name: mergedDraft?.customer_name || null,
-      due_date: null,
-      payment_type: paymentType,
-      payment_provider: paymentType !== 'cash' ? paymentProvider || null : null,
-      direction: null,
-      source: 'voice',
-      raw_transcript: combinedTranscript,
-      detected_total: savedDetectedTotal,
-      was_edited: wasEdited || false,
-      transcription_provider: voiceProvider,
-      parsing_confidence: hasMultiple ? null : (voiceConfidence ?? null),
-      voice_note: summaryNote || null,
-      raw_audio_ref: null,
-      created_at: now,
-    };
-    await handleAddTransaction(transaction);
-    await recordVoiceTelemetry({
-      action: 'saved',
-      wasEdited,
-      transcript: combinedTranscript,
-      provider: voiceProvider,
-      draft: mergedDraft,
-      changeSet: {
-        amount: amountChanged,
-        customer: customerChanged,
-        items: itemsChanged,
-        note: noteChanged,
-      },
-    });
-    setVoiceStep(null);
-    setVoiceTranscript('');
-    setVoiceDetectedTotal(null);
-    setVoiceItems([]);
-    setVoiceConfidence(null);
-    setVoiceProvider(null);
-    setVoiceDraft(null);
-  }, [handleAddTransaction, recordVoiceTelemetry, voiceConfidence, voiceDetectedTotal, voiceDraft, voiceItems, voiceProvider, voiceTranscript]);
-
   const handleUpdateTransaction = async (id, updates) => {
     try {
       await db.transactions.update(id, { ...updates, updated_at: Date.now() });
@@ -1838,185 +1616,6 @@ function AppInner() {
     () => customerSummaries.find(c => c.id === telegramConnectCustomerId) || null,
     [customerSummaries, telegramConnectCustomerId]
   );
-
-  const mergedVoiceDraft = useMemo(
-    () => mergeVoiceDrafts(voiceItems, voiceDraft),
-    [voiceDraft, voiceItems]
-  );
-
-  const voiceWorkspace = useMemo(() => {
-    const saleTransactions = transactions.filter((tx) => tx.type === 'sale');
-    const recentSales = saleTransactions.slice(0, 5).map((tx) => ({
-      id: tx.id,
-      label: tx.voice_note || tx.item_name || 'Voice sale',
-      amount: Number(tx.amount || 0),
-      customerName: tx.customer_name || '',
-      paymentType: tx.payment_type || 'cash',
-      paymentProvider: tx.payment_provider || '',
-      createdAt: tx.created_at,
-      draft: buildVoiceDraftFromTransaction(tx),
-      transcript: tx.raw_transcript || tx.voice_note || tx.item_name || '',
-    }));
-
-    const itemCounts = new Map();
-    const customerMap = new Map();
-    const customerPatternCounts = new Map();
-
-    saleTransactions.forEach((tx) => {
-      const itemName = String(tx.item_name || '').trim();
-      const amount = tx.amount != null ? Number(tx.amount) : null;
-      if (itemName) {
-        const existing = itemCounts.get(itemName) || { name: itemName, uses: 0, defaultPrice: null, prices: [] };
-        existing.uses += 1;
-        if (existing.defaultPrice == null && amount != null && amount > 0) {
-          existing.defaultPrice = amount;
-        }
-        if (amount != null && amount > 0) {
-          existing.prices.push(amount);
-        }
-        itemCounts.set(itemName, existing);
-      }
-
-      const customerName = String(tx.customer_name || '').trim();
-      if (customerName) {
-        if (!customerMap.has(customerName)) {
-          customerMap.set(customerName, {
-            name: customerName,
-            lastAmount: amount,
-            lastItemName: itemName,
-            lastSeenAt: tx.created_at,
-          });
-        }
-
-        if (itemName) {
-          const customerPatterns = customerPatternCounts.get(customerName) || new Map();
-          customerPatterns.set(itemName, (customerPatterns.get(itemName) || 0) + 1);
-          customerPatternCounts.set(customerName, customerPatterns);
-        }
-      }
-    });
-
-    const commonItems = [...itemCounts.values()]
-      .map((item) => ({
-        ...item,
-        typicalPrice: item.prices.length
-          ? Math.round((item.prices.reduce((sum, price) => sum + price, 0) / item.prices.length) * 100) / 100
-          : item.defaultPrice,
-      }))
-      .sort((a, b) => (b.uses - a.uses) || String(a.name).localeCompare(String(b.name)))
-      .slice(0, 8);
-
-    const recentCustomers = [...customerMap.values()].slice(0, 6);
-
-    const itemPriceMemory = {};
-    for (const item of itemCounts.values()) {
-      const prices = item.prices.slice(-6);
-      const typicalPrice = prices.length
-        ? Math.round((prices.reduce((sum, price) => sum + price, 0) / prices.length) * 100) / 100
-        : item.defaultPrice;
-      itemPriceMemory[item.name] = {
-        typical_price: typicalPrice,
-        recent_prices: prices,
-        min_price: prices.length ? Math.min(...prices) : typicalPrice,
-        max_price: prices.length ? Math.max(...prices) : typicalPrice,
-      };
-    }
-
-    const customerItemPatterns = {};
-    for (const [customerName, itemMap] of customerPatternCounts.entries()) {
-      customerItemPatterns[customerName] = [...itemMap.entries()]
-        .sort((a, b) => (b[1] - a[1]) || String(a[0]).localeCompare(String(b[0])))
-        .slice(0, 3)
-        .map(([itemName]) => itemName);
-    }
-
-    return {
-      recentSales,
-      commonItems,
-      recentCustomers,
-      itemPriceMemory,
-      customerItemPatterns,
-      lastSavedSnapshot,
-    };
-  }, [lastSavedSnapshot, transactions]);
-
-  const voiceContext = useMemo(() => ({
-    business_type: BUSINESS_TYPE_PROMPT_LABELS[shopProfile?.businessType] || BUSINESS_TYPE_PROMPT_LABELS['retail-shop'],
-    common_items: voiceWorkspace.commonItems.map((item) => item.name),
-    recent_customers: voiceWorkspace.recentCustomers.map((customer) => customer.name),
-    payment_providers: [...new Set([
-      ...(enabledProviders?.banks || []),
-      ...(enabledProviders?.wallets || []),
-      'cash',
-    ])],
-    item_price_memory: voiceWorkspace.itemPriceMemory,
-    customer_item_patterns: voiceWorkspace.customerItemPatterns,
-  }), [enabledProviders, shopProfile?.businessType, voiceWorkspace]);
-  const openVoiceShortcutDraft = useCallback(({ transcript = '', detectedTotal = null, draft = null, provider = 'shop-memory', step = 'result' }) => {
-    setVoiceItems([]);
-    setVoiceTranscript(transcript);
-    setVoiceDetectedTotal(detectedTotal);
-    setVoiceConfidence(null);
-    setVoiceProvider(provider);
-    setVoiceDraft(draft);
-    setVoiceStep(step);
-  }, []);
-
-  const handleVoiceRepeatSale = useCallback((sale) => {
-    if (!sale) return;
-    openVoiceShortcutDraft({
-      transcript: sale.transcript || sale.label || '',
-      detectedTotal: sale.amount ?? sale.draft?.total_amount ?? null,
-      draft: sale.draft || null,
-      provider: 'shop-memory',
-      step: 'result',
-    });
-  }, [openVoiceShortcutDraft]);
-
-  const handleVoiceUseItemShortcut = useCallback((item) => {
-    if (!item?.name) return;
-    const amount = item.defaultPrice != null ? Number(item.defaultPrice) : null;
-    openVoiceShortcutDraft({
-      transcript: item.name,
-      detectedTotal: amount,
-      draft: {
-        customer_name: null,
-        items: [{
-          name: item.name,
-          quantity: 1,
-          unit_price: amount,
-          line_total: amount,
-        }],
-        total_amount: amount,
-        intent: 'sale',
-        needs_review: amount == null,
-      },
-      provider: 'shop-memory',
-      step: amount != null ? 'result' : 'fix',
-    });
-  }, [openVoiceShortcutDraft]);
-
-  const handleVoiceUseCustomerShortcut = useCallback((customer) => {
-    if (!customer?.name) return;
-    openVoiceShortcutDraft({
-      transcript: customer.name,
-      detectedTotal: customer.lastAmount ?? null,
-      draft: {
-        customer_name: customer.name,
-        items: customer.lastItemName ? [{
-          name: customer.lastItemName,
-          quantity: 1,
-          unit_price: customer.lastAmount ?? null,
-          line_total: customer.lastAmount ?? null,
-        }] : [],
-        total_amount: customer.lastAmount ?? null,
-        intent: 'sale',
-        needs_review: true,
-      },
-      provider: 'shop-memory',
-      step: 'fix',
-    });
-  }, [openVoiceShortcutDraft]);
 
   const syncLinkedCustomerTelegramState = useCallback(async (customer, currentBalanceOverride = null) => {
     if (!customer?.telegram_link_token || !customer?.telegram_chat_id) return null;
@@ -3180,25 +2779,6 @@ function AppInner() {
 
       {activeTab === 'today' && (
         <div className="px-3 pt-2 pb-1 flex-shrink-0" style={{ background: 'var(--color-bg)' }}>
-          {/* Greeting removed per Gate 3 preservation map (item 2.1) — tight header per v4 design */}
-          {/* Voice — primary action — hidden per D-027 (Amharic/Oromifa STT quality insufficient). */}
-          {VOICE_ENABLED && (
-            <>
-{/* Voice — primary action */}
-          <button
-            onClick={() => setVoiceStep('record')}
-            className="w-full mb-1 py-4 flex flex-col items-center justify-center font-black text-white text-base transition-all active:scale-95 press-scale"
-            style={{ background: '#1a5c3a', border: '2px solid rgba(255,255,255,0.25)', borderRadius: 'var(--radius-lg)', boxShadow: '0 5px 0 #0f3d25' }}
-          >
-            <span className="text-2xl leading-none mb-0.5">🎤</span>
-            <span className="text-base font-black leading-snug">{t.recordByVoice}</span>
-            <span className="text-xs opacity-70">{t.recordByVoiceSubLabel}</span>
-          </button>
-          <p className="text-center text-xs mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            {lang === 'am' ? 'á‹­áŠ“áŒˆáˆ©á£ á‰ áŠ‹áˆ‹áˆ áˆ›áˆµá‰°áŠ«áŠ¨áˆ á‹­á‰½áˆ‹áˆ‰á¢' : 'Speak your sale. You can fix it after.'}
-          </p>
-            </>
-          )}
         </div>
       )}
 
@@ -3363,6 +2943,7 @@ function AppInner() {
                 <Suspense fallback={<PanelFallback label={t.loading} />}>
                   <CustomerDetail
                     customer={selectedCustomer}
+                    shopName={shopProfile?.name}
                     onBack={() => setSelectedCustomerId(null)}
                     onAddCredit={() => setCustomerTransactionModal({
                       mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD,
@@ -3876,101 +3457,6 @@ function AppInner() {
         </Suspense>
       )}
 
-      {VOICE_ENABLED && voiceStep === 'record' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceRecordScreen
-            workspace={voiceWorkspace}
-            voiceContext={voiceContext}
-            onRepeatSale={handleVoiceRepeatSale}
-            onUseItem={handleVoiceUseItemShortcut}
-            onUseCustomer={handleVoiceUseCustomerShortcut}
-            onTranscript={(transcript, detectedTotal, confidence, draft, provider) => {
-              const newItem = { transcript, detectedTotal, draft };
-              const updatedItems = [...voiceItems, newItem];
-              setVoiceItems(updatedItems);
-              setVoiceTranscript(transcript);
-              setVoiceDetectedTotal(detectedTotal);
-              setVoiceConfidence(confidence ?? null);
-              setVoiceProvider(provider ?? null);
-              setVoiceDraft(draft ?? null);
-              recordVoiceTelemetry({
-                action: 'captured',
-                transcript,
-                provider: provider ?? null,
-                draft: draft ?? null,
-              });
-              setVoiceStep('result');
-            }}
-            onTypeInstead={() => {
-              recordVoiceTelemetry({ action: 'type_instead', transcript: voiceTranscript, provider: voiceProvider, draft: voiceDraft });
-              setVoiceStep(null);
-              setVoiceItems([]);
-              setVoiceConfidence(null);
-              setVoiceProvider(null);
-              setVoiceDraft(null);
-              setShowForm('sale');
-            }}
-          />
-        </Suspense>
-      )}
-
-      {VOICE_ENABLED && voiceStep === 'result' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceResultScreen
-            transcript={voiceTranscript}
-            detectedTotal={voiceDetectedTotal}
-            items={voiceItems}
-            draft={mergedVoiceDraft}
-            workspace={voiceWorkspace}
-            onRepeatSale={handleVoiceRepeatSale}
-            onUseItem={handleVoiceUseItemShortcut}
-            onUseCustomer={handleVoiceUseCustomerShortcut}
-            onSave={handleVoiceSave}
-            onFix={() => {
-              recordVoiceTelemetry({ action: 'fix_opened', transcript: voiceTranscript, provider: voiceProvider, draft: mergedVoiceDraft });
-              setVoiceStep('fix');
-            }}
-            onAddAnother={() => setVoiceStep('record')}
-            onReRecord={() => {
-              recordVoiceTelemetry({ action: 're_recorded', transcript: voiceTranscript, provider: voiceProvider, draft: mergedVoiceDraft });
-              setVoiceTranscript('');
-              setVoiceDetectedTotal(null);
-              setVoiceItems([]);
-              setVoiceConfidence(null);
-              setVoiceProvider(null);
-              setVoiceDraft(null);
-              setVoiceStep('record');
-            }}
-            onTypeInstead={() => {
-              recordVoiceTelemetry({ action: 'type_instead', transcript: voiceTranscript, provider: voiceProvider, draft: mergedVoiceDraft });
-              setVoiceStep(null);
-              setVoiceItems([]);
-              setVoiceConfidence(null);
-              setVoiceProvider(null);
-              setVoiceDraft(null);
-              setShowForm('sale');
-            }}
-          />
-        </Suspense>
-      )}
-
-      {VOICE_ENABLED && voiceStep === 'fix' && (
-        <Suspense fallback={<ModalFallback label={t.loading} />}>
-          <VoiceFixScreen
-            transcript={voiceTranscript}
-            detectedTotal={voiceDetectedTotal}
-            items={voiceItems}
-            draft={mergedVoiceDraft}
-            onSave={(data) => handleVoiceSave({ ...data, wasEdited: true })}
-            onCancel={() => setVoiceStep('result')}
-            enabledProviders={enabledProviders}
-            lastProviderByType={{
-              bank: lastPayment.sale?.bankProvider || '',
-              wallet: lastPayment.sale?.walletProvider || '',
-            }}
-          />
-        </Suspense>
-      )}
 
       {editTarget && (
         <Suspense fallback={<ModalFallback label={t.loading} />}>

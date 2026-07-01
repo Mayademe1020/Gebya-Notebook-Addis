@@ -2,6 +2,15 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock drizzle-orm/expressions BEFORE any imports
+vi.mock("drizzle-orm/expressions", () => ({
+  eq: () => ({}),
+  and: () => ({}),
+  or: () => ({}),
+  sql: () => ({}),
+}));
+
 import reminders from "../../routes/reminders.js";
 
 vi.mock("../../services/reminderConfiguration.js", () => ({

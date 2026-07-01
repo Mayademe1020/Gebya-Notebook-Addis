@@ -76,22 +76,6 @@ export const useAppStore = create((set, get) => ({
   pressedBtn: null,
   setPressedBtn: (v) => set({ pressedBtn: v }),
 
-  // ─── Voice (disabled, keep state for compat) ───
-  voiceStep: null,
-  setVoiceStep: (v) => set({ voiceStep: v }),
-  voiceTranscript: '',
-  setVoiceTranscript: (v) => set({ voiceTranscript: v }),
-  voiceDetectedTotal: null,
-  setVoiceDetectedTotal: (v) => set({ voiceDetectedTotal: v }),
-  voiceItems: [],
-  setVoiceItems: (v) => set({ voiceItems: v }),
-  voiceConfidence: null,
-  setVoiceConfidence: (v) => set({ voiceConfidence: v }),
-  voiceProvider: null,
-  setVoiceProvider: (v) => set({ voiceProvider: v }),
-  voiceDraft: null,
-  setVoiceDraft: (v) => set({ voiceDraft: v }),
-
   // ─── Toast ───
   toasts: [],
   addToast: (message, duration = 2400) => {

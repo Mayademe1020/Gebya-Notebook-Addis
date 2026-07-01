@@ -182,4 +182,3 @@ describe("reminderHistory", () => {
       expect(latest?.id).toBe(created2.id);
     });
   });
-});

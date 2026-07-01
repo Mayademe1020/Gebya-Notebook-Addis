@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { X, Save, ChevronDown, ChevronUp, AlertTriangle, Pencil, Plus, Camera } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import VoiceButton from './VoiceButton';
 import PaymentTypeChips from './PaymentTypeChips';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput } from '../utils/numformat';
@@ -20,8 +19,6 @@ const ACCENT = {
   expense: { btn: '#D4654A', shadow: '#a84c37' },
   credit:  { btn: '#C4883A', shadow: '#96662b' },
 };
-
-const EDIT_VOICE_ENABLED = false;
 
 function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose }) {
   const { lang, t } = useLang();
@@ -377,7 +374,6 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                   </span>
                 </label>
               )}
-              {EDIT_VOICE_ENABLED && <VoiceButton onResult={setItem} />}
             </div>
             {!isCredit && photoError && (
               <p className="text-xs mt-1" style={{ color: '#dc2626' }}>

@@ -218,38 +218,11 @@ function SettingsPage({
   };
 
   const [shareCopied, setShareCopied] = useState(false);
-  const [voiceQuality, setVoiceQuality] = useState({ stats: null, events: [] });
 
   const activeCatalogEntries = (catalogEntries || []).filter(entry => entry.active !== false);
   const totalEntries = transactions.length;
   const totalCustomersWithLedger = customerSummaries.length;
   const totalSupplierDubie = (supplierSummaries || []).reduce((sum, supplier) => sum + Math.max(supplier.balance || 0, 0), 0);
-
-  useEffect(() => {
-    const loadVoiceQuality = async () => {
-      try {
-        const [statsRow, eventsRow] = await Promise.all([
-          db.analytics.get('voice_quality_stats'),
-          db.analytics.get('voice_quality_events'),
-        ]);
-
-        let stats = null;
-        let events = [];
-
-        try { stats = statsRow?.value ? JSON.parse(statsRow.value) : null; } catch { stats = null; }
-        try { events = eventsRow?.value ? JSON.parse(eventsRow.value) : []; } catch { events = []; }
-
-        setVoiceQuality({
-          stats,
-          events: Array.isArray(events) ? events.slice().reverse().slice(0, 8) : [],
-        });
-      } catch {
-        setVoiceQuality({ stats: null, events: [] });
-      }
-    };
-
-    loadVoiceQuality();
-  }, []);
 
   const handleShareStats = async () => {
     if (!usageStats) return;
@@ -274,16 +247,6 @@ function SettingsPage({
       setTimeout(() => setShareCopied(false), 2500);
     } catch { /* ignore */ }
   };
-
-  const voiceStats = voiceQuality.stats;
-  const capturedVoices = voiceStats?.captured || 0;
-  const savedVoices = voiceStats?.saved || 0;
-  const editedVoices = voiceStats?.saved_with_edit || 0;
-  const untouchedVoices = voiceStats?.saved_without_edit || 0;
-  const correctionRate = savedVoices > 0 ? Math.round((editedVoices / savedVoices) * 100) : null;
-  const saveWithoutEditRate = savedVoices > 0 ? Math.round((untouchedVoices / savedVoices) * 100) : null;
-  const fixOpenRate = capturedVoices > 0 ? Math.round(((voiceStats?.fix_opened || 0) / capturedVoices) * 100) : null;
-  const rerecordRate = capturedVoices > 0 ? Math.round(((voiceStats?.re_recorded || 0) / capturedVoices) * 100) : null;
 
   const todaySales = (todayTransactions || []).filter(tx => tx.type === 'sale');
   const todayExpenses = (todayTransactions || []).filter(tx => tx.type === 'expense');
@@ -554,37 +517,6 @@ function SettingsPage({
           </div>
         </div>
       </SettingsSection>
-
-      {devModeRevealed && (voiceStats || voiceQuality.events.length > 0) && (
-        <>
-          <GroupLabel>{lang === 'am' ? '🛠 ለልማት' : '🛠 Developer'}</GroupLabel>
-          <SettingsSection
-            id="voice-quality"
-            title="Voice Quality"
-            icon="🎙"
-            subtitle="Internal telemetry · dev mode"
-            statusTone="info"
-            status="DEV"
-            openSection={openSection}
-            setOpenSection={setOpenSection}
-          >
-            <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
-              <div className="px-4 pt-4 pb-3 space-y-3">
-                <div className="rounded-xl p-3" style={{ background: '#FAF8F5', border: '1.5px solid var(--color-border)' }}>
-                  <p className="text-sm font-bold text-gray-900">Voice recognition telemetry</p>
-                  <p className="text-xs text-gray-500 mt-1">Captured: {capturedVoices} · Saved: {savedVoices} · Edits: {editedVoices} · Untouched: {untouchedVoices}</p>
-                  {correctionRate != null && (
-                    <p className="text-xs text-gray-500 mt-1">Correction rate: {correctionRate}%</p>
-                  )}
-                </div>
-                <div className="text-xs text-gray-400">
-                  Tap About header again to keep this panel hidden by default.
-                </div>
-              </div>
-            </div>
-          </SettingsSection>
-        </>
-      )}
 
       {staffDeactivateTarget && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-6">

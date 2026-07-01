@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { useLang } from '../context/LangContext';
 import { useAppStore } from '../stores/appStore';
+import { useShopStore } from '../stores/shopStore';
 import { PanelFallback } from './Fallbacks';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
@@ -35,6 +36,7 @@ export default function CreditTab({
   const setSelectedSupplierId = useAppStore(s => s.setSelectedSupplierId);
   const setCustomerTransactionModal = useAppStore(s => s.setCustomerTransactionModal);
   const setTelegramConnectCustomerId = useAppStore(s => s.setTelegramConnectCustomerId);
+  const shopProfile = useShopStore(s => s.shopProfile);
   const setReminderTarget = useAppStore(s => s.setReminderTarget);
   const setCustomerEditTarget = useAppStore(s => s.setCustomerEditTarget);
   const setCustomerTransactionEditTarget = useAppStore(s => s.setCustomerTransactionEditTarget);
@@ -87,6 +89,7 @@ export default function CreditTab({
           <Suspense fallback={<PanelFallback label={t.loading} />}>
             <CustomerDetail
               customer={selectedCustomer}
+              shopName={shopProfile?.name}
               onBack={() => setSelectedCustomerId(null)}
               onAddCredit={() => setCustomerTransactionModal({ mode: CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD, customerId: selectedCustomer.id })}
               onRecordPayment={() => setCustomerTransactionModal({ mode: CUSTOMER_TRANSACTION_TYPES.PAYMENT, customerId: selectedCustomer.id })}

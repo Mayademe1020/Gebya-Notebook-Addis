@@ -17,13 +17,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Bell, ChevronDown, ChevronUp,
-  Link2, MessageCircle, MoreVertical, Phone, Plus, RefreshCcw, Wallet, X, Pencil, Trash2,
+  Link2, MessageCircle, MessageSquare, MoreVertical, Phone, Plus, RefreshCcw, Wallet, X, Pencil, Trash2,
 } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
-import { daysAgoLabel } from '../utils/reminders';
+import { daysAgoLabel, buildReminderMessage } from '../utils/reminders';
 import PhotoAttachment from './PhotoAttachment';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -103,6 +103,7 @@ function useLongPress(onLongPress) {
 // ─── component ────────────────────────────────────────────────────────
 function CustomerDetail({
   customer,
+  shopName,
   onBack,
   onAddCredit,
   onRecordPayment,
@@ -534,6 +535,45 @@ function CustomerDetail({
           {lang === 'am'
             ? 'ለማስታወሻ ስልክ ወይም ቴሌግራም ይጨምሩ →'
             : 'Tap to add phone or Telegram for reminders →'}
+        </button>
+      )}
+
+      {/* SMS share — direct share intent for shopkeeper's phone.
+          Uses navigator.share (Android intent) with sms: URI fallback.
+          Future: swap body-build logic for server-side SMS gateway. */}
+      {hasBalance && customer.phone_number && (
+        <button
+          type="button"
+          onClick={async () => {
+            const msg = buildReminderMessage({ template: 'gentle', lang, customer, shopName });
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: 'SMS', text: msg });
+                onRemind?.(customer);
+                return;
+              } catch { /* user cancelled or not supported — fall through */ }
+            }
+            // Fallback: open native SMS app with pre-filled body
+            const phone = String(customer.phone_number).replace(/\D/g, '');
+            const e164 = phone.startsWith('251') ? `+${phone}` : phone.startsWith('0') ? `+251${phone.slice(1)}` : `+251${phone}`;
+            window.open(`sms:${e164}?body=${encodeURIComponent(msg)}`, '_blank');
+            onRemind?.(customer);
+          }}
+          className="press-scale"
+          style={{
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: 8,
+            padding: '8px 12px',
+            fontSize: '0.72rem', color: '#166534', fontWeight: 700,
+            textAlign: 'center',
+            cursor: 'pointer',
+            width: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          {lang === 'am' ? 'በSMS ላክ' : 'Share via SMS'}
         </button>
       )}
 

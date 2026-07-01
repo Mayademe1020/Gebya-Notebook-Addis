@@ -60,8 +60,4 @@ export const ReportView = lazyWithRetry(importReportView, 'ReportView');
 export const SettingsPage = lazyWithRetry(importSettingsPage, 'SettingsPage');
 export const DailySuggestions = lazyWithRetry(importDailySuggestions, 'DailySuggestions');
 
-// Voice subsystem — hidden per D-027; flip VOICE_ENABLED to true to re-enable
-export const VOICE_ENABLED = false;
-export const VoiceRecordScreen = lazyWithRetry(() => import('../components/VoiceRecordScreen'), 'VoiceRecordScreen');
-export const VoiceResultScreen = lazyWithRetry(() => import('../components/VoiceResultScreen'), 'VoiceResultScreen');
-export const VoiceFixScreen = lazyWithRetry(() => import('../components/VoiceFixScreen'), 'VoiceFixScreen');
+
