@@ -329,7 +329,7 @@ function CustomerDetail({
           Commit T2 polish: the WHOLE row is tappable now (not just the small + Link
           button). Easier to hit on small phones. Action button stays for visual
           affordance but the row click also fires onOpenTelegramConnect. */}
-      {(tg !== 'none' || customer.phone_number) && (
+      {tg !== 'none' && (
         <button
           type="button"
           onClick={onOpenTelegramConnect}

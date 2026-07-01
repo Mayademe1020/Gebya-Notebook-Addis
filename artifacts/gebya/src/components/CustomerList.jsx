@@ -27,7 +27,6 @@ import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
 import { usePrivacy } from '../context/PrivacyContext';
 import { daysAgoLabel } from '../utils/reminders';
-import { topCustomers } from '../utils/customerMetrics';
 
 // ───── helpers ─────────────────────────────────────────────────────────────
 function matchesCustomer(customer, query) {
@@ -118,7 +117,7 @@ function CustomerList({
   const { t, lang } = useLang();
   const { hidden, toggle: togglePrivacy } = usePrivacy();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'overdue' | 'top' | 'canRemind' | 'cleared'
+  const [filter, setFilter] = useState('all'); // 'all' | 'overdue' | 'canRemind'
 
   const trimmedQuery = query.trim();
   const hasQuery = trimmedQuery.length > 0;
@@ -128,28 +127,20 @@ function CustomerList({
     let all = customers.length;
     let overdue = 0;
     let canRemind = 0;
-    let cleared = 0;
     for (const c of customers) {
       if (c.has_overdue) overdue++;
       if (c.phone_number || c.telegram_chat_id || c.telegram_username) canRemind++;
-      if (Number(c.balance || 0) === 0) cleared++;
     }
-    return { all, overdue, canRemind, cleared, top: topCustomers(customers).length };
+    return { all, overdue, canRemind };
   }, [customers]);
 
   // ───── apply filter + search ─────
   const filtered = useMemo(() => {
-    let list;
-    if (filter === 'top') {
-      list = topCustomers(customers);
-    } else {
-      list = customers.filter((c) => {
-        if (filter === 'overdue') return c.has_overdue;
-        if (filter === 'canRemind') return c.phone_number || c.telegram_chat_id || c.telegram_username;
-        if (filter === 'cleared') return Number(c.balance || 0) === 0;
-        return true; // 'all'
-      });
-    }
+    let list = customers.filter((c) => {
+      if (filter === 'overdue') return c.has_overdue;
+      if (filter === 'canRemind') return c.phone_number || c.telegram_chat_id || c.telegram_username;
+      return true; // 'all'
+    });
     if (hasQuery) list = list.filter((c) => matchesCustomer(c, query));
     return list;
   }, [customers, filter, query, hasQuery]);
@@ -157,8 +148,6 @@ function CustomerList({
   // ───── sort: most overdue first, then highest balance ─────
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      // 'top' filter already comes pre-sorted by topCustomers()
-      if (filter === 'top') return 0;
       // Overdue first
       if (a.has_overdue !== b.has_overdue) return a.has_overdue ? -1 : 1;
       if (a.has_overdue && b.has_overdue) {
@@ -393,13 +382,10 @@ function CustomerList({
         {[
           { id: 'all',      label: lang === 'am' ? 'ሁሉም'     : 'All',     count: counts.all,      style: 'default' },
           { id: 'overdue',  label: lang === 'am' ? 'የዘገዩ'    : 'Overdue', count: counts.overdue,  style: 'overdue' },
-          { id: 'top',      label: lang === 'am' ? '👑 ዋና'    : '👑 Top',  count: counts.top,      style: 'top' },
           { id: 'canRemind', label: lang === 'am' ? 'መታወቂያ አለ'  : 'Can remind', count: counts.canRemind, style: 'default' },
-          { id: 'cleared',  label: lang === 'am' ? 'የተዘጋ'     : 'Cleared', count: counts.cleared,  style: 'default' },
         ].map((f) => {
           const active = filter === f.id;
           const isOverdue = f.style === 'overdue';
-          const isTop = f.style === 'top';
           return (
             <button
               key={f.id}
@@ -415,10 +401,10 @@ function CustomerList({
                   ? (isOverdue ? '#fef2f2' : isTop ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' : '#1a1a1a')
                   : '#fff',
                 color: active
-                  ? (isOverdue ? '#dc2626' : isTop ? '#92400e' : '#fff')
+                  ? (isOverdue ? '#dc2626' : '#fff')
                   : '#4b5563',
                 border: active
-                  ? `1px solid ${isOverdue ? '#fecaca' : isTop ? '#fcd34d' : '#1a1a1a'}`
+                  ? `1px solid ${isOverdue ? '#fecaca' : '#1a1a1a'}`
                   : '1px solid #ece6d6',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4,
@@ -437,32 +423,6 @@ function CustomerList({
           );
         })}
       </div>
-
-      {/* Top customers banner */}
-      {filter === 'top' && counts.top > 0 && (
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #fef3c7 0%, #fff7e6 100%)',
-            border: '1px solid #fde68a',
-            borderLeft: '4px solid #f59e0b',
-            borderRadius: 10,
-            padding: '10px 12px',
-            fontSize: '0.78rem',
-            color: '#92400e',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}
-        >
-          <span style={{ fontSize: '1.05rem' }}>👑</span>
-          <span>
-            <strong>{counts.top}</strong>{' '}
-            {lang === 'am'
-              ? counts.top === 1 ? 'አስተማማኝ ደንበኛ' : 'አስተማማኝ ደንበኞች'
-              : counts.top === 1 ? 'reliable customer' : 'reliable customers'}
-            {' · '}
-            {lang === 'am' ? 'በሰዓቱ ይከፍላሉ' : 'always on time'}
-          </span>
-        </div>
-      )}
 
       {/* Sort + count line */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', fontSize: '0.7rem', color: '#6b7280' }}>
@@ -487,8 +447,7 @@ function CustomerList({
           const balance = Number(customer.balance || 0);
           const hasBalance = balance > 0;
           const isOverdue = customer.has_overdue;
-          const isTop = filter === 'top'
-            || (customer.on_time_eligible > 0 && customer.on_time_count === customer.on_time_eligible && customer.on_time_count >= 3);
+          const isTop = customer.on_time_eligible > 0 && customer.on_time_count === customer.on_time_eligible && customer.on_time_count >= 3;
           const urg = urgencyColor(customer);
           const dot = statusDot(customer);
           const initials = initialsOf(customer.display_name);
