@@ -262,45 +262,31 @@ function CustomerList({
           boxShadow: '0 2px 8px -2px rgba(0,0,0,0.04)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{
-              fontSize: '0.6rem', fontWeight: 800,
-              color: '#92400e', letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-            }}>
-              {lang === 'am' ? 'ሊሰበሰብ የሚገባው ጠቅላላ' : 'Total owed to me'}
-            </p>
-            <p style={{
-              fontFamily: 'Manrope, system-ui, sans-serif',
-              fontSize: '1.75rem', fontWeight: 800,
-              color: hidden ? '#d1d5db' : '#b8842c',
-              lineHeight: 1.05, margin: '4px 0 2px',
-              letterSpacing: '-0.02em',
-              fontVariantNumeric: 'tabular-nums',
-            }}>
-              {heroAmount}
-              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#9ca3af', marginLeft: 4 }}>
-                {lang === 'am' ? 'ብር' : 'birr'}
-              </span>
-            </p>
-            <p style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-              {customers.length} {lang === 'am' ? 'ደንበኞች' : 'customers'}
-              {counts.overdue > 0 && ` · ${counts.overdue} ${lang === 'am' ? 'የዘገዩ' : 'overdue'}`}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+        {/* Compact hero: label + counts on same line */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <p style={{
+            fontSize: '0.6rem', fontWeight: 800,
+            color: '#92400e', letterSpacing: '0.1em',
+            textTransform: 'uppercase', margin: 0,
+          }}>
+            {lang === 'am' ? 'ሊሰበሰብ የሚገባው ጠቅላላ' : 'Total owed to me'}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <span style={{ fontSize: '0.65rem', color: '#6b7280', fontWeight: 600 }}>
+              {customers.length}{lang === 'am' ? ' ደንበኞች' : ' cust'}
+              {counts.overdue > 0 && <span style={{ color: '#dc2626' }}> · {counts.overdue} {lang === 'am' ? 'የዘገዩ' : 'od'}</span>}
+            </span>
             {streak > 0 && (
-              <div style={{
+              <span style={{
                 background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
                 color: '#92400e',
-                padding: '3px 9px', borderRadius: 999,
-                fontSize: '0.65rem', fontWeight: 800,
+                padding: '2px 7px', borderRadius: 999,
+                fontSize: '0.6rem', fontWeight: 800,
                 border: '1px solid rgba(146,64,14,0.15)',
-                flexShrink: 0, whiteSpace: 'nowrap',
+                whiteSpace: 'nowrap',
               }}>
                 🔥 {streak}d
-              </div>
+              </span>
             )}
             <button
               type="button"
@@ -311,38 +297,37 @@ function CustomerList({
                 background: hidden ? 'rgba(196,136,58,0.10)' : 'transparent',
                 border: hidden ? '1px solid #fde68a' : '1px solid transparent',
                 color: hidden ? '#92400e' : '#9ca3af',
-                padding: '0 8px',
-                minWidth: 32, minHeight: 32,
+                padding: '0 6px',
+                minWidth: 28, minHeight: 28,
                 borderRadius: 999,
-                display: 'flex', alignItems: 'center', gap: 4,
-                cursor: 'pointer', fontSize: '0.65rem', fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
               }}
             >
               {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {hidden && (lang === 'am' ? 'አሳይ' : 'Reveal')}
             </button>
-          </div>
-        </div>
+              </div>
 
-        {/* Compact stats — Total Owed + Overdue count + Customer count */}
-        <div style={{
-          display: 'flex', gap: 10, marginTop: 10, paddingTop: 10,
-          borderTop: '1px dashed #ece6d6',
-          fontSize: '0.7rem', color: '#6b7280',
+              {/* Chevron */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </div>
+
+        {/* Big amount */}
+        <p style={{
+          fontFamily: 'Manrope, system-ui, sans-serif',
+          fontSize: '1.75rem', fontWeight: 800,
+          color: hidden ? '#d1d5db' : '#b8842c',
+          lineHeight: 1.05, margin: 0,
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
         }}>
-          <span>
-            <strong style={{ color: '#1f2937', fontWeight: 700 }}>{customers.length}</strong>{' '}
-            {lang === 'am' ? 'ደንበኞች' : 'customers'}
+          {heroAmount}
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#9ca3af', marginLeft: 4 }}>
+            {lang === 'am' ? 'ብር' : 'birr'}
           </span>
-          {counts.overdue > 0 && (
-            <span style={{ color: '#dc2626', fontWeight: 700 }}>
-              {counts.overdue} {lang === 'am' ? 'የዘገዩ' : 'overdue'}
-            </span>
-          )}
-          {streak > 0 && (
-            <span>🔥 {streak}d</span>
-          )}
-        </div>
+        </p>
       </div>
 
       {/* ═══ SEARCH + ADD ══════════════════════════════════════════ */}
@@ -363,21 +348,6 @@ function CustomerList({
             }}
           />
         </div>
-        <button
-          type="button"
-          onClick={onAddCustomer}
-          className="press-scale"
-          style={{
-            background: '#1a1a1a', color: '#fff',
-            padding: '10px 14px', borderRadius: 10,
-            fontSize: '0.8rem', fontWeight: 800,
-            cursor: 'pointer', minHeight: 44,
-            display: 'flex', alignItems: 'center', gap: 4,
-            flexShrink: 0,
-          }}
-        >
-          <Plus className="w-4 h-4" /> {lang === 'am' ? 'ደንበኛ መዝግብ' : 'Add'}
-        </button>
       </div>
 
       {/* ═══ FILTER CHIPS ══════════════════════════════════════════ */}
@@ -463,22 +433,14 @@ function CustomerList({
               onKeyDown={(e) => { if (e.key === 'Enter') onSelectCustomer?.(customer); }}
               style={{
                 padding: '10px 14px',
-                background: isOverdue
-                  ? 'linear-gradient(90deg, #fef2f2 0%, #fff 50%)'
-                  : '#fff',
+                background: '#fff',
                 borderBottom: '1px solid #f5f1ea',
+                borderLeft: `4px solid ${urg}`,
                 display: 'flex', alignItems: 'center', gap: 10,
                 cursor: 'pointer',
                 minHeight: 60,
               }}
             >
-              {/* Urgency stripe */}
-              <div style={{
-                width: 3, alignSelf: 'stretch',
-                borderRadius: 2, flexShrink: 0,
-                margin: '4px 0',
-                background: urg,
-              }} />
 
               {/* Avatar (photo or initials gradient) */}
               <div style={{
@@ -615,6 +577,11 @@ function CustomerList({
                   </button>
                 )}
               </div>
+
+              {/* Chevron */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="m9 18 6-6-6-6" />
+              </svg>
             </div>
           );
         })}

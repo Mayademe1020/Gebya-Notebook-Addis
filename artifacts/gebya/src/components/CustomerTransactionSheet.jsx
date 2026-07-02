@@ -8,11 +8,11 @@
 // - Compact due-date pills
 // - Solid colored save button
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Save, X, Plus, Minus, Camera, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
-import EthiopianDatePicker from './EthiopianDatePicker';
+import { ArrowLeft, Save, X, Plus, Minus, Camera, ChevronDown, ChevronUp } from 'lucide-react';
+import InlineDatePicker from './InlineDatePicker';
 import CameraCapture from './CameraCapture';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
-import { formatEthiopian, getDueDateOptions } from '../utils/ethiopianCalendar';
+import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES, isValidCustomerTransactionType } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
 import { photoSizeBytes } from '../utils/photoCapture';
@@ -24,8 +24,6 @@ function handleNumericInput(e, setter) {
   if (parts.length > 2) raw = `${parts[0]}.${parts.slice(1).join('')}`;
   setter(raw);
 }
-
-const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
 function CustomerTransactionSheet({
   customer,
@@ -54,8 +52,6 @@ function CustomerTransactionSheet({
   const [itemNote, setItemNote] = useState(initInitialNote);
   const [catalogEntryId, setCatalogEntryId] = useState('');
   const [dueDate, setDueDate] = useState(initInitialDue);
-  // Commit C.7: Ethiopian calendar picker modal
-  const [showDatePicker, setShowDatePicker] = useState(false);
   // Commit C.6: quantity for credit. Captures "I gave 5 sacks of sugar for
   // 1500 birr total" — descriptive, not multiplicative (amount is the
   // already-computed total). Defaults to empty so users who don't care
@@ -65,8 +61,6 @@ function CustomerTransactionSheet({
     : '';
   const [quantity, setQuantity] = useState(initInitialQuantity);
   const [saving, setSaving] = useState(false);
-  const [showCustomAmount, setShowCustomAmount] = useState(false);
-  const [customAmountValue, setCustomAmountValue] = useState('');
   const showQuantityField = false;
   // Multi-item breakdown — credit_add only. Pre-populates from editingTransaction.items.
   const [lineItems, setLineItems] = useState(
@@ -235,15 +229,6 @@ function CustomerTransactionSheet({
     }
   };
 
-  const applyCustomAmount = () => {
-    const val = parseFloat(parseInput(customAmountValue));
-    if (!val || val <= 0) return;
-    const current = parseFloat(parseInput(amount)) || 0;
-    setAmount(String(current + val));
-    setCustomAmountValue('');
-    setShowCustomAmount(false);
-  };
-
   const handleQuickItem = (entry) => {
     setCatalogEntryId(String(entry.id));
     if (!itemNote.trim()) setItemNote(entry.name || '');
@@ -345,97 +330,6 @@ function CustomerTransactionSheet({
               {t.birr}
             </span>
           </div>
-
-          {/* Quick-pick amount chips — additive */}
-          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 items-center">
-            {DEFAULT_QUICK_AMOUNTS.map(amt => (
-              <button
-                key={amt}
-                type="button"
-                onClick={() => {
-                  const current = parseFloat(parseInput(amount)) || 0;
-                  setAmount(String(current + amt));
-                }}
-                className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border press-scale"
-                style={{
-                  borderColor: '#e8e2d8',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fff',
-                  color: '#374151',
-                  minWidth: '52px',
-                }}
-              >
-                +{amt}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowCustomAmount(v => !v)}
-              className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-              style={{
-                borderColor: showCustomAmount ? accentColor : '#c9bfa8',
-                borderStyle: 'dashed',
-                borderRadius: 'var(--radius-sm)',
-                background: showCustomAmount ? `${accentColor}10` : '#faf9f7',
-                color: showCustomAmount ? accentColor : '#6b7280',
-                minWidth: '40px',
-                minHeight: '32px',
-              }}
-              aria-label={lang === 'am' ? 'ሌላ መጠን' : 'Custom amount'}
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-            {amount && (
-              <button
-                type="button"
-                onClick={() => setAmount('')}
-                className="flex-shrink-0 ml-auto px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-                style={{
-                  borderColor: '#fecaca',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fef2f2',
-                  color: '#dc2626',
-                  minWidth: '40px',
-                  minHeight: '32px',
-                }}
-                aria-label={lang === 'am' ? 'መጠን አጥፋ' : 'Clear amount'}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {showCustomAmount && (
-            <div className="flex gap-2 mt-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                autoFocus
-                value={fmtInput(customAmountValue)}
-                onChange={e => handleNumericInput(e, setCustomAmountValue)}
-                onKeyDown={e => { if (e.key === 'Enter') applyCustomAmount(); }}
-                placeholder={lang === 'am' ? 'ሌላ መጠን' : 'Other amount'}
-                className="flex-1 p-2.5 border-2 focus:outline-none text-sm"
-                style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
-              />
-              <button
-                type="button"
-                onClick={applyCustomAmount}
-                disabled={!parseFloat(parseInput(customAmountValue))}
-                className="px-3 py-2 text-xs font-bold press-scale flex items-center gap-1"
-                style={{
-                  background: parseFloat(parseInput(customAmountValue)) ? accentColor : '#e5e7eb',
-                  color: parseFloat(parseInput(customAmountValue)) ? '#fff' : '#9ca3af',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: parseFloat(parseInput(customAmountValue)) ? 'pointer' : 'not-allowed',
-                  minHeight: '40px',
-                }}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {lang === 'am' ? 'ጨምር' : 'Add'}
-              </button>
-            </div>
-          )}
 
           {isPayment && !hasCollectableBalance && (
             <p className="text-xs font-medium mt-2" style={{ color: '#b45309' }}>
@@ -816,17 +710,14 @@ function CustomerTransactionSheet({
           </div>
         )}
 
-        {/* Due date (credit only) */}
+        {/* Due date (credit only) — inline Ethiopian calendar picker */}
         {!isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
               {t.dueDateOptional}
             </label>
-            {/* Commit C.6: All 4 controls in ONE responsive row.
-                Today / Tomorrow / Next week as quick chips + a calendar icon
-                button that opens the native date picker. Hidden date input
-                catches the picker output. Chips shrink to fit small screens. */}
-            <div className="flex gap-1.5 mb-1.5" style={{ alignItems: 'stretch' }}>
+            {/* Quick chips for common dates */}
+            <div className="flex gap-1.5 mb-2" style={{ alignItems: 'stretch' }}>
               {dueDateOptions.map((option) => {
                 const optionDate = new Date(option.value).toISOString().slice(0, 10);
                 const active = dueDate === optionDate;
@@ -841,7 +732,7 @@ function CustomerTransactionSheet({
                       color: active ? '#fff' : '#374151',
                       borderColor: active ? accentColor : '#e8e2d8',
                       borderRadius: 'var(--radius-sm)',
-                      minHeight: 48,
+                      minHeight: 44,
                       display: 'flex', flexDirection: 'column',
                       alignItems: 'center', justifyContent: 'center',
                       lineHeight: 1.1,
@@ -852,30 +743,6 @@ function CustomerTransactionSheet({
                   </button>
                 );
               })}
-              {/* Calendar icon button — Commit C.7: opens our custom Ethiopian
-                  calendar picker modal instead of the browser's Gregorian
-                  native picker. When dueDate is custom (doesn't match any
-                  quick chip), this button is active-styled. */}
-              <button
-                type="button"
-                onClick={() => setShowDatePicker(true)}
-                aria-label={lang === 'am' ? 'ቀን ይምረጡ' : 'Pick date'}
-                className="flex-shrink-0 press-scale"
-                style={{
-                  width: 48, minHeight: 48,
-                  background: dueDate && !dueDateOptions.some(o => new Date(o.value).toISOString().slice(0, 10) === dueDate)
-                    ? accentColor : '#fff',
-                  color: dueDate && !dueDateOptions.some(o => new Date(o.value).toISOString().slice(0, 10) === dueDate)
-                    ? '#fff' : '#374151',
-                  border: `1px solid ${dueDate && !dueDateOptions.some(o => new Date(o.value).toISOString().slice(0, 10) === dueDate)
-                    ? accentColor : '#e8e2d8'}`,
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-              >
-                <CalendarDays className="w-5 h-5" />
-              </button>
               {dueDate && (
                 <button
                   type="button"
@@ -883,7 +750,7 @@ function CustomerTransactionSheet({
                   aria-label={lang === 'am' ? 'አጥፋ' : 'Clear'}
                   className="flex-shrink-0 press-scale flex items-center justify-center"
                   style={{
-                    width: 36, minHeight: 48,
+                    width: 36, minHeight: 44,
                     background: '#fef2f2',
                     border: '1px solid #fecaca',
                     borderRadius: 'var(--radius-sm)',
@@ -895,18 +762,12 @@ function CustomerTransactionSheet({
                 </button>
               )}
             </div>
-            {/* Ethiopian display — promoted to a clearer affirmation under the row */}
-            {dueDate && (
-              <p
-                className="text-xs mt-2 font-bold flex items-center gap-1"
-                style={{ color: accentColor }}
-              >
-                <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em' }}>
-                  {lang === 'am' ? 'ኢትዮጵያ ዘመን' : 'ETHIOPIAN'}
-                </span>
-                · {formatEthiopian(new Date(dueDate))}
-              </p>
-            )}
+            {/* Inline Ethiopian calendar picker — replaces modal */}
+            <InlineDatePicker
+              value={dueDate}
+              onChange={(iso) => setDueDate(iso)}
+              lang={lang}
+            />
           </div>
         )}
       </div>
@@ -928,15 +789,6 @@ function CustomerTransactionSheet({
           {saving ? t.saving : saveButtonText}
         </button>
       </div>
-
-      {/* Commit C.7: Ethiopian calendar picker modal */}
-      <EthiopianDatePicker
-        open={showDatePicker}
-        value={dueDate}
-        onChange={(iso) => setDueDate(iso)}
-        onClose={() => setShowDatePicker(false)}
-        lang={lang}
-      />
 
       {/* B2: rear-camera capture modal (product photo) */}
       <CameraCapture

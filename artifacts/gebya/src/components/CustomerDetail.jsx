@@ -1,33 +1,25 @@
-// CustomerDetail.jsx — Cockpit Synthesis v0.3 customer detail page
+// CustomerDetail.jsx — simplified credit detail page
 //
 // Layout (top → bottom):
 //   1. Dark header band       · back + photo/avatar + name + phone + status pill
 //   2. Telegram link state    · linked / manual / (none — hidden if no phone)
 //   3. Balance block          · owes me + days late + on-time/entries/due stats
-//   4. 3-icon quick actions   · Credit · Payment · Remind
-//   5. History                · tagged rows with settlement breadcrumb badges
-//                               + 🧺 breakdown expander + long-press action sheet
-//   6. Trust line             · 🔒 Backed up securely. Amounts auto-hide for privacy.
+//   4. History                · simplified rows with left border stripe + chevron
+//   5. Trust line             · 🔒 Backed up securely. Amounts auto-hide for privacy.
 //
-// Sizes locked: avatar 56px detail · action 48px min · history row ~64px ·
-// touch targets ≥44px primary / ≥32px secondary.
-//
-// Long-press: pointerdown + 500ms timer → action sheet (Edit · Delete · Cancel).
+// Touch targets ≥44px · privacy mode · Ethiopian calendar.
+// Long-press removed — tap row → TransactionDetailSheet.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, Bell, ChevronDown, ChevronUp,
-  Link2, MessageCircle, MessageSquare, MoreVertical, Phone, Plus, RefreshCcw, Wallet, X, Pencil, Trash2,
+  ArrowLeft, Phone, Plus, Wallet, X,
 } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
-import { daysAgoLabel, buildReminderMessage } from '../utils/reminders';
-import PhotoAttachment from './PhotoAttachment';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const LONG_PRESS_MS = 500;
 
 // ─── helpers ──────────────────────────────────────────────────────────
 function initialsOf(name) {
@@ -77,29 +69,6 @@ function telegramState(customer) {
   return 'none';
 }
 
-// ─── long-press hook ──────────────────────────────────────────────────
-function useLongPress(onLongPress) {
-  const timerRef = useRef(null);
-  const targetRef = useRef(null);
-  const triggeredRef = useRef(false);
-
-  const handlers = {
-    onPointerDown: (e, payload) => {
-      triggeredRef.current = false;
-      targetRef.current = payload;
-      timerRef.current = setTimeout(() => {
-        triggeredRef.current = true;
-        onLongPress?.(payload);
-      }, LONG_PRESS_MS);
-    },
-    onPointerUp: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
-    onPointerLeave: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
-    onPointerCancel: () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } },
-    wasLongPressed: () => triggeredRef.current,
-  };
-  return handlers;
-}
-
 // ─── component ────────────────────────────────────────────────────────
 function CustomerDetail({
   customer,
@@ -113,15 +82,11 @@ function CustomerDetail({
   onResendTelegramUpdate,
   onRemind,
   onEditCustomer,              // Commit C.2 · Edit customer (name/phone/Telegram/photo)
-  onEditCustomerTransaction,   // long-press → Edit
-  onDeleteCustomerTransaction, // long-press → Delete
+  onSelectTransaction,         // NEW · tap transaction row → open detail sheet
   isOnline = true,
   isSlowConnection = false,
 }) {
   const { t, lang } = useLang();
-  const [actionSheet, setActionSheet] = useState(null); // null | { tx }
-  const [expandedRows, setExpandedRows] = useState({}); // { [txId]: true }
-  const longPress = useLongPress((tx) => setActionSheet({ tx }));
 
   if (!customer) return null;
 
@@ -176,12 +141,13 @@ function CustomerDetail({
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               background: 'transparent', border: 'none', color: '#fff',
-              fontSize: '0.78rem', fontWeight: 700, opacity: 0.85,
-              cursor: 'pointer', padding: '4px 0',
-              minHeight: 28,
+              fontSize: '0.85rem', fontWeight: 700,
+              cursor: 'pointer', padding: '8px 10px',
+              minHeight: 44, minWidth: 44,
+              borderRadius: 8,
             }}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-5 h-5" />
             <span>{lang === 'am' ? 'ተመለስ · ደንበኞች' : 'Back · Customers'}</span>
           </button>
 
@@ -478,105 +444,6 @@ function CustomerDetail({
         </div>
       </div>
 
-      {/* ═══ 4. QUICK ACTIONS GRID ══════════════════════════════════════════ */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 6,
-      }}>
-        <QuickAction
-          variant="primary"
-          icon={<Plus className="w-4 h-4" />}
-          label={lang === 'am' ? 'ዱቤ' : 'Credit'}
-          onClick={onAddCredit}
-        />
-        <QuickAction
-          variant="green"
-          icon={<Wallet className="w-4 h-4" />}
-          label={lang === 'am' ? 'ክፍያ' : 'Payment'}
-          onClick={onRecordPayment}
-          disabled={!hasBalance}
-        />
-        <QuickAction
-          variant="amber"
-          icon={<Bell className="w-4 h-4" />}
-          label={lang === 'am' ? 'አስታውስ' : 'Remind'}
-          onClick={() => onRemind?.(customer)}
-          disabled={!hasBalance || (!customer.telegram_chat_id && !customer.telegram_username && !customer.phone_number)}
-        />
-      </div>
-
-      {!hasBalance && (
-        <p style={{ fontSize: '0.7rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic' }}>
-          {lang === 'am' ? 'ምንም ቀሪ ዱቤ የለም' : 'No outstanding balance'}
-        </p>
-      )}
-
-      {/* Hint when Remind is greyed because customer has no contact info.
-          Commit C.2 — now tappable: opens CustomerForm in edit mode so the
-          shopkeeper can add phone/Telegram without hunting for it. */}
-      {hasBalance && !customer.telegram_chat_id && !customer.telegram_username && !customer.phone_number && (
-        <button
-          type="button"
-          onClick={() => onEditCustomer?.(customer)}
-          className="press-scale"
-          style={{
-            background: '#fffbeb',
-            border: '1px dashed #fbbf24',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontSize: '0.72rem', color: '#92400e', fontWeight: 700,
-            textAlign: 'center',
-            cursor: 'pointer',
-            width: '100%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          {lang === 'am'
-            ? 'ለማስታወሻ ስልክ ወይም ቴሌግራም ይጨምሩ →'
-            : 'Tap to add phone or Telegram for reminders →'}
-        </button>
-      )}
-
-      {/* SMS share — direct share intent for shopkeeper's phone.
-          Uses navigator.share (Android intent) with sms: URI fallback.
-          Future: swap body-build logic for server-side SMS gateway. */}
-      {hasBalance && customer.phone_number && (
-        <button
-          type="button"
-          onClick={async () => {
-            const msg = buildReminderMessage({ template: 'gentle', lang, customer, shopName });
-            if (navigator.share) {
-              try {
-                await navigator.share({ title: 'SMS', text: msg });
-                onRemind?.(customer);
-                return;
-              } catch { /* user cancelled or not supported — fall through */ }
-            }
-            // Fallback: open native SMS app with pre-filled body
-            const phone = String(customer.phone_number).replace(/\D/g, '');
-            const e164 = phone.startsWith('251') ? `+${phone}` : phone.startsWith('0') ? `+251${phone.slice(1)}` : `+251${phone}`;
-            window.open(`sms:${e164}?body=${encodeURIComponent(msg)}`, '_blank');
-            onRemind?.(customer);
-          }}
-          className="press-scale"
-          style={{
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: 8,
-            padding: '8px 12px',
-            fontSize: '0.72rem', color: '#166534', fontWeight: 700,
-            textAlign: 'center',
-            cursor: 'pointer',
-            width: '100%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          {lang === 'am' ? 'በSMS ላክ' : 'Share via SMS'}
-        </button>
-      )}
-
       {/* ═══ 5. HISTORY ══════════════════════════════════════════ */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 4px' }}>
@@ -662,11 +529,8 @@ function CustomerDetail({
                     key={tx.id || idx}
                     tx={tx}
                     isLast={idx === historyRows.length - 1}
-                    expanded={!!expandedRows[tx.id]}
-                    onToggleExpand={() => setExpandedRows(prev => ({ ...prev, [tx.id]: !prev[tx.id] }))}
-                    onActionMenu={(t) => setActionSheet({ tx: t })}
                     lang={lang}
-                    longPress={longPress}
+                    onSelectTransaction={onSelectTransaction}
                   />
                 );
               });
@@ -685,354 +549,73 @@ function CustomerDetail({
           ? 'በደህንነት ይቀመጣል። መጠኖች በራስ ሰር ይደብቃሉ።'
           : 'Backed up securely. Amounts auto-hide for privacy.'}
       </p>
-
-      {/* ═══ ACTION SHEET (long-press) ══════════════════════════════════════════ */}
-      {actionSheet && (
-        <ActionSheet
-          tx={actionSheet.tx}
-          lang={lang}
-          onClose={() => setActionSheet(null)}
-          onEdit={() => {
-            const tx = actionSheet.tx;
-            setActionSheet(null);
-            onEditCustomerTransaction?.(tx);
-          }}
-          onDelete={() => {
-            const tx = actionSheet.tx;
-            setActionSheet(null);
-            onDeleteCustomerTransaction?.(tx);
-          }}
-        />
-      )}
     </div>
   );
 }
 
-// ─── Quick action button ──────────────────────────────────────────────
-function QuickAction({ variant, icon, label, onClick, disabled }) {
-  const styles = {
-    primary: { bg: '#1a1a1a', border: '#1a1a1a', fg: '#fff', labelFg: '#fff' },
-    green:   { bg: '#d1f4e0', border: '#a3e9c1', fg: '#047857', labelFg: '#047857' },
-    amber:   { bg: '#fff7ed', border: '#fed7aa', fg: '#b8842c', labelFg: '#b8842c' },
-    default: { bg: '#fff',    border: '#ece6d6', fg: '#4b5563', labelFg: '#4b5563' },
-  };
-  const s = styles[variant] || styles.default;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="press-scale"
-      style={{
-        background: disabled ? '#f5f1ea' : s.bg,
-        border: `1px solid ${disabled ? '#e5e7eb' : s.border}`,
-        borderRadius: 10,
-        padding: '10px 4px',
-        textAlign: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        minHeight: 48,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'center', color: disabled ? '#9ca3af' : s.fg }}>{icon}</div>
-      <p style={{
-        fontSize: '0.62rem', fontWeight: 700,
-        color: disabled ? '#9ca3af' : s.labelFg,
-        marginTop: 4,
-      }}>
-        {label}
-      </p>
-    </button>
-  );
-}
-
-// ─── History row with settlement breadcrumb + breakdown expander ──────
-function HistoryRow({ tx, isLast, expanded, onToggleExpand, onActionMenu, lang, longPress }) {
+// ─── Simplified History row — date + description + amount + chevron ──
+function HistoryRow({ tx, isLast, lang, onSelectTransaction }) {
   const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
-  const items = Array.isArray(tx.items) && tx.items.length > 0 ? tx.items : null;
-  const settlementMode = tx.settlement_mode || null; // 'partial' | 'later' | null
 
   const amountColor = isPayment ? '#047857' : '#b8842c';
   const sign = isPayment ? '−' : '+';
+  const borderColor = isPayment ? '#047857' : '#C4883A';
 
   return (
     <div
-      onPointerDown={(e) => longPress.onPointerDown(e, tx)}
-      onPointerUp={longPress.onPointerUp}
-      onPointerLeave={longPress.onPointerLeave}
-      onPointerCancel={longPress.onPointerCancel}
+      onClick={() => onSelectTransaction?.(tx)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onSelectTransaction?.(tx); }}
       style={{
         padding: '12px 14px',
-        background: isPayment ? '#f0fdf4' : '#fffbeb',
+        background: '#fff',
         borderBottom: isLast ? 'none' : '1px solid #f5f1ea',
+        borderLeft: `3px solid ${borderColor}`,
         cursor: 'pointer',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-        {!isPayment && (tx.photo || (Array.isArray(tx.photos) && tx.photos.length > 0)) && (
-          <PhotoAttachment
-            photo={tx.photo}
-            photos={tx.photos}
-            lang={lang}
-            label={lang === 'am' ? 'የዕቃ ፎቶ ይመልከቱ' : 'View item photo'}
-          />
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Tag row · CREDIT/PAYMENT + settlement breadcrumb */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4, alignItems: 'center' }}>
-            <span style={{
-              fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
-              padding: '1px 6px', borderRadius: 3,
-              background: isPayment ? '#d1f4e0' : '#fef3c7',
-              color: isPayment ? '#047857' : '#92400e',
-            }}>
-              {isPayment
-                ? (lang === 'am' ? 'ክፍያ' : 'PAYMENT')
-                : (lang === 'am' ? 'ዱቤ' : 'CREDIT')}
-            </span>
-            {settlementMode === 'partial' && (
-              <span style={{
-                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
-                padding: '1px 6px', borderRadius: 3,
-                background: '#ede9fe', color: '#6d28d9',
-              }}>
-                {lang === 'am' ? 'ከሽያጭ' : 'from sale'}
-              </span>
-            )}
-            {settlementMode === 'later' && (
-              <span style={{
-                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.04em',
-                padding: '1px 6px', borderRadius: 3,
-                background: '#ffe4e6', color: '#be123c',
-              }}>
-                {lang === 'am' ? 'ኋላ ይከፍላል' : 'pay-later'}
-              </span>
-            )}
-          </div>
-
-          {/* Note + qty + meta. Commit C.6: surface qty as a small "× N" prefix
-              so shopkeepers can see how many units they handed over. */}
-          {(tx.item_note || tx.quantity) && (
-            <p style={{ fontSize: '0.82rem', color: '#1f2937', marginTop: 2, marginBottom: 2, display: 'inline-flex', flexWrap: 'wrap', gap: 5, alignItems: 'baseline' }}>
-              {!isPayment && tx.quantity > 0 && (
-                <span style={{
-                  display: 'inline-block',
-                  background: '#fef3c7', color: '#92400e',
-                  padding: '1px 6px', borderRadius: 4,
-                  fontSize: '0.68rem', fontWeight: 800,
-                  letterSpacing: '0.02em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
-                  × {tx.quantity}
-                </span>
-              )}
-              {tx.item_note && <span>{tx.item_note}</span>}
-            </p>
-          )}
-          <p style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <span>{formatEthiopian(tx.created_at)}</span>
-            {!isPayment && tx.due_date && (
-              <span>{lang === 'am' ? 'መጨረሻ' : 'due'}: {formatEthiopian(tx.due_date)}</span>
-            )}
-            {/* Commit C.3: visible badge when credit has NO due date.
-                Soft amber dashed-border chip — easy to scan and identify
-                which credits don't have a return commitment yet. */}
-            {!isPayment && !tx.due_date && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                background: '#fffaeb',
-                border: '1px dashed #fbbf24',
-                color: '#92400e',
-                padding: '1px 6px', borderRadius: 999,
-                fontSize: '0.58rem', fontWeight: 700,
-                letterSpacing: '0.02em',
-              }}>
-                📅? {lang === 'am' ? 'መመለሻ ቀን አልተወሰነም' : 'no due date'}
-              </span>
-            )}
-            {tx.actor_name_snapshot && (
-              <span>{lang === 'am' ? 'በ' : 'by'} {tx.actor_name_snapshot}</span>
-            )}
-            <span>{lang === 'am' ? 'ቀሪ' : 'after'}: {fmt(tx.balance_after || 0)} {lang === 'am' ? 'ብር' : 'birr'}</span>
-          </p>
-
-          {/* 🧺 breakdown expander */}
-          {items && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              style={{
-                marginTop: 6,
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                fontSize: '0.62rem', fontWeight: 700,
-                color: expanded ? '#fff' : '#1a1a1a',
-                background: expanded ? '#1a1a1a' : '#f3f4f6',
-                padding: '2px 8px', borderRadius: 999,
-                cursor: 'pointer', border: 'none',
-                minHeight: 32,
-              }}
-            >
-              🧺 {items.length} {lang === 'am' ? 'ዕቃ' : 'items'}
-              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-          )}
-          {items && expanded && (
-            <div style={{
-              marginTop: 6,
-              padding: '8px 10px',
-              background: '#fff',
-              border: '1px solid #ece6d6',
-              borderLeft: '3px solid #b8842c',
-              borderRadius: 8,
-            }}>
-              {items.map((item, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  fontSize: '0.74rem', padding: '3px 0',
-                }}>
-                  <span style={{ color: '#4b5563' }}>• {item.name}</span>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#b8842c' }}>
-                    {fmt(item.amount || 0)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-          <p style={{
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.95rem', fontWeight: 700,
-            color: amountColor,
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {sign}{fmt(tx.amount || 0)}
-          </p>
-          {/* Commit P: 3-dot menu — primary action surface for edit/delete.
-              Long-press still works as a fallback. Made larger (36×36 was 28×28)
-              + tinted background so users actually find it without holding. */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onActionMenu?.(tx); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={lang === 'am' ? 'ምርጫዎች · ለማስተካከል ወይም ለመሰረዝ' : 'More · edit or delete'}
-            className="press-scale"
-            style={{
-              width: 44, height: 44, borderRadius: 10,
-              background: '#f5f1ea',
-              border: '1px solid #ece6d6',
-              color: '#1B4332',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <MoreVertical className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Action sheet (long-press) ──────────────────────────────────────────
-function ActionSheet({ tx, lang, onClose, onEdit, onDelete }) {
-  // Close on background click; lock body scroll while open
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  const isPayment = tx?.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
-  const headerLabel = isPayment
-    ? (lang === 'am' ? 'ክፍያ' : 'PAYMENT')
-    : (lang === 'am' ? 'ዱቤ' : 'CREDIT');
-
-  return (
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        zIndex: 60,
-        animation: 'gebya-fade-in 0.15s ease',
-      }}
-    >
-      <div
-        style={{
-          width: '100%', maxWidth: 480,
-          background: '#fff',
-          borderRadius: '14px 14px 0 0',
-          padding: '14px 0 0',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0) + 12px)',
-        }}
-      >
-        <div style={{ width: 40, height: 4, background: '#e5e7eb', borderRadius: 2, margin: '0 auto 12px' }} />
-        <p style={{
-          fontSize: '0.7rem', fontWeight: 800,
-          color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase',
-          textAlign: 'center', padding: '0 16px 8px',
-          borderBottom: '1px solid #ece6d6',
-        }}>
-          {lang === 'am' ? 'ቀጥሎ' : 'Long-press'} · {headerLabel} {fmt(tx?.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
-        </p>
-        <ActionButton
-          icon={<Pencil className="w-4 h-4" />}
-          label={lang === 'am' ? 'አስተካክል' : 'Edit entry'}
-          onClick={onEdit}
-        />
-        <ActionButton
-          icon={<Trash2 className="w-4 h-4" />}
-          label={lang === 'am' ? 'ሰርዝ' : 'Delete'}
-          onClick={onDelete}
-          danger
-        />
-        <div
-          onClick={onClose}
-          style={{
-            padding: 14,
-            background: '#f5f1ea',
-            textAlign: 'center',
-            fontSize: '0.9rem', fontWeight: 700,
-            color: '#6b7280',
-            cursor: 'pointer',
-            marginTop: 4,
-          }}
-        >
-          {lang === 'am' ? 'ሰርዝ' : 'Cancel'}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActionButton({ icon, label, onClick, danger }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: '100%',
-        padding: '14px 18px',
-        background: 'transparent',
-        border: 'none',
-        borderBottom: '1px solid #f5f1ea',
-        display: 'flex', alignItems: 'center', gap: 10,
-        cursor: 'pointer',
-        fontSize: '0.95rem', fontWeight: 600,
-        color: danger ? '#dc2626' : '#1a1a1a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10,
         minHeight: 48,
-        textAlign: 'left',
       }}
     >
-      <span style={{ color: danger ? '#dc2626' : '#1a1a1a' }}>{icon}</span>
-      {label}
-    </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+        {/* Compact date */}
+        <span style={{
+          fontSize: '0.72rem', color: '#6b7280', fontWeight: 600,
+          whiteSpace: 'nowrap', flexShrink: 0,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {formatEthiopian(tx.created_at)}
+        </span>
+        {/* Description */}
+        <span style={{
+          fontSize: '0.82rem', color: '#1f2937', fontWeight: 500,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {tx.item_note || (isPayment
+            ? (lang === 'am' ? 'ክፍያ' : 'Payment')
+            : (lang === 'am' ? 'ዱቤ' : 'Credit'))}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {/* Amount */}
+        <span style={{
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: '0.88rem', fontWeight: 700,
+          color: amountColor,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {sign}{fmt(tx.amount || 0)}
+        </span>
+        {/* Chevron */}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </div>
+    </div>
   );
 }
 

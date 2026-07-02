@@ -89,6 +89,7 @@ const importHistoryView = () => import('./components/HistoryView');
 const importReportView = () => import('./components/ReportView');
 const importSettingsPage = () => import('./components/SettingsPage');
 const importDailySuggestions = () => import('./components/DailySuggestions');
+const importTransactionDetailSheet = () => import('./components/TransactionDetailSheet');
 
 const TransactionForm = lazyWithRetry(importTransactionForm, 'TransactionForm');
 const EditTransactionSheet = lazyWithRetry(importEditTransactionSheet, 'EditTransactionSheet');
@@ -106,6 +107,7 @@ const HistoryView = lazyWithRetry(importHistoryView, 'HistoryView');
 const ReportView = lazyWithRetry(importReportView, 'ReportView');
 const SettingsPage = lazyWithRetry(importSettingsPage, 'SettingsPage');
 const DailySuggestions = lazyWithRetry(importDailySuggestions, 'DailySuggestions');
+const TransactionDetailSheet = lazyWithRetry(importTransactionDetailSheet, 'TransactionDetailSheet');
 
 const P = {
   bg: 'var(--color-bg)',
@@ -636,6 +638,8 @@ function AppInner() {
   // Supplier credit ("I owe") — Khatabook-style second ledger
   const [creditView, setCreditView] = useState('customers'); // 'customers' | 'suppliers'
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);      // for customer transactions
+  const [selectedSupplierTransaction, setSelectedSupplierTransaction] = useState(null); // for supplier transactions
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [supplierTransactionModal, setSupplierTransactionModal] = useState(null);
   // Commit D: edit existing supplier (mirrors customerEditTarget pattern).
@@ -2909,31 +2913,52 @@ function AppInner() {
             {/* Header + subtle toggle */}
             {!selectedCustomer && !selectedSupplier && (
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: 12, paddingBottom: 8,
-                borderBottom: '1px solid #f5f1ea',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 12,
               }}>
-                <p style={{
-                  fontSize: '0.82rem', fontWeight: 800, color: '#1a1a1a',
+                {/* Pill segmented control */}
+                <div style={{
+                  display: 'inline-flex',
+                  background: '#f3f4f6',
+                  borderRadius: 999,
+                  padding: 3,
+                  gap: 2,
                 }}>
-                  {creditView === 'customers'
-                    ? (lang === 'am' ? 'ደንበኞች' : 'Customers')
-                    : (lang === 'am' ? 'አቅራቢዎች' : 'Suppliers')}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCreditView(creditView === 'customers' ? 'suppliers' : 'customers')}
-                  className="press-scale"
-                  style={{
-                    fontSize: '0.68rem', fontWeight: 600, color: '#C4883A',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: '4px 8px', borderRadius: 6,
-                  }}
-                >
-                  {creditView === 'customers'
-                    ? (lang === 'am' ? 'አቅራቢዎች ይመልከቱ →' : 'See suppliers →')
-                    : (lang === 'am' ? '← ደንበኞች' : '← Customers')}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreditView('customers')}
+                    className="press-scale"
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: 999,
+                      fontSize: '0.82rem', fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      background: creditView === 'customers' ? '#1a1a1a' : 'transparent',
+                      color: creditView === 'customers' ? '#fff' : '#6b7280',
+                    }}
+                  >
+                    {lang === 'am' ? 'ደንበኞች' : 'Customers'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreditView('suppliers')}
+                    className="press-scale"
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: 999,
+                      fontSize: '0.82rem', fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      background: creditView === 'suppliers' ? '#1a1a1a' : 'transparent',
+                      color: creditView === 'suppliers' ? '#fff' : '#6b7280',
+                    }}
+                  >
+                    {lang === 'am' ? 'አቅራቢዎች' : 'Suppliers'}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2963,11 +2988,7 @@ function AppInner() {
                     onResendTelegramUpdate={() => handleResendCustomerTelegramUpdate(selectedCustomer)}
                     onRemind={(c) => setReminderTarget(c)}
                     onEditCustomer={(c) => setCustomerEditTarget(c)}
-                    onEditCustomerTransaction={(tx) => setCustomerTransactionEditTarget({
-                      transaction: tx,
-                      customerId: selectedCustomer.id,
-                    })}
-                    onDeleteCustomerTransaction={handleDeleteCustomerTransaction}
+                    onSelectTransaction={(tx) => setSelectedTransaction(tx)}
                   />
                 </Suspense>
               ) : (
@@ -3018,11 +3039,7 @@ function AppInner() {
                       initialAmount: Number(s.balance || 0),
                     })}
                     onEditSupplier={(s) => setSupplierEditTarget(s)}
-                    onEditSupplierTransaction={(tx) => setSupplierTransactionEditTarget({
-                      transaction: tx,
-                      supplierId: selectedSupplier.id,
-                    })}
-                    onDeleteSupplierTransaction={handleDeleteSupplierTransaction}
+                    onSelectTransaction={(tx) => setSelectedSupplierTransaction(tx)}
                   />
                 </Suspense>
               ) : (
@@ -3036,6 +3053,52 @@ function AppInner() {
               )
             )}
           </>
+        )}
+
+        {/* ═══ Transaction Detail Sheet (customer) ═════════════════════════════ */}
+        {selectedTransaction && (
+          <Suspense fallback={<PanelFallback label={t.loading} />}>
+            <TransactionDetailSheet
+              transaction={selectedTransaction}
+              type="customer"
+              lang={lang}
+              onClose={() => setSelectedTransaction(null)}
+              onEdit={(tx) => {
+                setSelectedTransaction(null);
+                setCustomerTransactionEditTarget({
+                  transaction: tx,
+                  customerId: selectedCustomer?.id,
+                });
+              }}
+              onDelete={(tx) => {
+                setSelectedTransaction(null);
+                handleDeleteCustomerTransaction(tx);
+              }}
+            />
+          </Suspense>
+        )}
+
+        {/* ═══ Transaction Detail Sheet (supplier) ═════════════════════════════ */}
+        {selectedSupplierTransaction && (
+          <Suspense fallback={<PanelFallback label={t.loading} />}>
+            <TransactionDetailSheet
+              transaction={selectedSupplierTransaction}
+              type="supplier"
+              lang={lang}
+              onClose={() => setSelectedSupplierTransaction(null)}
+              onEdit={(tx) => {
+                setSelectedSupplierTransaction(null);
+                setSupplierTransactionEditTarget({
+                  transaction: tx,
+                  supplierId: selectedSupplier?.id,
+                });
+              }}
+              onDelete={(tx) => {
+                setSelectedSupplierTransaction(null);
+                handleDeleteSupplierTransaction(tx.id);
+              }}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'history' && (

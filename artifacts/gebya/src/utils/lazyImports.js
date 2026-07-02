@@ -42,6 +42,8 @@ export const importHistoryView = () => import('../components/HistoryView');
 export const importReportView = () => import('../components/ReportView');
 export const importSettingsPage = () => import('../components/SettingsPage');
 export const importDailySuggestions = () => import('../components/DailySuggestions');
+export const importTransactionDetailSheet = () => import('../components/TransactionDetailSheet');
+export const importInlineDatePicker = () => import('../components/InlineDatePicker');
 
 export const TransactionForm = lazyWithRetry(importTransactionForm, 'TransactionForm');
 export const EditTransactionSheet = lazyWithRetry(importEditTransactionSheet, 'EditTransactionSheet');
@@ -59,5 +61,7 @@ export const HistoryView = lazyWithRetry(importHistoryView, 'HistoryView');
 export const ReportView = lazyWithRetry(importReportView, 'ReportView');
 export const SettingsPage = lazyWithRetry(importSettingsPage, 'SettingsPage');
 export const DailySuggestions = lazyWithRetry(importDailySuggestions, 'DailySuggestions');
+export const TransactionDetailSheet = lazyWithRetry(importTransactionDetailSheet, 'TransactionDetailSheet');
+export const InlineDatePicker = lazyWithRetry(importInlineDatePicker, 'InlineDatePicker');
 
 
