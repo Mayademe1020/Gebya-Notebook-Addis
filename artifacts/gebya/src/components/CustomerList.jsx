@@ -112,7 +112,6 @@ function CustomerList({
   onAddCustomer,
   onRemindCustomer,
   onBulkRemind,
-  onQuickCredit,
 }) {
   const { t, lang } = useLang();
   const { hidden, toggle: togglePrivacy } = usePrivacy();
@@ -543,39 +542,19 @@ function CustomerList({
                 </button>
               )}
 
-              {/* Right: balance + quick-add */}
-              <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <div>
-                  <p style={{
-                    fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: '0.95rem', fontWeight: 700,
-                    color: hidden ? '#d1d5db' : (isOverdue ? '#dc2626' : (hasBalance ? '#b8842c' : '#9ca3af')),
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {hidden ? '••••' : fmt(balance)}
-                  </p>
-                  <p style={{ fontSize: '0.6rem', color: '#9ca3af', marginTop: 1 }}>
-                    {lang === 'am' ? 'ብር' : 'birr'}
-                  </p>
-                </div>
-                {hasBalance && onQuickCredit && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onQuickCredit(customer); }}
-                    className="press-scale"
-                    aria-label={lang === 'am' ? 'ፋስት ብድር ጨምር' : 'Quick add credit'}
-                    style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: isOverdue ? '#dc2626' : '#047857',
-                      color: '#fff',
-                      border: 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800,
-                    }}
-                  >
-                    +
-                  </button>
-                )}
+              {/* Right: balance */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <p style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.95rem', fontWeight: 700,
+                  color: hidden ? '#d1d5db' : (isOverdue ? '#dc2626' : (hasBalance ? '#b8842c' : '#9ca3af')),
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {hidden ? '••••' : fmt(balance)}
+                </p>
+                <p style={{ fontSize: '0.6rem', color: '#9ca3af', marginTop: 1 }}>
+                  {lang === 'am' ? 'ብር' : 'birr'}
+                </p>
               </div>
 
               {/* Chevron */}

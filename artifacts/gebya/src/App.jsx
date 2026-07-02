@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BookOpen, Users, Calendar, Settings, Trash2, Pencil, Share2, X,
-  Plus, Minus, RotateCw, Wallet,
+  Plus, Minus, RotateCw, Wallet, Truck,
   MoreVertical, ChevronUp, ChevronDown,
   CreditCard, BarChart3, MoreHorizontal,
 } from 'lucide-react';
@@ -3254,27 +3254,45 @@ function AppInner() {
         </div>
       )}
 
-      {/* Action bar (Credit tab — list view) — Add Customer */}
+      {/* Action bar (Credit tab — list view) — Add Customer / Add Supplier */}
       {activeTab === 'credit' && !selectedCustomer && !selectedSupplier && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
         <div
           className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
           style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
         >
-          <button
-            onClick={() => setShowCustomerForm(true)}
-            className="w-full py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all press-scale"
-            style={{
-              background: '#1A66FF',
-              border: 'none',
-              borderRadius: 14,
-              boxShadow: '0 6px 18px rgba(26,102,255,0.25)',
-            }}
-          >
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
-            <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#ffffff', textTransform: 'uppercase' }}>
-              {lang === 'am' ? 'ደንበኛ ጨምር' : '+ Add Customer'}
-            </span>
-          </button>
+          {creditView === 'customers' ? (
+            <button
+              onClick={() => setShowCustomerForm(true)}
+              className="w-full py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all press-scale"
+              style={{
+                background: '#1A66FF',
+                border: 'none',
+                borderRadius: 14,
+                boxShadow: '0 6px 18px rgba(26,102,255,0.25)',
+              }}
+            >
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
+              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#ffffff', textTransform: 'uppercase' }}>
+                {lang === 'am' ? 'ደንበኛ ጨምር' : '+ Add Customer'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowSupplierForm(true)}
+              className="w-full py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all press-scale"
+              style={{
+                background: '#dc2626',
+                border: 'none',
+                borderRadius: 14,
+                boxShadow: '0 6px 18px rgba(220,38,38,0.25)',
+              }}
+            >
+              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
+              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#ffffff', textTransform: 'uppercase' }}>
+                {lang === 'am' ? 'አቅራቢ ጨምር' : '+ Add Supplier'}
+              </span>
+            </button>
+          )}
         </div>
       )}
 

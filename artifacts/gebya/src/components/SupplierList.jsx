@@ -158,24 +158,6 @@ function SupplierList({ suppliers = [], onSelectSupplier, onAddSupplier }) {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onAddSupplier}
-            className="press-scale"
-            style={{
-              background: '#dc2626', color: '#fff',
-              border: 'none', borderRadius: 10,
-              padding: '8px 12px',
-              fontSize: '0.82rem', fontWeight: 800,
-              display: 'flex', alignItems: 'center', gap: 4,
-              cursor: 'pointer',
-              flexShrink: 0,
-              minHeight: 40,
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            {lang === 'am' ? 'አክል' : 'Add'}
-          </button>
         </div>
       </div>
 

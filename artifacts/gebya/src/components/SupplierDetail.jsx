@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, Pencil, Truck,
+  ArrowLeft, Pencil, Truck, CreditCard, Wallet,
 } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
@@ -365,6 +365,44 @@ function SupplierDetail({
             })()}
           </div>
         )}
+      </div>
+
+      {/* ═══ ACTION BAR — Add Purchase + Pay Supplier ═══════════════════ */}
+      <div style={{ display: 'flex', gap: 10, padding: '0 0 4px' }}>
+        <button
+          type="button"
+          onClick={() => onAddPurchase?.(supplier)}
+          className="press-scale"
+          style={{
+            flex: 1, padding: '12px 0', minHeight: 48,
+            background: '#dc2626', border: 'none', borderRadius: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            cursor: 'pointer',
+          }}
+        >
+          <CreditCard className="w-4 h-4" style={{ color: '#fff', strokeWidth: 2.5 }} />
+          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff' }}>
+            {lang === 'am' ? 'ግዢ ጨምር (+)' : 'PURCHASE (+)'}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onPaySupplier?.(supplier)}
+          disabled={!hasBalance}
+          className="press-scale"
+          style={{
+            flex: 1, padding: '12px 0', minHeight: 48,
+            background: '#16a34a', border: 'none', borderRadius: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            cursor: hasBalance ? 'pointer' : 'not-allowed',
+            opacity: hasBalance ? 1 : 0.5,
+          }}
+        >
+          <Wallet className="w-4 h-4" style={{ color: '#fff', strokeWidth: 2.5 }} />
+          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff' }}>
+            {lang === 'am' ? 'ክፍያ (-)' : 'PAY (-)'}
+          </span>
+        </button>
       </div>
 
       <p style={{ fontSize: '0.65rem', color: '#9ca3af', textAlign: 'center', fontStyle: 'italic', padding: '4px 0' }}>
