@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, Phone, Plus, Wallet, X,
+  ArrowLeft, MessageCircle, Pencil, Phone, Plus, Wallet, X,
 } from 'lucide-react';
 import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
