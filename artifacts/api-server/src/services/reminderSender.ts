@@ -12,6 +12,7 @@ import { getSessionByChatId, syncTelegramCustomerState } from "./telegramStore.j
 import { createHistoryEntry } from "./reminderHistory.js";
 import type {
   QueuedReminder,
+  ReminderHistoryEntry,
   SendReminderResult,
 } from "../types/reminders.js";
 
