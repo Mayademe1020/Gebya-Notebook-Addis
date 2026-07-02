@@ -3264,14 +3264,15 @@ function AppInner() {
             onClick={() => setShowCustomerForm(true)}
             className="w-full py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all press-scale"
             style={{
-              background: '#ffffff',
-              border: '1.5px solid #C4883A',
-              borderRadius: 'var(--radius-md)',
+              background: '#1A66FF',
+              border: 'none',
+              borderRadius: 14,
+              boxShadow: '0 6px 18px rgba(26,102,255,0.25)',
             }}
           >
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#C4883A', strokeWidth: 2.5 }} />
-            <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#C4883A' }}>
-              {lang === 'am' ? 'ደንበኛ ጨምር' : 'Add Customer'}
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
+            <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#ffffff', textTransform: 'uppercase' }}>
+              {lang === 'am' ? 'ደንበኛ ጨምር' : '+ Add Customer'}
             </span>
           </button>
         </div>
@@ -3291,14 +3292,14 @@ function AppInner() {
               })}
               className="flex-1 py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0 press-scale"
               style={{
-                background: '#ffffff',
-                border: '1.5px solid #2563eb',
-                borderRadius: 'var(--radius-md)',
+                background: '#E75645',
+                border: 'none',
+                borderRadius: 14,
               }}
             >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#2563eb', strokeWidth: 2.5 }} />
-              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#2563eb' }}>
-                {lang === 'am' ? 'ዱቤ' : 'Credit'}
+              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
+              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: '#1a1a1a' }}>
+                {lang === 'am' ? 'እቃ በዱቤ ሰጠሁ (-)' : 'YOU GAVE (Dubie)'}
               </span>
             </button>
             <button
@@ -3309,15 +3310,15 @@ function AppInner() {
               disabled={!(Number(selectedCustomer.balance) > 0)}
               className="flex-1 py-2.5 sm:py-3 min-h-[44px] sm:min-h-[48px] flex items-center justify-center gap-1.5 sm:gap-2 transition-all min-w-0 press-scale"
               style={{
-                background: '#ffffff',
-                border: `1.5px solid ${Number(selectedCustomer.balance) > 0 ? '#16a34a' : '#d1d5db'}`,
-                borderRadius: 'var(--radius-md)',
+                background: '#2EAB6F',
+                border: 'none',
+                borderRadius: 14,
                 opacity: Number(selectedCustomer.balance) > 0 ? 1 : 0.5,
               }}
             >
-              <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: Number(selectedCustomer.balance) > 0 ? '#16a34a' : '#d1d5db', strokeWidth: 2.5 }} />
-              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: Number(selectedCustomer.balance) > 0 ? '#16a34a' : '#d1d5db' }}>
-                {lang === 'am' ? 'ክፍያ' : 'Payment'}
+              <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: '#ffffff', strokeWidth: 2.5 }} />
+              <span className="font-bold text-xs sm:text-sm truncate" style={{ color: Number(selectedCustomer.balance) > 0 ? '#1a1a1a' : '#374151' }}>
+                {lang === 'am' ? 'ክፍያ ተቀበልኩ (+)' : 'YOU GOT (Paid)'}
               </span>
             </button>
           </div>
