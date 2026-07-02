@@ -7,7 +7,7 @@
  */
 
 import { customers, customerTransactions } from "../schema/customers.js";
-import { eq, sql, type SQL, type SQLWrap } from "drizzle-orm/expressions";
+import { eq, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import type { EligibleCustomer } from "../../../../artifacts/api-server/src/types/reminders.js";
 
 /**
@@ -54,7 +54,7 @@ export interface CustomerBalanceOptions {
  * @returns Array of customers with their current balance
  */
 export async function getCustomerBalances(
-  db: { select: <T>(fields: SQL | SQLWrap | SQL[], ...args: any[]) => Promise<T[]> },
+  db: { select: <T>(fields: SQL | SQLWrapper | SQL[], ...args: any[]) => Promise<T[]> },
   options: CustomerBalanceOptions = {}
 ): Promise<CustomerBalanceRow[]> {
   const { onlyPositiveBalance = true } = options;
