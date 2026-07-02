@@ -3510,6 +3510,7 @@ function AppInner() {
             initialAmount={supplierTransactionModal.initialAmount}
             onSave={handleSaveSupplierTransaction}
             actorLabel={currentActorLabel}
+            enabledProviders={enabledProviders}
             onDone={() => setSupplierTransactionModal(null)}
           />
         </Suspense>
@@ -3524,6 +3525,7 @@ function AppInner() {
             editingTransaction={supplierTransactionEditTarget.transaction}
             onSave={handleSaveSupplierTransaction}
             actorLabel={currentActorLabel}
+            enabledProviders={enabledProviders}
             onDone={() => setSupplierTransactionEditTarget(null)}
           />
         </Suspense>

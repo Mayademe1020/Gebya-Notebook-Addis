@@ -6,7 +6,7 @@
 // don't get reminders) and no multi-item breakdown (supplier purchases are
 // typically batched: "5 bags coffee = 5000 birr").
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Save, X, Plus, Camera } from 'lucide-react';
+import { ArrowLeft, Save, X, Camera } from 'lucide-react';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { SUPPLIER_TRANSACTION_TYPES, isValidSupplierTransactionType } from '../utils/supplierLedger';
 import { useLang } from '../context/LangContext';
@@ -21,8 +21,6 @@ function handleNumericInput(e, setter) {
   setter(raw);
 }
 
-const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
-
 function SupplierTransactionSheet({
   supplier,
   mode = SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD,
@@ -31,6 +29,7 @@ function SupplierTransactionSheet({
   onSave,
   onDone,
   actorLabel,
+  enabledProviders,
 }) {
   const { t, lang } = useLang();
   const editing = !!editingTransaction?.id;
@@ -40,14 +39,33 @@ function SupplierTransactionSheet({
   });
   const [itemName, setItemName] = useState(editing ? (editingTransaction.item_name || '') : '');
   const [saving, setSaving] = useState(false);
-  const [showCustomAmount, setShowCustomAmount] = useState(false);
-  const [customAmountValue, setCustomAmountValue] = useState('');
   // Product proof photos for purchases (base64 JPEG data URLs, max 3)
   const [photos, setPhotos] = useState(() => (editing ? normalizePhotos(editingTransaction) : []));
   const [photoError, setPhotoError] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false); // B2: rear-camera capture modal
   const [replacePhotoId, setReplacePhotoId] = useState(null);
+
+  // Payment method state — only meaningful for PAYMENT mode
+  const initPaymentMethod = editing && editingTransaction?.payment_method
+    ? editingTransaction.payment_method
+    : 'cash';
+  const initPaymentProvider = editing && editingTransaction?.payment_provider
+    ? editingTransaction.payment_provider
+    : '';
+  const [paymentMethod, setPaymentMethod] = useState(initPaymentMethod);
+  const [paymentProvider, setPaymentProvider] = useState(initPaymentProvider);
+
+  // Payment method options — Cash always first, then only what's enabled in Settings
+  const paymentOptions = useMemo(() => {
+    const banks = enabledProviders?.banks || [];
+    const wallets = enabledProviders?.wallets || [];
+    return [
+      { id: 'cash', label: 'Cash', emoji: '💵', type: 'cash', provider: '' },
+      ...banks.map(b => ({ id: `bank:${b}`, label: b, emoji: '🏦', type: 'bank', provider: b })),
+      ...wallets.map(w => ({ id: `wallet:${w}`, label: w, emoji: '📱', type: 'wallet', provider: w })),
+    ];
+  }, [enabledProviders]);
 
   const transactionType = useMemo(() => {
     if (editing) return editingTransaction.type;
@@ -120,6 +138,9 @@ function SupplierTransactionSheet({
         item_name: itemName.trim() || null,
         // Product proof photos (purchase only - payments stay photo-free)
         ...(!isPayment ? buildPhotoFields(photos) : { photos: [], photo: null, photo_taken_at: null }),
+        // Payment method — only for payment mode
+        payment_method: isPayment ? paymentMethod : null,
+        payment_provider: isPayment && paymentMethod !== 'cash' ? paymentProvider : null,
       };
       if (editing) payload.editing_id = editingTransaction.id;
       const didSave = await onSave?.(payload);
@@ -127,15 +148,6 @@ function SupplierTransactionSheet({
     } finally {
       setSaving(false);
     }
-  };
-
-  const applyCustomAmount = () => {
-    const val = parseFloat(parseInput(customAmountValue));
-    if (!val || val <= 0) return;
-    const current = parseFloat(parseInput(amount)) || 0;
-    setAmount(String(current + val));
-    setCustomAmountValue('');
-    setShowCustomAmount(false);
   };
 
   return (
@@ -230,94 +242,40 @@ function SupplierTransactionSheet({
             </span>
           </div>
 
-          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 items-center">
-            {DEFAULT_QUICK_AMOUNTS.map((amt) => (
-              <button
-                key={amt}
-                type="button"
-                onClick={() => {
-                  const current = parseFloat(parseInput(amount)) || 0;
-                  setAmount(String(current + amt));
-                }}
-                className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border press-scale"
-                style={{
-                  borderColor: '#e8e2d8',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fff',
-                  color: '#374151',
-                  minWidth: '52px',
-                }}
-              >
-                +{amt}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowCustomAmount((v) => !v)}
-              className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-              style={{
-                borderColor: showCustomAmount ? accentColor : '#c9bfa8',
-                borderStyle: 'dashed',
-                borderRadius: 'var(--radius-sm)',
-                background: showCustomAmount ? `${accentColor}10` : '#faf9f7',
-                color: showCustomAmount ? accentColor : '#6b7280',
-                minWidth: '40px',
-                minHeight: '32px',
-              }}
-              aria-label={lang === 'am' ? 'ሌላ መጠን' : 'Custom amount'}
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-            {amount && (
-              <button
-                type="button"
-                onClick={() => setAmount('')}
-                className="flex-shrink-0 ml-auto px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-                style={{
-                  borderColor: '#fecaca',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fef2f2',
-                  color: '#dc2626',
-                  minWidth: '40px',
-                  minHeight: '32px',
-                }}
-                aria-label={lang === 'am' ? 'መጠን አጥፋ' : 'Clear amount'}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {showCustomAmount && (
-            <div className="flex gap-2 mt-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                autoFocus
-                value={fmtInput(customAmountValue)}
-                onChange={(e) => handleNumericInput(e, setCustomAmountValue)}
-                onKeyDown={(e) => { if (e.key === 'Enter') applyCustomAmount(); }}
-                placeholder={lang === 'am' ? 'ሌላ መጠን' : 'Other amount'}
-                className="flex-1 p-2.5 border-2 focus:outline-none text-sm"
-                style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
-              />
-              <button
-                type="button"
-                onClick={applyCustomAmount}
-                disabled={!parseFloat(parseInput(customAmountValue))}
-                className="px-3 py-2 text-xs font-bold press-scale flex items-center gap-1"
-                style={{
-                  background: parseFloat(parseInput(customAmountValue)) ? accentColor : '#e5e7eb',
-                  color: parseFloat(parseInput(customAmountValue)) ? '#fff' : '#9ca3af',
-                  borderRadius: 'var(--radius-sm)',
-                  minHeight: '40px',
-                }}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {lang === 'am' ? 'ጨምር' : 'Add'}
-              </button>
+        {/* Payment method chips — payment mode only. Cash is always shown;
+            banks/wallets appear only if the user enabled them in Settings. */}
+        {isPayment && (
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
+              {lang === 'am' ? 'የክፍያ ዘዴ' : 'Payment Method'}
+            </label>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {paymentOptions.map(opt => {
+                const selected = opt.type === 'cash'
+                  ? paymentMethod === 'cash'
+                  : paymentMethod === opt.type && paymentProvider === opt.provider;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => { setPaymentMethod(opt.type); setPaymentProvider(opt.provider); }}
+                    className="flex-shrink-0 flex items-center justify-center gap-1.5 py-2 px-3 border-2 text-xs font-bold transition-all min-h-[40px] press-scale"
+                    style={{
+                      borderRadius: 'var(--radius-sm)',
+                      borderColor: selected ? '#1B4332' : '#e8e2d8',
+                      background: selected ? 'rgba(27,67,50,0.08)' : '#fff',
+                      color: selected ? '#1B4332' : '#6b7280',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span className="text-sm">{opt.emoji}</span>
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
           {!hasOutstanding && isPayment && (
             <p className="text-xs font-medium mt-2" style={{ color: '#b45309' }}>

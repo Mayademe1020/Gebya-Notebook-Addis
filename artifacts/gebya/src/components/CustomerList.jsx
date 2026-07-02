@@ -174,21 +174,6 @@ function CustomerList({
               ? 'ለማን ዱቤ እንዳለ ይያዙ። ይከፍሉ ሲቻላቸው ይከታተሉ።'
               : 'Track who owes you. Send reminders. Mark payments.'}
           </p>
-          <button
-            type="button"
-            onClick={onAddCustomer}
-            className="press-scale"
-            style={{
-              background: '#1a1a1a', color: '#fff',
-              padding: '12px 22px', borderRadius: 10,
-              fontSize: '0.92rem', fontWeight: 800,
-              cursor: 'pointer', minHeight: 44,
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            {lang === 'am' ? 'የመጀመሪያ ደንበኛ አክል' : 'Add your first customer'}
-          </button>
         </div>
 
         {/* Faded example rows so user knows what's coming */}
