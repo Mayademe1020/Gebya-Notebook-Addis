@@ -196,10 +196,10 @@ function CustomerTransactionSheet({
     .filter(e => e && e.active !== false && e.name)
     .slice(0, 8);
 
-  // Payment method options — built from enabled providers in settings
+  // Payment method options — Cash always first, then only what's enabled in Settings
   const paymentOptions = useMemo(() => {
-    const banks = enabledProviders?.banks?.length ? enabledProviders.banks : ['CBE', 'Dashen', 'Awash', 'Abyssinia'];
-    const wallets = enabledProviders?.wallets?.length ? enabledProviders.wallets : ['telebirr', 'CBE Birr'];
+    const banks = enabledProviders?.banks || [];
+    const wallets = enabledProviders?.wallets || [];
     return [
       { id: 'cash', label: 'Cash', emoji: '💵', type: 'cash', provider: '' },
       ...banks.map(b => ({ id: `bank:${b}`, label: b, emoji: '🏦', type: 'bank', provider: b })),
@@ -368,9 +368,9 @@ function CustomerTransactionSheet({
           )}
         </div>
 
-        {/* Payment method chips — payment mode only. Lets the shopkeeper
-            record how they received the money (cash, bank transfer, wallet). */}
-        {isPayment && paymentOptions.length > 1 && (
+        {/* Payment method chips — payment mode only. Cash is always shown;
+            banks/wallets appear only if the user enabled them in Settings. */}
+        {isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
               {lang === 'am' ? 'የክፍያ ዘዴ' : 'Payment Method'}
