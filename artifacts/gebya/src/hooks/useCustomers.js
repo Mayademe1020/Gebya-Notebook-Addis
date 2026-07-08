@@ -12,6 +12,7 @@ import {
 import {
   normalizeCustomerDraft,
   normalizeCustomerTransactionDraft,
+  fifoAllocatePayment,
 } from '../utils/customerLedgerMutations';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import {
@@ -413,6 +414,33 @@ export function useCustomers() {
       await db.customer_transactions.update(id, { reference_code: referenceCode });
       saved = await db.customer_transactions.get(id);
       nextBalance = getCustomerBalance([saved, ...existingTx]);
+
+      if (draft.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT) {
+        const allCredits = await db.customer_transactions
+          .where('customer_id').equals(payload.customer_id)
+          .and(tx => tx.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD)
+          .toArray();
+        const openCredits = allCredits
+          .filter(c => (Number(c.amount) || 0) - (Number(c.paid_amount) || 0) > 0)
+          .sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+        if (openCredits.length > 0) {
+          const { allocation, creditsToUpdate } = fifoAllocatePayment(amount, openCredits);
+          if (creditsToUpdate.length > 0) {
+            for (const update of creditsToUpdate) {
+              await db.customer_transactions.update(update.id, {
+                paid_amount: update.paid_amount,
+                status: update.status,
+              });
+            }
+            await db.customer_transactions.update(id, {
+              allocation,
+            });
+            saved = await db.customer_transactions.get(id);
+            nextBalance = getCustomerBalance([saved, ...existingTx]);
+          }
+        }
+      }
+
       await db.customers.update(draft.customer_id, { updated_at: now });
       latestCustomerRecord = await db.customers.get(draft.customer_id);
     });

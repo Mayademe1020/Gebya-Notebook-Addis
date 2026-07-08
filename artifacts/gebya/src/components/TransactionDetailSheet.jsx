@@ -315,37 +315,22 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             {currentLang === 'am' ? 'አስተካክል' : 'Edit Transaction'}
           </button>
 
-          {/* Delete + Cancel — 2-column grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{
-                padding: '12px',
-                background: '#fff', border: '1.5px solid #fecaca',
-                borderRadius: 10,
-                fontSize: '0.85rem', fontWeight: 700, color: '#dc2626',
-                cursor: 'pointer', minHeight: 44,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              {currentLang === 'am' ? 'ሰርዝ' : 'Delete'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '12px',
-                background: '#f9fafb', border: '1px solid #e5e7eb',
-                borderRadius: 10,
-                fontSize: '0.85rem', fontWeight: 700, color: '#6b7280',
-                cursor: 'pointer', minHeight: 44,
-              }}
-            >
-              {currentLang === 'am' ? 'ሰርዝ' : 'Cancel'}
-            </button>
-          </div>
+          {/* Delete button — full width */}
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{
+              width: '100%', padding: '12px',
+              background: '#fff', border: '1.5px solid #fecaca',
+              borderRadius: 10,
+              fontSize: '0.85rem', fontWeight: 700, color: '#dc2626',
+              cursor: 'pointer', minHeight: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <Trash2 className="w-4 h-4" />
+            {currentLang === 'am' ? 'ሰርዝ' : 'Delete'}
+          </button>
         </div>
 
         {/* Delete confirmation overlay */}

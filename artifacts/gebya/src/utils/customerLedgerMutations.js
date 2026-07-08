@@ -45,3 +45,67 @@ export function normalizeCustomerTransactionDraft(payload = {}) {
     payment_provider: normalizeOptionalText(payload.payment_provider),
   };
 }
+
+/**
+ * FIFO allocate a payment amount across open credit_add records (oldest first).
+ * Returns { allocation, creditsToUpdate } where:
+ *   allocation       — [{ credit_id, amount }] describing how the payment was distributed
+ *   creditsToUpdate  — [{ id, paid_amount, status }] for each touched credit
+ *
+ * Open credits are those whose cumulative paid_amount is less than their amount.
+ * Status values: 'paid' | 'partial' | 'open'.
+ * Excess payment (payment > total open credit) is kept as overpayment and does NOT
+ * appear in the allocation list.
+ */
+export function fifoAllocatePayment(paymentAmount, openCredits = []) {
+  let remaining = paymentAmount;
+  const allocation = [];
+  const creditsToUpdate = [];
+
+  for (const credit of openCredits) {
+    const creditId = credit.id;
+    const creditAmount = Number(credit.amount) || 0;
+    const alreadyPaid = Number(credit.paid_amount) || 0;
+    const creditRemaining = creditAmount - alreadyPaid;
+
+    if (creditRemaining <= 0) continue;
+
+    const used = Math.min(remaining, creditRemaining);
+    const newPaidAmount = alreadyPaid + used;
+    const status = creditRemaining <= used ? 'paid' : 'partial';
+
+    creditsToUpdate.push({ id: creditId, paid_amount: newPaidAmount, status });
+    allocation.push({ credit_id: creditId, amount: used });
+    remaining -= used;
+  }
+
+  return { allocation, creditsToUpdate };
+}
+
+/**
+ * Derive a settlement status string for a single credit_add based on its own
+ * paid_amount + amount fields (no need to examine payment records).
+ *
+ * Returns:
+ *   'paid'    — paid_amount >= amount (fully settled)
+ *   'partial' — 0 < paid_amount < amount
+ *   'open'    — otherwise (no allocation touch)
+ */
+export function getCreditAllocationStatus(credit) {
+  const creditAmount = Number(credit.amount) || 0;
+  const paid = Number(credit.paid_amount) || 0;
+  if (paid >= creditAmount) return 'paid';
+  if (paid > 0) return 'partial';
+  return 'open';
+}
+
+/**
+ * Count how many credits were settled by a given payment transaction,
+ * using its `allocation` array.
+ * Returns { settledCount, totalAllocatedAmount }.
+ */
+export function getPaymentSettlementCount(payment) {
+  const allocation = Array.isArray(payment.allocation) ? payment.allocation : [];
+  const totalAllocated = allocation.reduce((s, a) => s + (Number(a.amount) || 0), 0);
+  return { settledCount: allocation.length, totalAllocated };
+}

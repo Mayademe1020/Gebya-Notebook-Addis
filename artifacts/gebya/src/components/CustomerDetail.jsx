@@ -18,6 +18,7 @@ import { fmt } from '../utils/numformat';
 import { toTelUrl, isValidEthiopianPhone } from '../utils/phoneNumber';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
+import { getCreditAllocationStatus, getPaymentSettlementCount } from '../utils/customerLedgerMutations';
 import { useLang } from '../context/LangContext';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -607,10 +608,55 @@ function CustomerDetail({
 // ─── Simplified History row — date + description + amount + chevron ──
 function HistoryRow({ tx, isLast, lang, onSelectTransaction }) {
   const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
+  const isCredit = tx.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD;
 
   const amountColor = isPayment ? '#047857' : '#b8842c';
   const sign = isPayment ? '−' : '+';
   const borderColor = isPayment ? '#047857' : '#C4883A';
+
+  const allocationStatus = isCredit ? getCreditAllocationStatus(tx) : null;
+  const settlement = isPayment ? getPaymentSettlementCount(tx) : null;
+
+  const statusBadge = (() => {
+    if (allocationStatus === 'paid') {
+      return (
+        <span style={{
+          fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.03em',
+          background: '#d1fae5', color: '#047857',
+          padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
+        }}>
+          ✓ {lang === 'am' ? 'ተከፍሏል' : 'Paid'}
+        </span>
+      );
+    }
+    if (allocationStatus === 'partial') {
+      const creditAmount = Number(tx.amount) || 0;
+      const paid = Number(tx.paid_amount) || 0;
+      return (
+        <span style={{
+          fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.03em',
+          background: '#fef3c7', color: '#92400e',
+          padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
+        }}>
+          {fmt(paid)}/{fmt(creditAmount)}
+        </span>
+      );
+    }
+    if (settlement && settlement.settledCount > 0) {
+      return (
+        <span style={{
+          fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.03em',
+          background: '#dbeafe', color: '#1d4ed8',
+          padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
+        }}>
+          ✓ {lang === 'am'
+            ? `${settlement.settledCount} ተከፍሏል`
+            : `Settled ${settlement.settledCount}`}
+        </span>
+      );
+    }
+    return null;
+  })();
 
   return (
     <div
@@ -640,15 +686,22 @@ function HistoryRow({ tx, isLast, lang, onSelectTransaction }) {
         }}>
           {formatEthiopian(tx.created_at)}
         </span>
-        {/* Description */}
-        <span style={{
-          fontSize: '0.82rem', color: '#1f2937', fontWeight: 500,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {tx.item_note || (isPayment
-            ? (lang === 'am' ? 'ክፍያ' : 'Payment')
-            : (lang === 'am' ? 'ዱቤ' : 'Credit'))}
-        </span>
+        {/* Description + status badge */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+          <span style={{
+            fontSize: '0.82rem', color: '#1f2937', fontWeight: 500,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {tx.item_note || (isPayment
+              ? (lang === 'am' ? 'ክፍያ' : 'Payment')
+              : isCredit
+                ? (lang === 'am' ? 'ዱቤ' : 'Credit')
+                : (lang === 'am' ? 'ሰርዝ' : 'Reversal'))}
+          </span>
+          {statusBadge && (
+            <span>{statusBadge}</span>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>

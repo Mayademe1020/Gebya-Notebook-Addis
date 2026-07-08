@@ -291,11 +291,6 @@ function CustomerList({
               {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
               </div>
-
-              {/* Chevron */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="m9 18 6-6-6-6" />
-              </svg>
             </div>
 
         {/* Big amount */}
@@ -541,11 +536,6 @@ function CustomerList({
                   {lang === 'am' ? 'ብር' : 'birr'}
                 </p>
               </div>
-
-              {/* Chevron */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="m9 18 6-6-6-6" />
-              </svg>
             </div>
           );
         })}
