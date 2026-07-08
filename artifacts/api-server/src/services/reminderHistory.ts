@@ -11,8 +11,14 @@ const kvEnabled = Boolean(KV_URL && KV_TOKEN);
 
 const memHistory: ReminderHistoryEntry[] = [];
 
-const historyKey = (shopId: number, customerId: number, sentAt: number) =>
-  `reminder:history:${shopId}:${customerId}:${sentAt}`;
+const dataKey = (shopId: number, customerId: number, sentAt: number) =>
+  `reminder:history:data:${shopId}:${customerId}:${sentAt}`;
+
+const shopIndexKey = (shopId: number) =>
+  `reminder:history:idx:shop:${shopId}`;
+
+const shopCustIndexKey = (shopId: number, customerId: number) =>
+  `reminder:history:idx:shop_cust:${shopId}:${customerId}`;
 
 async function kvCmd(args: (string | number)[]): Promise<unknown> {
   const res = await fetch(KV_URL as string, {
@@ -26,6 +32,32 @@ async function kvCmd(args: (string | number)[]): Promise<unknown> {
   if (!res.ok) throw new Error(`KV command failed (${res.status})`);
   const data = (await res.json()) as { result?: unknown };
   return data?.result ?? null;
+}
+
+async function safeKvCmd<T>(args: (string | number)[], fallback: T): Promise<T> {
+  try {
+    const result = await kvCmd(args);
+    return (result as T) ?? fallback;
+  } catch (err) {
+    console.error("[ReminderHistory:KV]", {
+      message: err instanceof Error ? err.message : String(err),
+      command: args[0],
+    });
+    return fallback;
+  }
+}
+
+function parseEntries(rawList: unknown[]): ReminderHistoryEntry[] {
+  return rawList
+    .filter((x): x is string => typeof x === "string")
+    .map((s) => {
+      try {
+        return JSON.parse(s) as ReminderHistoryEntry;
+      } catch {
+        return null;
+      }
+    })
+    .filter((e): e is ReminderHistoryEntry => e !== null);
 }
 
 export async function createHistoryEntry(
@@ -52,7 +84,17 @@ export async function createHistoryEntry(
   };
 
   if (kvEnabled) {
-    await kvCmd(["SET", historyKey(data.shopId, data.customerId, data.sentAt), JSON.stringify(entry), "EX", 7_776_000]);
+    const key = dataKey(data.shopId, data.customerId, data.sentAt);
+    const shopIdx = shopIndexKey(data.shopId);
+    const shopCustIdx = shopCustIndexKey(data.shopId, data.customerId);
+
+    await Promise.all([
+      kvCmd(["SET", key, JSON.stringify(entry), "EX", 7_776_000]),
+      kvCmd(["ZADD", shopIdx, data.sentAt, String(data.sentAt)]),
+      kvCmd(["ZADD", shopCustIdx, data.sentAt, String(data.sentAt)]),
+      kvCmd(["EXPIRE", shopIdx, 7_776_000]),
+      kvCmd(["EXPIRE", shopCustIdx, 7_776_000]),
+    ]);
   } else {
     memHistory.push(entry);
     if (memHistory.length > 10_000) {
@@ -68,7 +110,47 @@ export async function getHistoryByShop(
   options?: ReminderHistoryQuery
 ): Promise<ReminderHistoryResult> {
   if (kvEnabled) {
-    return { total: 0, entries: [], pagination: { limit: options?.limit ?? 50, offset: options?.offset ?? 0, hasMore: false } };
+    try {
+      const limit = Math.min(Math.max(options?.limit ?? 50, 1), 500);
+      const offset = Math.max(options?.offset ?? 0, 0);
+      const status = options?.status;
+      const fromDate = options?.fromDate;
+      const toDate = options?.toDate;
+
+      const shopIdx = shopIndexKey(shopId);
+      const totalRaw = await safeKvCmd<number>(["ZCARD", shopIdx], -1);
+      if (totalRaw === -1 || totalRaw === null) {
+        return { total: 0, entries: [], pagination: { limit, offset, hasMore: false } };
+      }
+
+      const minScore = fromDate ?? "-inf";
+      const maxScore = toDate ?? "+inf";
+
+      const timestamps: string[] = await safeKvCmd<string[]>(["ZRANGEBYSCORE", shopIdx, String(minScore), String(maxScore), "LIMIT", offset, limit], []);
+
+      if (timestamps.length === 0) {
+        return { total: totalRaw, entries: [], pagination: { limit, offset, hasMore: false } };
+      }
+
+      const dataKeys = timestamps.map((ts) => dataKey(shopId, 0, Number(ts)));
+      const rawEntries = await safeKvCmd<string[]>(["MGET", ...dataKeys], []);
+
+      let entries = parseEntries(rawEntries);
+
+      if (status) {
+        entries = entries.filter((e) => e.status === status);
+      }
+
+      entries.reverse();
+
+      return {
+        total: totalRaw,
+        entries,
+        pagination: { limit, offset, hasMore: offset + limit < totalRaw },
+      };
+    } catch {
+      return { total: 0, entries: [], pagination: { limit: options?.limit ?? 50, offset: options?.offset ?? 0, hasMore: false } };
+    }
   }
 
   let filtered = memHistory.filter((e) => e.shopId === shopId);
@@ -91,7 +173,47 @@ export async function getHistoryByCustomer(
   options?: ReminderHistoryQuery
 ): Promise<ReminderHistoryResult> {
   if (kvEnabled) {
-    return { total: 0, entries: [], pagination: { limit: options?.limit ?? 50, offset: options?.offset ?? 0, hasMore: false } };
+    try {
+      const limit = Math.min(Math.max(options?.limit ?? 50, 1), 500);
+      const offset = Math.max(options?.offset ?? 0, 0);
+      const status = options?.status;
+      const fromDate = options?.fromDate;
+      const toDate = options?.toDate;
+
+      const shopCustIdx = shopCustIndexKey(shopId, customerId);
+      const totalRaw = await safeKvCmd<number>(["ZCARD", shopCustIdx], -1);
+      if (totalRaw === -1 || totalRaw === null) {
+        return { total: 0, entries: [], pagination: { limit, offset, hasMore: false } };
+      }
+
+      const minScore = fromDate ?? "-inf";
+      const maxScore = toDate ?? "+inf";
+
+      const timestamps: string[] = await safeKvCmd<string[]>(["ZRANGEBYSCORE", shopCustIdx, String(minScore), String(maxScore), "LIMIT", offset, limit], []);
+
+      if (timestamps.length === 0) {
+        return { total: totalRaw, entries: [], pagination: { limit, offset, hasMore: false } };
+      }
+
+      const dataKeys = timestamps.map((ts) => dataKey(shopId, customerId, Number(ts)));
+      const rawEntries = await safeKvCmd<string[]>(["MGET", ...dataKeys], []);
+
+      let entries = parseEntries(rawEntries);
+
+      if (status) {
+        entries = entries.filter((e) => e.status === status);
+      }
+
+      entries.reverse();
+
+      return {
+        total: totalRaw,
+        entries,
+        pagination: { limit, offset, hasMore: offset + limit < totalRaw },
+      };
+    } catch {
+      return { total: 0, entries: [], pagination: { limit: options?.limit ?? 50, offset: options?.offset ?? 0, hasMore: false } };
+    }
   }
 
   let filtered = memHistory.filter((e) => e.shopId === shopId && e.customerId === customerId);

@@ -21,6 +21,7 @@ vi.mock("../telegramStore.js", () => ({
 vi.mock("../reminderConfiguration.js", () => ({
   getCustomerFrequency: vi.fn(),
   isRemindersEnabled: vi.fn(),
+  setLastReminderSentAt: vi.fn(),
 }));
 
 vi.mock("../reminderSender.js", () => ({
@@ -28,11 +29,12 @@ vi.mock("../reminderSender.js", () => ({
 }));
 
 const { getSessionByChatId } = await import("../telegramStore.js");
-const { getCustomerFrequency } = await import("../reminderConfiguration.js");
+const { getCustomerFrequency, setLastReminderSentAt } = await import("../reminderConfiguration.js");
 const { sendBatchReminders } = await import("../reminderSender.js");
 
 const mockGetSessionByChatId = getSessionByChatId as ReturnType<typeof vi.fn>;
 const mockGetCustomerFrequency = getCustomerFrequency as ReturnType<typeof vi.fn>;
+const mockSetLastReminderSentAt = setLastReminderSentAt as ReturnType<typeof vi.fn>;
 const mockSendBatchReminders = sendBatchReminders as ReturnType<typeof vi.fn>;
 
 // Helper to create EligibleCustomer with sensible defaults
@@ -283,15 +285,15 @@ describe("reminderScheduler", () => {
     });
   });
 
-  describe("runRemindersForShop", () => {
-    it("schedules and sends queued reminders", async () => {
+  describe("auth routing", () => {
+    it("runRemindersForShop does not enforce cron secret — auth is handled by verifyReminderCronSecret at the route level in reminders.ts", async () => {
       mockGetSessionByChatId.mockResolvedValue({
         chatId: "123",
         updatesEnabled: true,
         telegramUsername: null,
       } as any);
       mockGetCustomerFrequency.mockResolvedValue("daily");
-      mockSendBatchReminders.mockResolvedValue({ sent: 1, failed: 0, results: [] });
+      mockSendBatchReminders.mockResolvedValue({ sent: 1, failed: 0, results: [{ success: true, retryCount: 0, lastAttemptAt: Date.now(), shouldRetry: false, shouldUnlink: false }] });
 
       const customers = [
         makeCustomer({
@@ -314,6 +316,130 @@ describe("reminderScheduler", () => {
       expect(stats.remindersSent).toBe(1);
       expect(stats.remindersFailed).toBe(0);
       expect(mockSendBatchReminders).toHaveBeenCalledTimes(1);
+      expect(mockSetLastReminderSentAt).toHaveBeenCalledWith(1, 1, expect.any(Number));
+    });
+  });
+
+  describe("runRemindersForShop", () => {
+    it("schedules and sends queued reminders", async () => {
+      mockGetSessionByChatId.mockResolvedValue({
+        chatId: "123",
+        updatesEnabled: true,
+        telegramUsername: null,
+      } as any);
+      mockGetCustomerFrequency.mockResolvedValue("daily");
+      mockSendBatchReminders.mockResolvedValue({ sent: 1, failed: 0, results: [{ success: true, retryCount: 0, lastAttemptAt: Date.now(), shouldRetry: false, shouldUnlink: false }] });
+
+      const customers = [
+        makeCustomer({
+          customerId: 1,
+          customerCreatedAt: Date.now() - 86400000,
+          reminderConfig: {
+            id: "cfg-1",
+            shopId: 1,
+            customerId: 1,
+            frequency: "daily",
+            lastReminderSentAt: null,
+            enabled: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        }),
+      ];
+
+      const stats = await runRemindersForShop(1, customers);
+      expect(stats.remindersSent).toBe(1);
+      expect(stats.remindersFailed).toBe(0);
+      expect(mockSendBatchReminders).toHaveBeenCalledTimes(1);
+      expect(mockSetLastReminderSentAt).toHaveBeenCalledWith(1, 1, expect.any(Number));
+    });
+
+    it("persists lastReminderSentAt only for successful sends", async () => {
+      mockGetSessionByChatId.mockResolvedValue({
+        chatId: "123",
+        updatesEnabled: true,
+        telegramUsername: null,
+      } as any);
+      mockGetCustomerFrequency.mockResolvedValue("daily");
+      mockSendBatchReminders.mockResolvedValue({
+        sent: 1,
+        failed: 1,
+        results: [
+          { success: true, retryCount: 0, lastAttemptAt: Date.now(), shouldRetry: false, shouldUnlink: false },
+          { success: false, retryCount: 0, lastAttemptAt: Date.now(), shouldRetry: false, shouldUnlink: false },
+        ],
+      });
+
+      const customers = [
+        makeCustomer({
+          customerId: 1,
+          customerCreatedAt: Date.now() - 86400000,
+          reminderConfig: {
+            id: "cfg-1",
+            shopId: 1,
+            customerId: 1,
+            frequency: "daily",
+            lastReminderSentAt: null,
+            enabled: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        }),
+        makeCustomer({
+          customerId: 2,
+          customerCreatedAt: Date.now() - 86400000,
+          reminderConfig: {
+            id: "cfg-2",
+            shopId: 1,
+            customerId: 2,
+            frequency: "daily",
+            lastReminderSentAt: null,
+            enabled: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        }),
+      ];
+
+      const stats = await runRemindersForShop(1, customers);
+      expect(stats.remindersSent).toBe(1);
+      expect(stats.remindersFailed).toBe(1);
+      expect(mockSetLastReminderSentAt).toHaveBeenCalledTimes(1);
+      expect(mockSetLastReminderSentAt).toHaveBeenCalledWith(1, 1, expect.any(Number));
+    });
+
+    it("logs error if setLastReminderSentAt fails but continues", async () => {
+      mockGetSessionByChatId.mockResolvedValue({
+        chatId: "123",
+        updatesEnabled: true,
+        telegramUsername: null,
+      } as any);
+      mockGetCustomerFrequency.mockResolvedValue("daily");
+      mockSendBatchReminders.mockResolvedValue({ sent: 1, failed: 0, results: [{ success: true, retryCount: 0, lastAttemptAt: Date.now(), shouldRetry: false, shouldUnlink: false }] });
+      mockSetLastReminderSentAt.mockRejectedValueOnce(new Error("Redis down"));
+
+      const customers = [
+        makeCustomer({
+          customerId: 1,
+          customerCreatedAt: Date.now() - 86400000,
+          reminderConfig: {
+            id: "cfg-1",
+            shopId: 1,
+            customerId: 1,
+            frequency: "daily",
+            lastReminderSentAt: null,
+            enabled: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        }),
+      ];
+
+      const stats = await runRemindersForShop(1, customers);
+      expect(stats.remindersSent).toBe(1);
+      expect(stats.errors).toHaveLength(1);
+      expect(stats.errors[0].customerId).toBe(1);
+      expect(mockSetLastReminderSentAt).toHaveBeenCalledTimes(1);
     });
   });
 });

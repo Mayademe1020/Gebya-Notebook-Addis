@@ -658,15 +658,18 @@ router.post("/webhook", async (req: Request, res: Response) => {
           requestId: res.locals.requestId,
           message: error instanceof Error ? error.message : "Unsubscribe failed",
         });
+        return res.status(500).json({
+          ok: false,
+          error: error instanceof Error ? error.message : "Failed to unsubscribe",
+        });
       }
     }
+    const message =
+      lang === "am"
+          ? "👋 ዛሬ ከዚህ በኋላ ማስታወሻዎች አንሰበርሙም። /subscribe ምትያብ ለእንደገና ማገናኘት።"
+        : "👋 You won't receive reminders anymore. Type /subscribe to opt back in.";
     try {
-      await sendTelegramTextMessage(
-        chatId,
-        lang === "am"
-          ? "ማሳወቂያዎችን ማጥፋት ተሳክቷል። ለማንቃት /subscribe ይተይቡ።"
-          : "You've unsubscribed from reminders. Type /subscribe to opt back in.",
-      );
+      await sendTelegramTextMessage(chatId, message);
     } catch (error) {
       console.error("[telegram:webhook:unsubscribe:reply]", {
         chatId,
@@ -675,7 +678,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
         message: error instanceof Error ? error.message : "Reply failed",
       });
     }
-    return res.json({ ok: true, unsubscribed: true });
+    return res.json({ ok: true, unsubscribed: Boolean(session) });
   }
 
   // ─── /subscribe ────────────────────────────────────────────────
@@ -693,15 +696,18 @@ router.post("/webhook", async (req: Request, res: Response) => {
           requestId: res.locals.requestId,
           message: error instanceof Error ? error.message : "Subscribe failed",
         });
+        return res.status(500).json({
+          ok: false,
+          error: error instanceof Error ? error.message : "Failed to subscribe",
+        });
       }
     }
+    const message =
+      lang === "am"
+        ? "✅ ዛሬ ወደ ዋናው ተሳክተዋል! ማስታወሻዎች ሊተገብሩ ይችላሉ።"
+        : "✅ You're back! You'll receive reminders again.";
     try {
-      await sendTelegramTextMessage(
-        chatId,
-        lang === "am"
-          ? "ማሳወቂያዎች እንደገና ተበርተዋል። ለማጥፋት /unsubscribe ይተይቡ።"
-          : "You'll receive reminders again. Type /unsubscribe to opt out.",
-      );
+      await sendTelegramTextMessage(chatId, message);
     } catch (error) {
       console.error("[telegram:webhook:subscribe:reply]", {
         chatId,
@@ -710,7 +716,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
         message: error instanceof Error ? error.message : "Reply failed",
       });
     }
-    return res.json({ ok: true, subscribed: true });
+    return res.json({ ok: true, subscribed: Boolean(session) });
   }
 
   // ─── /paid [amount] ────────────────────────────────────────────

@@ -10,16 +10,16 @@
  */
 export const MONTHS_AMHARIC = [
   "ጃንዋሪ",   // January
-  "ሕዳር",     // February
+  "ኅዳር",     // February
   "ማርች",    // March
   "ሚያዝያ",    // April
   "ግንቦት",    // May
-  "ሰኞ",      // June
+  "ሰኔ",       // June
   "ሐምሌ",     // July
   "ነሐሴ",     // August
   "መስከረም",   // September
   "ጠቅምት",    // October
-  "ሕዳር",     // November
+  "ኖቬምበር",   // November
   "ታሕሳስ",    // December
 ];
 

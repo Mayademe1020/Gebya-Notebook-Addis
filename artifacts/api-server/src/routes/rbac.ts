@@ -49,7 +49,7 @@ export async function requireDeviceContext(req: Request): Promise<DeviceContext 
     can_manage_team: member.role === "owner",
     can_delete_records: member.role === "owner",
     can_edit_settings: member.role === "owner",
-    can_add_records: true,
+    can_add_records: false,
     can_view_reports: true,
   };
 

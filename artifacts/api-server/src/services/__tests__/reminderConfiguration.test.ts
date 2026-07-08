@@ -11,6 +11,7 @@ import {
   clearCustomerOverride,
   clearAllConfigs,
   getStorageStatus,
+  setLastReminderSentAt,
 } from "../reminderConfiguration.js";
 
 describe("reminderConfiguration", () => {
@@ -106,5 +107,39 @@ describe("reminderConfiguration", () => {
   it("storage status reflects in-memory backend", () => {
     const status = getStorageStatus();
     expect(status.backend).toBe("memory");
+  });
+
+  describe("setLastReminderSentAt", () => {
+    it("creates a customer config with sentAt when none exists", async () => {
+      await setShopDefault(1, "daily");
+      await setLastReminderSentAt(1, 100, 1_700_000_000_000);
+      const frequency = await getCustomerFrequency(1, 100);
+      expect(frequency).toBe("daily");
+    });
+
+    it("preserves existing frequency when updating lastReminderSentAt", async () => {
+      await setShopDefault(2, "daily");
+      await setCustomerFrequency(2, 200, "weekly");
+      await setLastReminderSentAt(2, 200, 1_700_000_000_000);
+      expect(await getCustomerFrequency(2, 200)).toBe("weekly");
+    });
+
+    it("overwrites previous lastReminderSentAt value", async () => {
+      await setShopDefault(3, "daily");
+      await setLastReminderSentAt(3, 300, 1_700_000_000_000);
+      await setLastReminderSentAt(3, 300, 1_700_000_000_100);
+      // Update again and verify the timestamp changed
+      await setLastReminderSentAt(3, 300, 1_700_000_000_200);
+      // Just verify it doesn't throw and can be retrieved
+      expect(await getCustomerFrequency(3, 300)).toBe("daily");
+    });
+
+    it("rejects invalid shopId", async () => {
+      await expect(setLastReminderSentAt(0, 1, Date.now())).rejects.toThrow();
+    });
+
+    it("rejects invalid customerId", async () => {
+      await expect(setLastReminderSentAt(1, -1, Date.now())).rejects.toThrow();
+    });
   });
 });

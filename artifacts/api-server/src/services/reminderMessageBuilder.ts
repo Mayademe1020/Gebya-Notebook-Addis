@@ -47,7 +47,7 @@ export function formatCurrency(amount: number, language: ReminderLanguage): stri
  * @returns Formatted date string
  * 
  * English: "June 24, 2026"
- * Amharic: "ሰኞ ሰኞ 24, 2026" (simplified version without full localization)
+ * Amharic: "ሰኞ ማርች 24, 2026" (simplified version without full localization)
  */
 export function formatDate(timestamp: number, language: ReminderLanguage): string {
   // Validate timestamp
@@ -71,8 +71,8 @@ export function formatDate(timestamp: number, language: ReminderLanguage): strin
       ];
       // Month names in Amharic
       const monthNames = [
-        "ጃንዋሪ", "ፌብርዋሪ", "ማርች", "ኤፕሪል", "ሜይ", "ጁን",
-        "ጁላይ", "ኦገስት", "ሴፕቴምበር", "ኦክቶበር", "ኖቬምበር", "ዲሴምበር"
+        "ጃንዋሪ", "ኅዳር", "ማርች", "ሚያዝያ", "ግንቦት", "ሰኔ",
+        "ሐምሌ", "ነሐሴ", "መስከረም", "ጥቅምት", "ኖቬምበር", "ታሕሳስ"
       ];
 
       const dayOfWeek = dayNames[date.getDay()];

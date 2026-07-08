@@ -12,17 +12,17 @@ This plan implements Telegram Automated Reminders in 15 coordinated tasks. Remin
 
 - [x] 3. Create Reminder Message Builder Service — Build `ReminderMessageBuilderService` to create localized reminder messages in Amharic and English with balance, due date, and days held. Acceptance: Messages rendered correctly, placeholders filled, currency formatted, tests cover all variations.
 
-- [~] 4. Create Reminder Sender Service — Build `ReminderSenderService` to send queued reminders via Telegram with retry logic (3x, exponential backoff) and error handling. Acceptance: Reminders sent successfully, retry works, error handling classifies correctly, rate limiting prevents overload.
+- [x] 4. Create Reminder Sender Service — Build `ReminderSenderService` to send queued reminders via Telegram with retry logic (3x, exponential backoff) and error handling. Acceptance: Reminders sent successfully, retry works, error handling classifies correctly, rate limiting prevents overload.
 
-- [~] 5. Create Reminder Scheduler Service — Build `ReminderSchedulerService` to identify eligible customers and queue reminders daily based on balance, frequency, and last send time. Acceptance: Identifies customers with outstanding balance, respects frequency windows (24h/7d), queues reminders with metadata, deduplicates customers.
+- [x] 5. Create Reminder Scheduler Service — Build `ReminderSchedulerService` to identify eligible customers and queue reminders daily based on balance, frequency, and last send time. Acceptance: Identifies customers with outstanding balance, respects frequency windows (24h/7d), queues reminders with metadata, deduplicates customers.
 
-- [~] 6. Create Reminders API Routes — Build REST endpoints for reminder config, history, and manual sending at `/api/telegram/reminders/*`. Acceptance: All endpoints respond with correct codes, owner auth required, frequency validation works, history pagination works.
+- [x] 6. Create Reminders API Routes — Build REST endpoints for reminder config, history, and manual sending at `/api/telegram/reminders/*`. Acceptance: All endpoints respond with correct codes, owner auth required, frequency validation works, history pagination works.
 
-- [~] 7. Update Telegram Webhook for /unsubscribe & /subscribe Commands — Add command handlers to webhook for customer opt-in/opt-out control. Acceptance: /unsubscribe sets updatesEnabled=false, /subscribe sets true, session persists, confirmation messages sent.
+- [x] 7. Update Telegram Webhook for /unsubscribe & /subscribe Commands — Add command handlers to webhook for customer opt-in/opt-out control. Acceptance: /unsubscribe sets updatesEnabled=false, /subscribe sets true, session persists, confirmation messages sent.
 
-- [~] 8. Create Reminder Cron Job / Scheduler Entry Point — Build `POST /api/telegram/reminders/run` endpoint (called by Vercel Cron or external scheduler) to execute daily reminders. Acceptance: Endpoint callable via cron, executes all shops, returns summary, logs activity.
+- [x] 8. Create Reminder Cron Job / Scheduler Entry Point — Build `POST /api/telegram/reminders/run` endpoint (called by Vercel Cron or external scheduler) to execute daily reminders. Acceptance: Endpoint callable via cron, executes all shops, returns summary, logs activity.
 
-- [~] 9. Implement Reminder History Persistence — Store reminder send attempts for audit trail in database or KV. Acceptance: Entries stored and retrieved, queryable by shop/customer, cleanup removes old entries (>90 days), queries fast.
+- [x] 9. Implement Reminder History Persistence — Store reminder send attempts for audit trail in database or KV. Acceptance: Entries stored and retrieved, queryable by shop/customer, cleanup removes old entries (>90 days), queries fast.
 
 - [x] 10. Add Message Templates & Localization Utilities — Create centralized message templates and localization helpers in `src/utils/messageTemplates.ts`. Acceptance: Templates render correctly, formatting matches cultural norms, edge cases handled, easily testable.
 

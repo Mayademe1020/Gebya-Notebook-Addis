@@ -25,7 +25,7 @@ import {
   isRemindersEnabled,
 } from "../services/reminderConfiguration.js";
 import { runRemindersForShop } from "../services/reminderScheduler.js";
-import { getHistoryByShop, getHistoryByCustomer } from "../services/reminderHistory.js";
+import { queryHistory } from "../services/reminderSender.js";
 import { getTelegramLinkSession } from "../services/telegramStore.js";
 import { buildReminderMessage } from "../services/reminderMessageBuilder.js";
 import { sendTelegramTextMessage } from "../services/telegramBotService.js";
@@ -446,25 +446,11 @@ router.get("/history",
       ? parseInt(String(req.query.toDate), 10)
       : undefined;
 
-    let result: { total: number; entries: import("../types/reminders.js").ReminderHistoryEntry[] };
-
-    if (customerId && customerId > 0) {
-      const historyResult = await getHistoryByCustomer(shopId, customerId, {
-        limit: Math.min(Math.max(limit, 1), 200),
-        offset: Math.max(offset, 0),
-        fromDate: fromDate && Number.isFinite(fromDate) ? fromDate : undefined,
-        toDate: toDate && Number.isFinite(toDate) ? toDate : undefined,
-      });
-      result = { total: historyResult.total, entries: historyResult.entries };
-    } else {
-      const historyResult = await getHistoryByShop(shopId, {
-        limit: Math.min(Math.max(limit, 1), 200),
-        offset: Math.max(offset, 0),
-        fromDate: fromDate && Number.isFinite(fromDate) ? fromDate : undefined,
-        toDate: toDate && Number.isFinite(toDate) ? toDate : undefined,
-      });
-      result = { total: historyResult.total, entries: historyResult.entries };
-    }
+    const result = await queryHistory(shopId, {
+      limit: Math.min(Math.max(limit, 1), 200),
+      offset: Math.max(offset, 0),
+      customerId: customerId && customerId > 0 ? customerId : undefined,
+    });
 
     return res.json(result);
   } catch (error) {

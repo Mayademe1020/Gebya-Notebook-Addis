@@ -62,9 +62,8 @@ describe("reminderHistory", () => {
       expect(entry.customerId).toBe(1);
       expect(entry.status).toBe("sent");
       expect(entry.retryCount).toBe(0);
-      expect(entry.acknowledged).toBe(undefined); // optional field, not set here
+      expect(entry.acknowledged).toBeUndefined(); // acknowledged is optional, not provided by default
       expect(getStoredHistoryCount()).toBe(1);
-    });
     });
   });
 
@@ -117,37 +116,37 @@ describe("reminderHistory", () => {
   });
 
   describe("deleteOldEntries", () => {
-  it("removes entries older than cutoff", async () => {
-    // Production createHistoryEntry always assigns createdAt: new Date().
-    // Verify the cutoff behavior by creating entries first, then mutating theirinternal timestamps
-    // through a small test-only patch. In production, createdAt would naturally age.
-    const now = Date.now();
-    const cut = now - 1000;
-    const a = await createHistoryEntry({
-      shopId: 1,
-      customerId: 1,
-      chatId: "123",
-      balanceAtSendTime: "100",
-      sentAt: now,
-      status: "sent",
-      language: "en",
+    it("removes entries older than cutoff", async () => {
+      // Production createHistoryEntry always assigns createdAt: new Date().
+      // Verify the cutoff behavior by creating entries first, then mutating theirinternal timestamps
+      // through a small test-only patch. In production, createdAt would naturally age.
+      const now = Date.now();
+      const cut = now - 1000;
+      const a = await createHistoryEntry({
+        shopId: 1,
+        customerId: 1,
+        chatId: "123",
+        balanceAtSendTime: "100",
+        sentAt: now,
+        status: "sent",
+        language: "en",
+      });
+      const b = await createHistoryEntry({
+        shopId: 1,
+        customerId: 1,
+        chatId: "123",
+        balanceAtSendTime: "100",
+        sentAt: now + 1,
+        status: "sent",
+        language: "en",
+      });
+      (a as any).createdAt = new Date(cut);
+      (b as any).createdAt = new Date();
+      const before = getStoredHistoryCount();
+      const result = await deleteOldEntries(now);
+      expect(result.deletedCount).toBeGreaterThanOrEqual(0);
+      expect(getStoredHistoryCount()).toBeLessThanOrEqual(before);
     });
-    const b = await createHistoryEntry({
-      shopId: 1,
-      customerId: 1,
-      chatId: "123",
-      balanceAtSendTime: "100",
-      sentAt: now + 1,
-      status: "sent",
-      language: "en",
-    });
-    (a as any).createdAt = new Date(cut);
-    (b as any).createdAt = new Date();
-    const before = getStoredHistoryCount();
-    const result = await deleteOldEntries(now);
-    expect(result.deletedCount).toBeGreaterThanOrEqual(0);
-    expect(getStoredHistoryCount()).toBeLessThanOrEqual(before);
-  });
   });
 
   describe("getStats", () => {
@@ -175,10 +174,13 @@ describe("reminderHistory", () => {
 
     it("returns latest queued reminder for customer", async () => {
       const base = makeEntry({ shopId: 1, customerId: 1, status: "queued" });
-      const created1 = await createHistoryEntry(base);
+      await createHistoryEntry(base);
+      // Add a slight delay to ensure different timestamps
+      await new Promise((resolve) => setTimeout(resolve, 5));
       const created2 = await createHistoryEntry(base);
 
       const latest = await getLatestQueuedReminderForCustomer(1);
       expect(latest?.id).toBe(created2.id);
     });
   });
+});

@@ -27,7 +27,9 @@ function log(level: "info" | "warn" | "error", message: string, context?: Record
 // ─── helper: language detection ────────────────────────────────────────
 
 function detectLanguage(langCode?: string | null): ReminderLanguage {
-  return langCode?.toLowerCase().startsWith("am") ? "am" : "en";
+  const lc = langCode?.toLowerCase() ?? "";
+  if (lc.startsWith("am") || lc.startsWith("@am")) return "am";
+  return "en";
 }
 
 // ─── helper: time windows ──────────────────────────────────────────────
@@ -152,24 +154,18 @@ export async function scheduleReminders(
       // Check if customer has Telegram session OR phone number for SMS fallback
       const hasTelegram = !!customer.chatId;
       const hasPhone = !!customer.phoneNumber;
-
-      // Skip if no way to reach customer
-      if (!hasTelegram && !hasPhone) {
-        stats.remindersSkipped++;
-        continue;
-      }
-
-      // For Telegram: check session and updatesEnabled
       let session = null;
       if (hasTelegram) {
         session = await getSessionByChatId(customer.chatId);
-        if (session && (!session.updatesEnabled || !customer.updatesEnabled)) {
-          // Telegram disabled, but might still have phone for SMS
-          if (!hasPhone) {
-            stats.remindersSkipped++;
-            continue;
-          }
-        }
+      }
+
+      const telegramUsable =
+        hasTelegram && session && session.updatesEnabled && customer.updatesEnabled;
+
+      // Skip if neither Telegram nor phone can reach the customer
+      if (!telegramUsable && !hasPhone) {
+        stats.remindersSkipped++;
+        continue;
       }
 
       // Check frequency settings
