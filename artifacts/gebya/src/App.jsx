@@ -1361,7 +1361,15 @@ function AppInner() {
 
   const handleUpdateTransaction = async (id, updates) => {
     try {
-      await db.transactions.update(id, { ...updates, updated_at: Date.now() });
+      const { actor_role, actor_name_snapshot } = buildActorSnapshot();
+      await db.transactions.update(id, {
+        ...updates,
+        was_edited: true,
+        edited_at: Date.now(),
+        edited_by_name: actor_name_snapshot,
+        edited_by_role: actor_role,
+        updated_at: Date.now(),
+      });
       const updated = await db.transactions.get(id);
       setTransactions(prev => prev.map(t2 => t2.id === id ? updated : t2));
     } catch (err) {
@@ -1949,6 +1957,12 @@ function AppInner() {
           ...(existing.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT
             ? { photos: [], photo: null, photo_taken_at: null }
             : buildPhotoFields(normalizePhotos(payload))),
+          was_edited: true,
+          edited_at: now,
+          ...(() => {
+            const s = buildActorSnapshot();
+            return { edited_by_name: s.actor_name_snapshot, edited_by_role: s.actor_role };
+          })(),
           updated_at: now,
         };
         await db.supplier_transactions.update(payload.editing_id, nextEntry);
@@ -2004,6 +2018,7 @@ function AppInner() {
         quantity: payload.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD ? (Number(payload.quantity) || 1) : null,
         amount,
         note: payload.note || null,
+        due_date: payload.due_date || null,
         // Product proof photos (base64 data URLs, non-indexed Dexie property).
         ...(payload.type === SUPPLIER_TRANSACTION_TYPES.PAYMENT
           ? { photos: [], photo: null, photo_taken_at: null }
@@ -2081,6 +2096,13 @@ function AppInner() {
         quantity: updates.type === SUPPLIER_TRANSACTION_TYPES.PURCHASE_ADD ? (Number(updates.quantity) || 1) : null,
         amount,
         note: updates.note || null,
+        due_date: updates.due_date || null,
+        was_edited: true,
+        edited_at: now,
+        ...(() => {
+          const s = buildActorSnapshot();
+          return { edited_by_name: s.actor_name_snapshot, edited_by_role: s.actor_role };
+        })(),
         updated_at: now,
       };
 
@@ -2241,6 +2263,7 @@ function AppInner() {
       const proofFields = existing.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT
         ? { photos: [], photo: null, photo_taken_at: null }
         : buildPhotoFields(normalizePhotos(originalPayload));
+      const { actor_role, actor_name_snapshot } = buildActorSnapshot();
       const updates = {
         type: draft.type,
         amount: draft.amount,
@@ -2253,6 +2276,10 @@ function AppInner() {
         ...proofFields,
         // Commit C.6: descriptive quantity ("5 sacks of sugar"). null on payment.
         quantity: originalPayload?.quantity != null ? Number(originalPayload.quantity) : null,
+        was_edited: true,
+        edited_at: Date.now(),
+        edited_by_name: actor_name_snapshot,
+        edited_by_role: actor_role,
         updated_at: Date.now(),
       };
       await db.customer_transactions.update(editingId, updates);
