@@ -1,10 +1,10 @@
-// TransactionForm.jsx Ã¢â‚¬â€ single-screen v4 redesign.
+// TransactionForm.jsx — single-screen v4 redesign.
 //
 // Renders an inline (not-modal) page covering the screen except the bottom nav.
-// User can navigate away via the bottom nav at any time Ã¢â‚¬â€ no trap.
+// User can navigate away via the bottom nav at any time — no trap.
 //
 // Layout (top to bottom):
-//   - Header: Ã¢â€ Â back, colored type label
+//   - Header: ← back, colored type label
 //   - Scrollable body:
 //       actor chip
 //       credit direction (credit only)
@@ -19,7 +19,7 @@
 //   - Sticky bottom: solid colored save button per type
 //
 // Preserves all existing handlers, save data shape, success screen, recurring popup.
-// NEW: photo capture (B-009) Ã¢â‚¬â€ base64 stored on transaction record.
+// NEW: photo capture (B-009) — base64 stored on transaction record.
 
 import { useMemo, useState, useRef, useEffect } from 'react';
 import {
@@ -38,7 +38,7 @@ import EthiopianDatePicker from './EthiopianDatePicker';
 import { getDueDateOptions, formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
-import { buildPhotoFields, createPhotoProof } from '../utils/photoProof';
+import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import { db } from '../db';
 import {
   trackSuggestionShown,
@@ -68,7 +68,7 @@ function parseItemDraft(input, catalogEntries = []) {
   });
   if (exactCatalog) return { kind: 'catalog', entry: exactCatalog, raw };
 
-  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[xÃƒâ€”]\s*(\d+(?:\.\d+)?)$/i);
+  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
   if (qtyMatch) {
     const qty = Number(qtyMatch[2]);
     const unitPrice = Number(qtyMatch[3]);
@@ -95,7 +95,7 @@ function parseItemInput(raw) {
     return { kind: 'item', name: namePrice[1].trim(), unitPrice: Number(namePrice[2]), qty: 1, raw }
   }
 
-  const qtyName = trimmed.match(/^(\d+)\s*[xÃƒâ€”]\s*(.+)$/i)
+  const qtyName = trimmed.match(/^(\d+)\s*[x×]\s*(.+)$/i)
   if (qtyName) {
     return { kind: 'item', name: qtyName[2].trim(), qty: Number(qtyName[1]), unitPrice: null, raw }
   }
@@ -127,16 +127,16 @@ function TransactionForm({
    initialPaymentProvider,
    lastPaymentHistory,
    setActiveTab,
-   editingTransaction,  // Seamless editing (Ã‚Â§8) Ã¢â‚¬â€ prefills all fields for edit
+   editingTransaction,  // Seamless editing (§8) — prefills all fields for edit
  }) {
   const { lang, t } = useLang();
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Type config (color, header label, icon, save button text) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Type config (color, header label, icon, save button text) ─────────
   const headerLabel = {
-    sale: lang === 'am' ? '+ Ã¡Ë†Â½Ã¡â€¹Â«Ã¡Å’Â­' : '+ Sale',
-    expense: lang === 'am' ? 'Ã¢Ë†â€™ Ã¡â€¹Ë†Ã¡Å’Âª' : 'Ã¢Ë†â€™ Expense',
-    credit: lang === 'am' ? 'Ã¢â€ Â» Ã¡â€¹Â±Ã¡â€°Â¤' : 'Ã¢â€ Â» Credit',
-  }[type] || (lang === 'am' ? '+ Ã¡Ë†Â½Ã¡â€¹Â«Ã¡Å’Â­' : '+ Sale');
+    sale: lang === 'am' ? '+ ሽያጭ' : '+ Sale',
+    expense: lang === 'am' ? '− ወጪ' : '− Expense',
+    credit: lang === 'am' ? '↻ ዱቤ' : '↻ Credit',
+  }[type] || (lang === 'am' ? '+ ሽያጭ' : '+ Sale');
 
   const accentColor = {
     sale: '#16a34a',
@@ -148,22 +148,22 @@ function TransactionForm({
   const isExpense = type === 'expense';
 
   const itemPlaceholder = isCredit
-    ? (lang === 'am' ? 'Ã¡Ë†Ë†Ã¡Ë†ÂÃ¡Ë†Â³Ã¡Ë†Å’ Ã¡Å Â Ã¡â€°Â Ã¡â€°Â Ã¢â‚¬Â¦' : 'e.g. Abebe...')
+    ? (lang === 'am' ? 'ለምሳሌ አበበ…' : 'e.g. Abebe...')
     : isExpense
-      ? (lang === 'am' ? 'Ã¡â€¹ÂÃ¡Ë†Â­Ã¡â€¹ÂÃ¡Ë†Â©Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ËœÃ¡â€¹ÂÃ¡â€°Â¡...' : 'Add details...')
-      : (lang === 'am' ? 'Ã¡â€¹ÂÃ¡Ë†Â­Ã¡â€¹ÂÃ¡Ë†Â©Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ËœÃ¡â€¹ÂÃ¡â€°Â¡...' : 'Add details...');
+      ? (lang === 'am' ? 'ዝርዝሩን ይመዝቡ...' : 'Add details...')
+      : (lang === 'am' ? 'ዝርዝሩን ይመዝቡ...' : 'Add details...');
 
   const itemLabel = isCredit
-    ? (lang === 'am' ? 'Ã¡Ë†ÂµÃ¡Ë†Â' : 'NAME')
-    : (lang === 'am' ? 'Ã¡â€¹â€¢Ã¡â€°Æ’ / Ã¡Å Â Ã¡Å’Ë†Ã¡Ë†ÂÃ¡Å’ÂÃ¡Ë†Å½Ã¡â€°Âµ (Ã¡Å Â Ã¡Ë†â€ºÃ¡Ë†Â«Ã¡Å’Â­)' : 'Item / Service (Optional)');
+    ? (lang === 'am' ? 'ስም' : 'NAME')
+    : (lang === 'am' ? 'ዕቃ / አገልግሎት (አማራጭ)' : 'Item / Service (Optional)');
 
   const saveButtonText = isCredit
-    ? (lang === 'am' ? 'Ã¡â€¹Â±Ã¡â€°Â¤ Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save Dubie')
+    ? (lang === 'am' ? 'ዱቤ አስቀምጥ' : 'Save Dubie')
     : isExpense
-      ? (lang === 'am' ? 'Ã¡â€¹Ë†Ã¡Å’Âª Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save Expense')
-      : (lang === 'am' ? 'Ã¡Ë†Â½Ã¡â€¹Â«Ã¡Å’Â­ Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save Sale');
+      ? (lang === 'am' ? 'ወጪ አስቀምጥ' : 'Save Expense')
+      : (lang === 'am' ? 'ሽያጭ አስቀምጥ' : 'Save Sale');
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ State Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── State ──────────────────────────────────────────────────────────────
   const [item, setItem] = useState('');
   const [catalogEntryId, setCatalogEntryId] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -223,7 +223,7 @@ function TransactionForm({
     return () => clearTimeout(timer);
   }, [undoStack]);
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Derived Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Derived ────────────────────────────────────────────────────────────
   const dueDateOptions = getDueDateOptions();
   const selectedCatalogEntry =
     catalogEntries.find(entry => String(entry.id) === String(catalogEntryId)) || null;
@@ -240,7 +240,7 @@ function TransactionForm({
         || (selectedDue === 'custom' && customDue)
     : true;
 
-  // Context-aware Quick Items ranking (spec Ã‚Â§4.2)
+  // Context-aware Quick Items ranking (spec §4.2)
   // Considers: frequency, recency, time-of-day affinity, price memory, acceptance rate
   const activeCatalogItems = useMemo(() => {
     const now = Date.now();
@@ -269,7 +269,7 @@ function TransactionForm({
   }, [catalogEntries]);
   const topCatalogItems = activeCatalogItems.slice(0, 8);
 
-  // Multi-item breakdown Ã¢â‚¬â€ derived
+  // Multi-item breakdown — derived
   const lineItemsTotal = lineItems.reduce((sum, l) => {
     const v = parseFloat(parseInput(l.amount));
     return sum + (isNaN(v) ? 0 : v);
@@ -280,7 +280,6 @@ function TransactionForm({
   const breakdownDelta = sellingPrice - lineItemsTotal; // +ve: items < total, -ve: items > total
 
   // Credit payment handling
-  const effectiveSellingPrice = type === 'sale' ? saleFinalAmount : sellingPrice;
   const creditAmount = !isCredit && paymentType === 'credit' ? effectiveSellingPrice : 0;
   const saleItemDraft = useMemo(
     () => parseItemDraft(saleItemInput, activeCatalogItems),
@@ -329,6 +328,8 @@ function TransactionForm({
   const activeSalePayment = salePaymentOptions.find(option => option.id === selectedSalePaymentId) || salePaymentOptions[0];
   const isCreditSale = paymentType === 'credit';
 
+  const effectiveSellingPrice = type === 'sale' ? saleFinalAmount : sellingPrice;
+
   // Item is OPTIONAL for sale/expense; REQUIRED (as customer name) for credit
   // For Credit payment mode, a customer is required.
    const canSave =
@@ -337,14 +338,14 @@ function TransactionForm({
      && (!phoneEntered || phoneValid)
      && !isSaving
      && (!isCreditSale || !!customerMatch);
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Handlers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Handlers ───────────────────────────────────────────────────────────
   const getEffectiveDueDate = () => {
     if (selectedDue === 'custom' && customDue) return new Date(customDue).getTime();
     return selectedDue;
   };
 
   const handlePhotoCapture = async (e) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []).slice(0, Math.max(0, MAX_PROOF_PHOTOS - photos.length));
     if (files.length === 0) return;
     setPhotoLoading(true);
     setPhotoError(null);
@@ -352,7 +353,7 @@ function TransactionForm({
       const nextPhotos = await Promise.all(files.map(async (file) => (
         createPhotoProof(await compressPhoto(file))
       )));
-      setPhotos(prev => [...prev, ...nextPhotos.filter(Boolean)]);
+      setPhotos(prev => [...prev, ...nextPhotos.filter(Boolean)].slice(0, MAX_PROOF_PHOTOS));
     } catch (err) {
       setPhotoError(err.message || 'Photo capture failed');
     } finally {
@@ -365,22 +366,6 @@ function TransactionForm({
   const handleRemovePhoto = (photoId) => {
     setPhotos(prev => prev.filter(photo => photo.id !== photoId));
     setPhotoError(null);
-  };
-
-  const handleClear = () => {
-    setItem('');
-    setAmount('');
-    setSaleItemInput('');
-    setSaleItems([{ id: 'new-0', name: '', code: '', amount: '', qty: '1', unit_price: '', line_total: '', catalog_entry_id: null, item_kind: 'item', photo_uri: null }]);
-    setPhotos([]);
-    setPhoneDigits('');
-    setSelectedDue(null);
-    setCustomDue('');
-    setCatalogEntryId('');
-    setShowBreakdown(false);
-    setPhotoError(null);
-    setPhotoLoading(false);
-    if (onDone) onDone();
   };
 
   const handleSave = async () => {
@@ -529,7 +514,7 @@ try {
   }
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Multi-item breakdown handlers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Multi-item breakdown handlers ─────────────────────────────────────
   const addLineItem = (preset = {}) => {
     setLineItems(prev => [
       ...prev,
@@ -566,7 +551,7 @@ try {
     if (lineItemsTotal > 0) setAmount(String(lineItemsTotal));
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Inline custom-amount add Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Inline custom-amount add ──────────────────────────────────────────
   const applyCustomAmount = () => {
     const val = parseFloat(parseInput(customAmountValue));
     if (!val || val <= 0) return;
@@ -580,7 +565,7 @@ try {
     setShowCustomAmount(false);
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Inline catalog add Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Inline catalog add ───────────────────────────────────────────────
   const submitNewCatalog = async () => {
     if (!newCatalogName.trim() || !onSaveCatalogEntry || catalogSaving) return;
     setCatalogSaving(true);
@@ -737,14 +722,14 @@ try {
   const buildSaleSaveLabel = () => {
     if (saleFinalAmount <= 0) return photos.length > 0 ? 'Add amount to save photo sale' : 'Save';
     if (isCreditSale) {
-      return `Save Credit Ã‚Â· ${fmt(saleFinalAmount)} ETB`;
+      return `Save Credit · ${fmt(saleFinalAmount)} ETB`;
     }
     if (saleItems.length > 0) {
       const itemCount = saleUnitCount || saleItems.length;
-      return `Save ${itemCount} ${itemCount === 1 ? 'item' : 'items'} Ã‚Â· ${fmt(saleFinalAmount)} ETB`;
+      return `Save ${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`;
     }
-    if (photos.length > 0) return `Save photo sale Ã‚Â· ${fmt(saleFinalAmount)} ETB`;
-    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} Ã‚Â· ${fmt(saleFinalAmount)} ETB`;
+    if (photos.length > 0) return `Save photo sale · ${fmt(saleFinalAmount)} ETB`;
+    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(saleFinalAmount)} ETB`;
     return `Save ${fmt(saleFinalAmount)} ETB`;
   };
 
@@ -770,7 +755,7 @@ try {
     setTimeout(() => setAddRecurringHint(false), 4000);
   };
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main form Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ─── Main form ──────────────────────────────────────────────────────────
   if (type === 'sale') {
     const saleSaveLabel = buildSaleSaveLabel();
     const canAddSaleItem = saleItemDraft.kind === 'item' || saleItemDraft.kind === 'catalog';
@@ -786,7 +771,7 @@ try {
         >
           <button
             onClick={onDone}
-            aria-label={lang === 'am' ? 'Ã¡â€°Â°Ã¡Ë†ËœÃ¡Ë†Ë†Ã¡Ë†Âµ' : 'Back'}
+            aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
             className="press-scale flex items-center justify-center"
             style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
           >
@@ -813,7 +798,7 @@ try {
                 </p>
               </div>
               <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>
-                {activeSalePayment.label} Ã¢â€“Â¾
+                {activeSalePayment.label} ▾
               </span>
             </div>
 <div className="px-3 pb-3">
@@ -850,7 +835,7 @@ try {
                 style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }}
                 aria-label="Take or choose photo"
               >
-                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
+                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS} />
                 {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
               </label>
               <input
@@ -863,13 +848,13 @@ try {
                   setParsedPreview(parseItemInput(val))
                 }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); } }}
-                placeholder={lang === 'am' ? 'Ã¡Å â€¢Ã¡Å’Â¥Ã¡Ë†Â Ã¡â€¹Ë†Ã¡â€¹Â­Ã¡Ë†Â "Ã¡Ë†ÂµÃ¡Å â€¢Ã¡â€¹Â´ 40"' : 'Item  or  "Sugar 40"'}
+                placeholder={lang === 'am' ? 'ንጥል ወይም "ስንዴ 40"' : 'Item  or  "Sugar 40"'}
                 className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-base"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: saleItemInput ? '#86efac' : '#d7e3da' }}
               />
               {parsedPreview?.kind === 'item' && parsedPreview.unitPrice && (
                 <div className="text-xs text-gray-400 mt-1 px-1">
-                  Ã¢â€ â€™ {parsedPreview.name} Ã‚Â· {parsedPreview.unitPrice} ETB
+                  → {parsedPreview.name} · {parsedPreview.unitPrice} ETB
                 </div>
               )}
               <button
@@ -882,7 +867,7 @@ try {
                 Add Item
               </button>
             </div>
-            {/* Draft Item preview card (spec Ã‚Â§3.3) Ã¢â‚¬â€ shows before adding so merchant
+            {/* Draft Item preview card (spec §3.3) — shows before adding so merchant
                 can correct the text or accept an autocomplete suggestion first. */}
             {saleItemInput.trim() && !canAddSaleItem && (
               <div className="p-2 border text-sm flex items-center justify-between" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#faf9f7' }}>
@@ -895,7 +880,7 @@ try {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-black truncate" style={{ color: '#14532d' }}>{parsedPreview.name}</p>
-                    <p className="text-xs" style={{ color: '#4b6855' }}>Qty: {parsedPreview.qty || 1} Ã‚Â· Unit: {fmt(parsedPreview.unitPrice || 0)} ETB</p>
+                    <p className="text-xs" style={{ color: '#4b6855' }}>Qty: {parsedPreview.qty || 1} · Unit: {fmt(parsedPreview.unitPrice || 0)} ETB</p>
                   </div>
                   <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt((parsedPreview.qty || 1) * (parsedPreview.unitPrice || 0))} ETB</p>
                 </div>
@@ -910,7 +895,7 @@ try {
               </div>
             )}
 {photos.length > 0 && (
-               <p className="text-xs font-black" style={{ color: '#14532d' }}>Ã¢Å“â€œ {photos.length} photo attached</p>
+               <p className="text-xs font-black" style={{ color: '#14532d' }}>✓ {photos.length} photo attached</p>
              )}
             {photoError && <p className="text-xs font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
           </section>
@@ -988,7 +973,7 @@ try {
                     <div className="min-w-0">
                       <p className="text-sm font-black truncate" style={{ color: '#111827' }}>{line.name}</p>
                       {line.code && <p className="text-xs" style={{ color: '#6b7280' }}>{line.code}</p>}
-                      <p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} Ã‚Â· Unit: {fmt(line.unit_price)}</p>
+                      <p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} · Unit: {fmt(line.unit_price)}</p>
                     </div>
                     <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(line.line_total)} ETB</p>
                   </div>
@@ -1034,7 +1019,7 @@ try {
             onPointerDown={() => setPaymentType('cash')}
             className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'cash' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
           >
-            {lang === 'am' ? 'Ã¡Å’Â¥Ã¡Ë†Â¬' : 'Cash'}
+            {lang === 'am' ? 'ጥሬ' : 'Cash'}
           </button>
           {[
             ...(enabledProviders?.banks || []),
@@ -1052,14 +1037,14 @@ try {
             onPointerDown={() => setPaymentType('credit')}
             className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${paymentType === 'credit' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300'}`}
           >
-            {lang === 'am' ? 'Ã¡â€¹Â±Ã¡â€°Â¤' : 'Credit'}
+            {lang === 'am' ? 'ዱቤ' : 'Credit'}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab?.('settings')}
             className="shrink-0 px-3 py-2 rounded-full text-sm font-bold border-2 border-dashed press-scale"
             style={{ borderColor: '#c9bfa8', background: '#faf9f7', color: '#9ca3af', whiteSpace: 'nowrap' }}
-            aria-label={lang === 'am' ? 'Ã¡Å Â Ã¡Å Â­Ã¡Ë†Â' : 'Add provider'}
+            aria-label={lang === 'am' ? 'አክል' : 'Add provider'}
           >
             +
           </button>
@@ -1069,25 +1054,6 @@ try {
 
         <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8', background: '#fff' }}>
           {!canSave && saleFinalAmount > 0 && isCreditSale && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>Add or pick a customer above</p>}
-          <div className="flex gap-2 mb-2">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="flex-1 p-2.5 font-bold text-sm flex items-center justify-center gap-1.5 transition-all press-scale"
-              style={{ background: '#fff', color: '#6b7280', border: '2px solid #e8e2d8', borderRadius: 'var(--radius-md)' }}
-            >
-              <X className="w-4 h-4" />
-              {lang === 'am' ? 'Ã¡Ë†â€ºÃ¡Ë†ÂµÃ¡â€¹Ë†Ã¡Å’Ë†Ã¡â€¹Âµ' : 'Clear'}
-            </button>
-            <button
-              type="button"
-              onClick={onDone}
-              className="flex-1 p-2.5 font-bold text-sm flex items-center justify-center gap-1.5 transition-all press-scale"
-              style={{ background: '#fff', color: '#6b7280', border: '2px solid #e8e2d8', borderRadius: 'var(--radius-md)' }}
-            >
-              {lang === 'am' ? 'Ã¡Ë†Â°Ã¡Ë†Â­Ã¡â€¹Â' : 'Cancel'}
-            </button>
-          </div>
           <button
             type="button"
             onClick={handleSave}
@@ -1098,19 +1064,14 @@ try {
             <Save className="w-5 h-5" />
             {saleSaveLabel}
           </button>
-          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone Ã‚Â· Syncs later</p>
+          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone · Syncs later</p>
         </div>
 
         {showUndo && (
           <div className="fixed bottom-16 left-0 right-0 mx-auto max-w-md px-3 z-50">
-            <div className="bg-white border shadow-lg flex items-center justify-between gap-2 px-4 py-3" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-md)' }}>
-              <span className="text-sm font-bold" style={{ color: '#14532d' }}>{lang === 'am' ? 'Ã¡â€°Â°Ã¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â§Ã¡Ë†Â' : 'Saved'}</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => { setShowUndo(false); handleClear(); }} className="text-sm font-black px-3 py-1.5 rounded-md" style={{ background: '#14532d', color: '#fff' }}>
-                  {lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ Ã¡Å Â Ã¡Å Â­Ã¡Ë†Â' : 'Add New'}
-                </button>
-                <button type="button" onClick={handleUndo} className="text-sm font-black" style={{ color: '#dc2626' }}>UNDO</button>
-              </div>
+            <div className="bg-white border shadow-lg flex items-center justify-between px-4 py-3" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-md)' }}>
+              <span className="text-sm font-bold" style={{ color: '#14532d' }}>Sale saved</span>
+              <button type="button" onClick={handleUndo} className="text-sm font-black" style={{ color: '#dc2626' }}>UNDO</button>
             </div>
           </div>
         )}
@@ -1131,7 +1092,7 @@ try {
       >
         <button
           onClick={onDone}
-          aria-label={lang === 'am' ? 'Ã¡â€°Â°Ã¡Ë†ËœÃ¡Ë†Ë†Ã¡Ë†Âµ' : 'Back'}
+          aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
           className="press-scale flex items-center justify-center"
           style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
         >
@@ -1158,12 +1119,12 @@ try {
         {isCredit && (
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡Å Â Ã¡â€°â€¦Ã¡Å’Â£Ã¡Å’Â«' : 'DIRECTION'}
+              {lang === 'am' ? 'አቅጣጫ' : 'DIRECTION'}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'owes_me', label: lang === 'am' ? 'Ã¡â€¹Â«Ã¡â€°Â Ã¡â€¹Â°Ã¡Ë†Â­Ã¡Å Â©Ã¡â€°Âµ' : 'They owe me' },
-                { id: 'i_owe',   label: lang === 'am' ? 'Ã¡â€¹Â¨Ã¡â€°Â°Ã¡â€°Â Ã¡â€¹Â°Ã¡Ë†Â­Ã¡Å Â©Ã¡â€°Âµ' : 'I owe them' },
+                { id: 'owes_me', label: lang === 'am' ? 'ያበደርኩት' : 'They owe me' },
+                { id: 'i_owe',   label: lang === 'am' ? 'የተበደርኩት' : 'I owe them' },
               ].map(d => (
                 <button
                   key={d.id}
@@ -1188,7 +1149,7 @@ try {
         {isExpense && recurringExpenses && recurringExpenses.length > 0 && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Ë†â„¢Ã¡Ë†â€¹' : 'QUICK-FILL'}
+              {lang === 'am' ? 'ፈጣን ሙላ' : 'QUICK-FILL'}
             </label>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {recurringExpenses.map(re => (
@@ -1201,7 +1162,7 @@ try {
                 >
                   <div>{re.name}</div>
                   <div className="font-normal text-[10px]" style={{ color: '#C4883A' }}>
-                    {fmt(re.amount)} {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}
+                    {fmt(re.amount)} {lang === 'am' ? 'ብር' : 'birr'}
                   </div>
                 </button>
               ))}
@@ -1223,7 +1184,7 @@ try {
             </div>
             {addRecurringHint && (
               <p className="text-xs mt-1.5 font-medium" style={{ color: '#C4883A' }}>
-                {lang === 'am' ? 'Ã¡â€°Â Ã¡â€°â€¦Ã¡Å â€¢Ã¡â€°Â¥Ã¡Ë†Â®Ã¡â€°Â½ Ã¡â€¹ÂÃ¡Ë†ÂµÃ¡Å’Â¥ Ã¡Ë†Å’Ã¡Ë†Å½Ã¡â€°Â½ Ã¡â€°Â°Ã¡â€¹Â°Ã¡Å’â€¹Ã¡Å’â€¹Ã¡Ë†Å¡ Ã¡â€¹Ë†Ã¡Å’ÂªÃ¡â€¹Å½Ã¡â€°Â½Ã¡Å â€¢ Ã¡Ë†â€ºÃ¡Å Â¨Ã¡Ë†Â Ã¡â€¹Â­Ã¡â€°Â½Ã¡Ë†â€¹Ã¡Ë†â€°' : 'You can add more recurring expenses in Settings'}
+                {lang === 'am' ? 'በቅንብሮች ውስጥ ሌሎች ተደጋጋሚ ወጪዎችን ማከል ይችላሉ' : 'You can add more recurring expenses in Settings'}
               </p>
             )}
           </div>
@@ -1231,10 +1192,10 @@ try {
         {isExpense && (!recurringExpenses || recurringExpenses.length === 0) && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Ë†â„¢Ã¡Ë†â€¹' : 'QUICK-FILL (EXAMPLES)'}
+              {lang === 'am' ? 'ፈጣን ሙላ' : 'QUICK-FILL (EXAMPLES)'}
             </label>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {[lang === 'am' ? 'Ã¡Å ÂªÃ¡Ë†Â«Ã¡â€¹Â­' : 'Rent', lang === 'am' ? 'Ã¡Å Â¥Ã¡â€°ÂÃ¡â€°Â¥' : 'Ã¡Å Â¥Ã¡â€°ÂÃ¡â€°Â¥'].map(demoName => (
+              {[lang === 'am' ? 'ኪራይ' : 'Rent', lang === 'am' ? 'እቁብ' : 'እቁብ'].map(demoName => (
                 <button
                   key={demoName}
                   type="button"
@@ -1270,10 +1231,10 @@ try {
           </div>
         )}
 
-        {/* AMOUNT Ã¢â‚¬â€ the hero */}
+        {/* AMOUNT — the hero */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>
-            {lang === 'am' ? 'Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢' : 'AMOUNT'}
+            {lang === 'am' ? 'መጠን' : 'AMOUNT'}
           </label>
           <div className="relative">
              <input
@@ -1293,11 +1254,11 @@ try {
               className="absolute right-2 top-1/2 -translate-y-1/2 text-base sm:text-lg font-semibold"
               style={{ color: '#9ca3af' }}
             >
-              {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}
+              {lang === 'am' ? 'ብር' : 'birr'}
             </span>
           </div>
 
-          {/* Quick-pick amount chips Ã¢â‚¬â€ ADDITIVE: tap to add to current amount.
+          {/* Quick-pick amount chips — ADDITIVE: tap to add to current amount.
               Defaults + persisted user customs, sorted ascending. Full numbers (e.g. 1000 not 1K). */}
           <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 items-center">
             {Array.from(new Set([...DEFAULT_QUICK_AMOUNTS, ...customQuickAmounts]))
@@ -1328,7 +1289,7 @@ try {
                       color: isCustom ? '#6b4f1d' : '#374151',
                       minWidth: '52px',
                     }}
-                    title={isCustom ? (lang === 'am' ? 'Ã¡Ë†Ë†Ã¡Ë†â€ºÃ¡Ë†ÂµÃ¡â€¹Ë†Ã¡Å’Ë†Ã¡â€¹Âµ Ã¡â€¹Â­Ã¡â€¹Â«Ã¡â€¹â„¢' : 'Long-press to remove') : undefined}
+                    title={isCustom ? (lang === 'am' ? 'ለማስወገድ ይያዙ' : 'Long-press to remove') : undefined}
                   >
                     +{amt}
                   </button>
@@ -1348,7 +1309,7 @@ try {
                 minWidth: '40px',
                 minHeight: '32px',
               }}
-              aria-label={lang === 'am' ? 'Ã¡Ë†Å’Ã¡Ë†â€¹ Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢' : 'Custom amount'}
+              aria-label={lang === 'am' ? 'ሌላ መጠን' : 'Custom amount'}
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -1365,7 +1326,7 @@ try {
                   minWidth: '40px',
                   minHeight: '32px',
                 }}
-                aria-label={lang === 'am' ? 'Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢ Ã¡Å Â Ã¡Å’Â¥Ã¡Ââ€¹' : 'Clear amount'}
+                aria-label={lang === 'am' ? 'መጠን አጥፋ' : 'Clear amount'}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1382,7 +1343,7 @@ try {
                 value={fmtInput(customAmountValue)}
                 onChange={e => handleNumericInput(e, setCustomAmountValue)}
                 onKeyDown={e => { if (e.key === 'Enter') applyCustomAmount(); }}
-                placeholder={lang === 'am' ? 'Ã¡Ë†Å’Ã¡Ë†â€¹ Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢' : 'Other amount'}
+                placeholder={lang === 'am' ? 'ሌላ መጠን' : 'Other amount'}
                 className="flex-1 p-2.5 border-2 focus:outline-none text-sm"
                 style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
               />
@@ -1400,15 +1361,15 @@ try {
                 }}
               >
                 <Plus className="w-3.5 h-3.5" />
-                {lang === 'am' ? 'Ã¡Å’Â¨Ã¡Ë†ÂÃ¡Ë†Â­' : 'Add'}
+                {lang === 'am' ? 'ጨምር' : 'Add'}
               </button>
             </div>
           )}
         </div>
 
-         {/* Multi-item breakdown (sale only) */}
-          {!isCredit && !isExpense && (
-            <div>
+        {/* Multi-item breakdown (sale/expense only) */}
+        {!isCredit && (
+          <div>
             <button
               type="button"
               onClick={() => setShowBreakdown(v => !v)}
@@ -1417,8 +1378,8 @@ try {
             >
               {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               {validLineItems.length > 0
-                ? (lang === 'am' ? `Ã°Å¸Â§Âº ${validLineItems.length} Ã¡â€¹â€¢Ã¡â€°Æ’Ã¡â€¹Å½Ã¡â€°Â½` : `Ã°Å¸Â§Âº ${validLineItems.length} items`)
-                : (lang === 'am' ? 'Ã°Å¸Â§Âº Ã¡â€°Â¥Ã¡â€¹â„¢ Ã¡â€¹â€¢Ã¡â€°Æ’Ã¡â€¹Å½Ã¡â€°Â½ Ã¡â€¹Â­Ã¡Å Â¨Ã¡Ââ€¹Ã¡ÂÂÃ¡Ë†â€°' : 'Ã°Å¸Â§Âº Break down into items')}
+                ? (lang === 'am' ? `🧺 ${validLineItems.length} ዕቃዎች` : `🧺 ${validLineItems.length} items`)
+                : (lang === 'am' ? '🧺 ብዙ ዕቃዎች ይከፋፍሉ' : '🧺 Break down into items')}
             </button>
 
             {showBreakdown && (
@@ -1430,7 +1391,7 @@ try {
                 {(topCatalogItems.length > 0 || onSaveCatalogEntry) && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-                      {lang === 'am' ? 'Ã¡Ë†Ë†Ã¡Ë†â€ºÃ¡Å Â¨Ã¡Ë†Â Ã¡â€¹Â­Ã¡Å’Â«Ã¡Å â€˜' : 'Tap saved item to add'}
+                      {lang === 'am' ? 'ለማከል ይጫኑ' : 'Tap saved item to add'}
                     </p>
                     <div className="flex gap-1.5 overflow-x-auto pb-1 items-center">
                       {topCatalogItems.map(entry => (
@@ -1467,12 +1428,12 @@ try {
                             background: showAddCatalogBreakdown ? `${accentColor}10` : '#faf9f7',
                             color: showAddCatalogBreakdown ? accentColor : '#6b7280',
                           }}
-                          aria-label={lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ Ã¡â€¹â€¢Ã¡â€°Æ’' : 'New item'}
+                          aria-label={lang === 'am' ? 'አዲስ ዕቃ' : 'New item'}
                         >
                           <Plus className="w-3 h-3" />
                           {topCatalogItems.length === 0
-                            ? (lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ Ã¡â€¹â€¢Ã¡â€°Æ’' : 'New item')
-                            : (lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ' : 'New')}
+                            ? (lang === 'am' ? 'አዲስ ዕቃ' : 'New item')
+                            : (lang === 'am' ? 'አዲስ' : 'New')}
                         </button>
                       )}
                     </div>
@@ -1488,7 +1449,7 @@ try {
                           value={newCatalogName}
                           onChange={e => setNewCatalogName(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') submitNewCatalogToBreakdown(); }}
-                          placeholder={lang === 'am' ? 'Ã¡Ë†ÂµÃ¡Ë†Â' : 'Name'}
+                          placeholder={lang === 'am' ? 'ስም' : 'Name'}
                           className="w-full p-2 border focus:outline-none text-sm"
                           style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
                         />
@@ -1499,7 +1460,7 @@ try {
                             value={fmtInput(newCatalogPrice)}
                             onChange={e => handleNumericInput(e, setNewCatalogPrice)}
                             onKeyDown={e => { if (e.key === 'Enter') submitNewCatalogToBreakdown(); }}
-                            placeholder={lang === 'am' ? 'Ã¡â€¹â€¹Ã¡Å’â€¹' : 'Price'}
+                            placeholder={lang === 'am' ? 'ዋጋ' : 'Price'}
                             className="flex-1 p-2 border focus:outline-none text-sm"
                             style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8' }}
                           />
@@ -1517,7 +1478,7 @@ try {
                             }}
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            {lang === 'am' ? 'Ã¡Å’Â¨Ã¡Ë†ÂÃ¡Ë†Â­' : 'Add'}
+                            {lang === 'am' ? 'ጨምር' : 'Add'}
                           </button>
                         </div>
                       </div>
@@ -1534,7 +1495,7 @@ try {
                           type="text"
                           value={line.name}
                           onChange={e => updateLineItem(line.id, 'name', e.target.value)}
-                          placeholder={lang === 'am' ? `Ã¡â€¹â€¢Ã¡â€°Æ’ ${idx + 1}` : `item ${idx + 1}`}
+                          placeholder={lang === 'am' ? `ዕቃ ${idx + 1}` : `item ${idx + 1}`}
                           className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm"
                           style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
                         />
@@ -1552,7 +1513,7 @@ try {
                           onClick={() => removeLineItem(line.id)}
                           className="press-scale flex items-center justify-center flex-shrink-0"
                           style={{ minWidth: '32px', minHeight: '32px' }}
-                          aria-label={lang === 'am' ? 'Ã¡Å Â Ã¡Ë†ÂµÃ¡â€¹Ë†Ã¡Å’ÂÃ¡â€¹Âµ' : 'Remove'}
+                          aria-label={lang === 'am' ? 'አስወግድ' : 'Remove'}
                         >
                           <X className="w-4 h-4" style={{ color: '#9ca3af' }} />
                         </button>
@@ -1575,16 +1536,16 @@ try {
                 >
                   <Plus className="w-4 h-4" />
                   {lineItems.length === 0
-                    ? (lang === 'am' ? 'Ã¡â€¹Â¨Ã¡Ë†ËœÃ¡Å’â‚¬Ã¡Ë†ËœÃ¡Ë†ÂªÃ¡â€¹Â« Ã¡â€¹â€¢Ã¡â€°Æ’ Ã¡Å’Â¨Ã¡Ë†ÂÃ¡Ë†Â­' : 'Add first item')
-                    : (lang === 'am' ? 'Ã¡Ë†Å’Ã¡Ë†â€¹ Ã¡â€¹â€¢Ã¡â€°Æ’ Ã¡Å’Â¨Ã¡Ë†ÂÃ¡Ë†Â­' : 'Add another item')}
+                    ? (lang === 'am' ? 'የመጀመሪያ ዕቃ ጨምር' : 'Add first item')
+                    : (lang === 'am' ? 'ሌላ ዕቃ ጨምር' : 'Add another item')}
                 </button>
 
                 {/* Totals + remaining hint */}
                 {validLineItems.length > 0 && (
                   <div className="text-xs pt-2 border-t space-y-1" style={{ borderColor: '#e8e2d8' }}>
                     <div className="flex justify-between" style={{ color: '#374151' }}>
-                      <span>{lang === 'am' ? 'Ã¡â€¹Â¨Ã¡â€¹â€¢Ã¡â€°Æ’Ã¡â€¹Å½Ã¡â€°Â½ Ã¡â€¹ÂµÃ¡Ë†ÂÃ¡Ë†Â­' : 'Items total'}:</span>
-                      <span className="font-bold">{fmt(lineItemsTotal)} {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}</span>
+                      <span>{lang === 'am' ? 'የዕቃዎች ድምር' : 'Items total'}:</span>
+                      <span className="font-bold">{fmt(lineItemsTotal)} {lang === 'am' ? 'ብር' : 'birr'}</span>
                     </div>
                     {sellingPrice > 0 && Math.abs(breakdownDelta) > 0.01 && (
                       <button
@@ -1596,16 +1557,16 @@ try {
                           background: breakdownDelta > 0 ? 'rgba(196,136,58,0.08)' : 'rgba(220,38,38,0.06)',
                           borderRadius: 'var(--radius-sm)',
                         }}
-                        title={lang === 'am' ? 'Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢ Ã¡â€¹Ë†Ã¡â€¹Â° Ã¡â€¹ÂµÃ¡Ë†ÂÃ¡Ë†Â­ Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°Â°Ã¡Å Â«Ã¡Å Â­Ã¡Ë†Â' : 'Set total to items sum'}
+                        title={lang === 'am' ? 'መጠን ወደ ድምር አስተካክል' : 'Set total to items sum'}
                       >
                         <span>
                           {breakdownDelta > 0
-                            ? (lang === 'am' ? 'Ã¡â€°â‚¬Ã¡Ë†Âª (Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡Ë†ËœÃ¡â€¹ËœÃ¡Å’Ë†Ã¡â€°Â Ã¡Ë†Â)' : 'Unaccounted')
-                            : (lang === 'am' ? 'Ã¡â€¹ÂµÃ¡Ë†ÂÃ¡Ë†Â­ Ã¡Å Â¨Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢ Ã¡â€°Â Ã¡Ë†â€¹Ã¡â€¹Â­' : 'Items exceed total')}
+                            ? (lang === 'am' ? 'ቀሪ (አልተመዘገበም)' : 'Unaccounted')
+                            : (lang === 'am' ? 'ድምር ከመጠን በላይ' : 'Items exceed total')}
                           :
                         </span>
                         <span className="font-bold">
-                          {fmt(Math.abs(breakdownDelta))} {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'} Ã¢Â¤Â´
+                          {fmt(Math.abs(breakdownDelta))} {lang === 'am' ? 'ብር' : 'birr'} ⤴
                         </span>
                       </button>
                     )}
@@ -1620,23 +1581,23 @@ try {
                           borderRadius: 'var(--radius-sm)',
                         }}
                       >
-                        <span>{lang === 'am' ? 'Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢ Ã¡Å Â¨Ã¡â€¹ÂµÃ¡Ë†ÂÃ¡Ë†Â­ Ã¡Å’â€¹Ã¡Ë†Â­ Ã¡â€¹Â­Ã¡Ë†Å¾Ã¡Ë†â€¹' : 'Use items sum as total'}</span>
-                        <span className="font-bold">Ã¢Â¤Â´</span>
+                        <span>{lang === 'am' ? 'መጠን ከድምር ጋር ይሞላ' : 'Use items sum as total'}</span>
+                        <span className="font-bold">⤴</span>
                       </button>
                     )}
                   </div>
                 )}
-               </div>
-             )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* ITEM / NAME + photo button (inline on same row, larger photo tap target) */}
+        {/* ITEM / NAME + photo button (inline on same row, larger photo tap target) */}
         {/* When breakdown has items, this becomes an optional note since items provide their own names */}
         <div>
           <label className="block text-[10px] font-bold tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
             {validLineItems.length > 0 && !isCredit
-              ? (lang === 'am' ? 'Ã¡Ë†â€ºÃ¡Ë†ÂµÃ¡â€°Â³Ã¡â€¹Ë†Ã¡Ë†Â» (Ã¡Å Â Ã¡Ë†â€ºÃ¡Ë†Â«Ã¡Å’Â­)' : 'NOTE (OPTIONAL)')
+              ? (lang === 'am' ? 'ማስታወሻ (አማራጭ)' : 'NOTE (OPTIONAL)')
               : itemLabel}
           </label>
 
@@ -1659,7 +1620,7 @@ try {
                   border: '2px solid #e8e2d8',
                   borderRadius: 'var(--radius-md)',
                   background: photos.length > 0 ? '#f0fdf4' : '#fafaf6',
-                  opacity: photos.length > 0 ? 0.55 : 1,
+                  opacity: photos.length >= MAX_PROOF_PHOTOS ? 0.55 : 1,
                   position: 'relative',
                 }}
                 aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
@@ -1670,7 +1631,7 @@ try {
                   multiple
                   onChange={handlePhotoCapture}
                   className="hidden"
-                  disabled={photoLoading}
+                  disabled={photoLoading || photos.length >= MAX_PROOF_PHOTOS}
                 />
                 {photoLoading
                   ? <span className="text-sm">...</span>
@@ -1686,7 +1647,7 @@ try {
                     height: 20,
                     padding: '0 5px',
                     borderRadius: 999,
-                     background: accentColor,
+                    background: photos.length >= MAX_PROOF_PHOTOS ? '#6b7280' : accentColor,
                     color: '#fff',
                     border: '2px solid #fff',
                     fontSize: 10,
@@ -1695,7 +1656,7 @@ try {
                     textAlign: 'center',
                   }}
                 >
-                  +1
+                  {photos.length >= MAX_PROOF_PHOTOS ? '0' : `+${MAX_PROOF_PHOTOS - photos.length}`}
                 </span>
               </label>
             )}
@@ -1714,7 +1675,7 @@ try {
                 {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
               </p>
               <p className="text-[10px] font-bold" style={{ color: '#6b7280' }}>
-                {photos.length} {lang === 'am' ? 'Ã¡ÂÅ½Ã¡â€°Â¶Ã¡â€¹Å½Ã¡â€°Â½' : 'photos'}
+                {photos.length}/{MAX_PROOF_PHOTOS}
               </p>
             </div>
             <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
@@ -1753,7 +1714,7 @@ try {
             <div className="mt-2">
               {(topCatalogItems.length > 0 || onSaveCatalogEntry) && (
                 <p className="text-[10px] font-medium mb-1" style={{ color: '#6b7280' }}>
-                  {lang === 'am' ? 'Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡â€¹â€¢Ã¡â€°Æ’Ã¡â€¹Å½Ã¡â€°Â½:' : 'Quick items:'}
+                  {lang === 'am' ? 'ፈጣን ዕቃዎች:' : 'Quick items:'}
                 </p>
               )}
               <div className="flex gap-1.5 overflow-x-auto pb-1 items-center">
@@ -1786,11 +1747,11 @@ try {
                       background: showAddCatalog ? `${accentColor}10` : '#faf9f7',
                       color: showAddCatalog ? accentColor : '#6b7280',
                     }}
-                    aria-label={lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ Ã¡â€¹â€¢Ã¡â€°Æ’' : 'New item'}
+                    aria-label={lang === 'am' ? 'አዲስ ዕቃ' : 'New item'}
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {topCatalogItems.length === 0 && (
-                      <span>{lang === 'am' ? 'Ã¡â€¹â€¢Ã¡â€°Æ’ Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save item'}</span>
+                      <span>{lang === 'am' ? 'ዕቃ አስቀምጥ' : 'Save item'}</span>
                     )}
                   </button>
                 )}
@@ -1807,7 +1768,7 @@ try {
                     value={newCatalogName}
                     onChange={e => setNewCatalogName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') submitNewCatalog(); }}
-                    placeholder={lang === 'am' ? 'Ã¡Ë†ÂµÃ¡Ë†Â (Ã¡Ë†Ë†Ã¡Ë†ÂÃ¡Ë†Â³Ã¡Ë†Å’ Ã¡â€¹Â³Ã¡â€°Â¦)' : 'Name (e.g. bread)'}
+                    placeholder={lang === 'am' ? 'ስም (ለምሳሌ ዳቦ)' : 'Name (e.g. bread)'}
                     className="w-full p-2 border focus:outline-none text-sm"
                     style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
                   />
@@ -1818,7 +1779,7 @@ try {
                       value={fmtInput(newCatalogPrice)}
                       onChange={e => handleNumericInput(e, setNewCatalogPrice)}
                       onKeyDown={e => { if (e.key === 'Enter') submitNewCatalog(); }}
-                      placeholder={lang === 'am' ? 'Ã¡â€¹â€¹Ã¡Å’â€¹ (Ã¡Å Â Ã¡Ë†â€ºÃ¡Ë†Â«Ã¡Å’Â­)' : 'Price (optional)'}
+                      placeholder={lang === 'am' ? 'ዋጋ (አማራጭ)' : 'Price (optional)'}
                       className="flex-1 p-2 border focus:outline-none text-sm"
                       style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }}
                     />
@@ -1836,12 +1797,12 @@ try {
                       }}
                     >
                       <Save className="w-3.5 h-3.5" />
-                      {lang === 'am' ? 'Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save'}
+                      {lang === 'am' ? 'አስቀምጥ' : 'Save'}
                     </button>
                   </div>
                   <p className="text-[10px]" style={{ color: '#9ca3af' }}>
                     {lang === 'am'
-                      ? 'Ã¡â€¹Â­Ã¡Ë†â€¦ Ã¡â€¹â€¢Ã¡â€°Æ’ Ã¡Ë†Ë†Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Ë†ËœÃ¡â€¹ÂµÃ¡Ë†Â¨Ã¡Ë†Â» Ã¡â€¹Â­Ã¡â€°â‚¬Ã¡Ë†ËœÃ¡Å’Â£Ã¡Ë†Â'
+                      ? 'ይህ ዕቃ ለፈጣን መድረሻ ይቀመጣል'
                       : 'Saves for quick access next time'}
                   </p>
                 </div>
@@ -1854,7 +1815,7 @@ try {
         {(isCredit || isCreditSale) && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡â€¹Â°Ã¡Å â€¢Ã¡â€°Â Ã¡Å â€º' : 'CUSTOMER'}
+              {lang === 'am' ? 'ደንበኛ' : 'CUSTOMER'}
             </label>
             <div className="relative">
               <input
@@ -1864,7 +1825,7 @@ try {
                   setCustomerQuery(e.target.value);
                   setCustomerMatch(null);
                 }}
-                placeholder={lang === 'am' ? 'Ã¡Ë†ÂµÃ¡Ë†Â Ã¡â€¹Â­Ã¡â€°Â°Ã¡â€¹Â­Ã¡â€°Â¡...' : 'Type customer name...'}
+                placeholder={lang === 'am' ? 'ስም ይተይቡ...' : 'Type customer name...'}
                 className="w-full p-3 border-2 focus:outline-none text-base"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: customerQuery ? '#86efac' : '#e8e2d8' }}
               />
@@ -1885,7 +1846,7 @@ try {
                       style={{ borderColor: '#f3f4f6', background: '#fff' }}
                     >
                       <span className="text-sm font-semibold truncate" style={{ color: '#111827' }}>{c.display_name || c.name}</span>
-                      {c.balance > 0 && <span className="text-xs font-bold flex-shrink-0" style={{ color: '#C4883A' }}>{fmt(c.balance)} {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'ETB'}</span>}
+                      {c.balance > 0 && <span className="text-xs font-bold flex-shrink-0" style={{ color: '#C4883A' }}>{fmt(c.balance)} {lang === 'am' ? 'ብር' : 'ETB'}</span>}
                     </button>
                   ))}
                   {onAddCustomerInline && (customers.filter(c => {
@@ -1906,7 +1867,7 @@ try {
                       className="w-full px-3 py-2.5 text-left text-sm font-bold press-scale flex items-center gap-2"
                       style={{ background: '#f7fcf8', color: '#14532d' }}
                     >
-                      <Plus className="w-4 h-4" /> {lang === 'am' ? 'Ã¡Å Â Ã¡â€¹Â²Ã¡Ë†Âµ Ã¡â€¹Â°Ã¡Å â€¢Ã¡â€°Â Ã¡Å â€º Ã¡â€¹Â­Ã¡Ë†ËœÃ¡Ë†ÂÃ¡Å Â¨Ã¡â€°Â±' : 'Add new customer'}: <span className="truncate" style={{ color: '#1B4332' }}>{customerQuery.trim()}</span>
+                      <Plus className="w-4 h-4" /> {lang === 'am' ? 'አዲስ ደንበኛ ይመልከቱ' : 'Add new customer'}: <span className="truncate" style={{ color: '#1B4332' }}>{customerQuery.trim()}</span>
                     </button>
                   )}
                 </div>
@@ -1920,7 +1881,7 @@ try {
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 press-scale"
                   style={{ minWidth: '32px', minHeight: '32px', borderRadius: 999, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  aria-label={lang === 'am' ? 'Ã¡Å Â Ã¡Å’Â¥Ã¡Ââ€¹' : 'Clear'}
+                  aria-label={lang === 'am' ? 'አጥፋ' : 'Clear'}
                 >
                   <X className="w-4 h-4" style={{ color: '#6b7280' }} />
                 </button>
@@ -1928,7 +1889,7 @@ try {
             </div>
             {!customerMatch && customerQuery.trim() && (
               <p className="text-xs mt-1.5 font-medium" style={{ color: '#C4883A' }}>
-                {lang === 'am' ? 'Ã¡â€¹Â°Ã¡Å â€¢Ã¡â€°Â Ã¡Å â€º Ã¡â€¹Â­Ã¡Ë†ÂÃ¡Ë†Â¨Ã¡Å’Â¡ Ã¡â€¹Ë†Ã¡â€¹Â­Ã¡Ë†Â Ã¡â€¹Â­Ã¡ÂÂÃ¡Å’Â Ã¡Ë†Â©' : 'Select or create a customer'}
+                {lang === 'am' ? 'ደንበኛ ይምረጡ ወይም ይፍጠሩ' : 'Select or create a customer'}
               </p>
             )}
           </div>
@@ -1938,7 +1899,7 @@ try {
         {(isCredit || isCreditSale) && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡Ë†ÂµÃ¡Ë†ÂÃ¡Å Â­ (Ã¡Å Â Ã¡Ë†â€ºÃ¡Ë†Â«Ã¡Å’Â­)' : 'PHONE (OPTIONAL)'}
+              {lang === 'am' ? 'ስልክ (አማራጭ)' : 'PHONE (OPTIONAL)'}
             </label>
             <div className="flex gap-0">
               <div
@@ -1973,7 +1934,7 @@ try {
             </div>
             {phoneTouched && phoneEntered && !phoneValid && (
               <p className="text-xs text-red-500 mt-1 font-medium">
-                {lang === 'am' ? '9 Ã¡Å Â Ã¡Ë†Æ’Ã¡â€¹Å¾Ã¡â€°Â½Ã¡ÂÂ£ Ã¡Å Â¨7 Ã¡â€¹Ë†Ã¡â€¹Â­Ã¡Ë†Â 9 Ã¡â€¹Â­Ã¡Å’â‚¬Ã¡Ë†ÂÃ¡Ë†Â©' : '9 digits starting with 7 or 9'}
+                {lang === 'am' ? '9 አሃዞች፣ ከ7 ወይም 9 ይጀምሩ' : '9 digits starting with 7 or 9'}
               </p>
             )}
           </div>
@@ -1983,7 +1944,7 @@ try {
         {(isCredit || isCreditSale) && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡Ë†ËœÃ¡â€°Â¼ Ã¡â€¹Â­Ã¡Å Â¨Ã¡ÂÂÃ¡Ë†â€¹Ã¡Ë†Â?' : 'WHEN IS IT DUE?'} <span style={{ color: '#dc2626' }}>*</span>
+              {lang === 'am' ? 'መቼ ይከፍላል?' : 'WHEN IS IT DUE?'} <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <div className="grid grid-cols-3 gap-2 mb-2">
               {dueDateOptions.map(opt => (
@@ -2018,13 +1979,13 @@ try {
                 color: selectedDue === 'custom' ? accentColor : '#374151',
               }}
             >
-              Ã°Å¸â€œâ€¦ {selectedDue === 'custom' && customDue
+              📅 {selectedDue === 'custom' && customDue
                 ? formatEthiopian(new Date(`${customDue}T12:00:00`))
-                : (lang === 'am' ? 'Ã¡â€°â‚¬Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ÂÃ¡Ë†Â¨Ã¡Å’Â¡' : 'Pick a date')}
+                : (lang === 'am' ? 'ቀን ይምረጡ' : 'Pick a date')}
             </button>
             {!hasDueDate && (
               <p className="text-xs mt-1.5 font-medium" style={{ color: '#C4883A' }}>
-                {lang === 'am' ? 'Ã¡â€¹Â¨Ã¡Ë†ËœÃ¡Å Â­Ã¡ÂÂÃ¡â€¹Â« Ã¡â€°â‚¬Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ÂÃ¡Ë†Â¨Ã¡Å’Â¡' : 'Please select a due date'}
+                {lang === 'am' ? 'የመክፍያ ቀን ይምረጡ' : 'Please select a due date'}
               </p>
             )}
           </div>
@@ -2042,9 +2003,9 @@ try {
 
 
 
-         {/* More options toggle (sale/expense) Ã¢â‚¬â€ collapses quantity + cost price */}
-          {!isCredit && !isExpense && (
-            <div>
+        {/* More options toggle (sale/expense) — collapses quantity + cost price */}
+        {!isCredit && (
+          <div>
             <button
               type="button"
               onClick={() => setShowAdvanced(v => !v)}
@@ -2053,8 +2014,8 @@ try {
             >
               {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               {lang === 'am'
-                ? `Ã¡â€°Â°Ã¡Å’Â¨Ã¡Ë†â€ºÃ¡Ë†Âª (Ã¡â€°Â¥Ã¡â€¹â€ºÃ¡â€°ÂµÃ¡ÂÂ£ Ã¡â€¹â€¹Ã¡Å’â€¹) ${qty > 1 ? `Ã¢â‚¬Â¢ Ãƒâ€”${qty}` : ''}`
-                : `More options (qty, cost) ${qty > 1 ? `Ã¢â‚¬Â¢ Ãƒâ€”${qty}` : ''}`}
+                ? `ተጨማሪ (ብዛት፣ ዋጋ) ${qty > 1 ? `• ×${qty}` : ''}`
+                : `More options (qty, cost) ${qty > 1 ? `• ×${qty}` : ''}`}
             </button>
 
             {showAdvanced && (
@@ -2065,8 +2026,8 @@ try {
                 {/* Quantity */}
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>
-                    {lang === 'am' ? 'Ã¡â€°Â¥Ã¡â€¹â€ºÃ¡â€°Âµ' : 'Quantity'}{' '}
-                    <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(Ã¡â€°Â Ã¡Å ÂÃ¡â€°Â£Ã¡Ë†Âª 1)' : '(default 1)'}</span>
+                    {lang === 'am' ? 'ብዛት' : 'Quantity'}{' '}
+                    <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(በነባሪ 1)' : '(default 1)'}</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <button
@@ -2080,7 +2041,7 @@ try {
                         borderRadius: 'var(--radius-md)',
                         background: '#fff',
                       }}
-                      aria-label={lang === 'am' ? 'Ã¡â€°â‚¬Ã¡Å â€¢Ã¡Ë†Âµ' : 'Decrease'}
+                      aria-label={lang === 'am' ? 'ቀንስ' : 'Decrease'}
                     >
                       <Minus className="w-4 h-4" style={{ color: '#374151' }} />
                     </button>
@@ -2113,7 +2074,7 @@ try {
                         borderRadius: 'var(--radius-md)',
                         background: '#fff',
                       }}
-                      aria-label={lang === 'am' ? 'Ã¡Å’Â¨Ã¡Ë†ÂÃ¡Ë†Â­' : 'Increase'}
+                      aria-label={lang === 'am' ? 'ጨምር' : 'Increase'}
                     >
                       <Plus className="w-4 h-4" style={{ color: '#374151' }} />
                     </button>
@@ -2123,8 +2084,8 @@ try {
                 {/* Cost price */}
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>
-                    {lang === 'am' ? 'Ã¡Ë†Ë†Ã¡â€¹Å¡Ã¡Ë†â€¦ Ã¡Ë†ÂÃ¡Å â€¢ Ã¡Å Â¨Ã¡ÂË†Ã¡Ë†â€°?' : 'What did you pay for this?'}{' '}
-                    <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(Ã¡â€°Â Ã¡Å Â Ã¡Å â€¢Ã¡â€¹Âµ)' : '(per unit)'}</span>
+                    {lang === 'am' ? 'ለዚህ ምን ከፈሉ?' : 'What did you pay for this?'}{' '}
+                    <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(በአንድ)' : '(per unit)'}</span>
                   </label>
                   <div className="relative">
                     <input
@@ -2137,25 +2098,25 @@ try {
                       style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: '#9ca3af' }}>
-                      {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}
+                      {lang === 'am' ? 'ብር' : 'birr'}
                     </span>
                   </div>
                   <p className="text-xs mt-1.5" style={{ color: '#9ca3af' }}>
-                    {lang === 'am' ? 'Ã¡Å Â Ã¡Ë†â€ºÃ¡Ë†Â«Ã¡Å’Â­ Ã¢â‚¬â€ Ã¡â€°ÂµÃ¡Å Â­Ã¡Å Â­Ã¡Ë†Ë†Ã¡Å â€ºÃ¡â€¹ÂÃ¡Å â€¢ Ã¡â€°ÂµÃ¡Ë†Â­Ã¡ÂÂ Ã¡Ë†Ë†Ã¡Ë†â€ºÃ¡â€¹Â¨Ã¡â€°Âµ Ã¡â€¹Â­Ã¡Ë†Â¨Ã¡â€¹Â³Ã¡Ë†Â' : 'Optional Ã¢â‚¬â€ helps you see your true profit'}
+                    {lang === 'am' ? 'አማራጭ — ትክክለኛውን ትርፍ ለማየት ይረዳል' : 'Optional — helps you see your true profit'}
                   </p>
 
                   {belowCost && (
                     <div className="mt-2 flex items-start gap-2 p-2.5" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)' }}>
                       <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
                       <p className="text-xs" style={{ color: '#92400e' }}>
-                        {lang === 'am' ? 'Ã¡Å Â¨Ã¡â€¹â€¹Ã¡Å’â€¹ Ã¡â€°Â Ã¡â€°Â³Ã¡â€°Â½ Ã¡Å Â¥Ã¡â€¹Â¨Ã¡Ë†Â¸Ã¡Å’Â¡ Ã¡Å ÂÃ¡â€¹ÂÃ¡ÂÂ¢' : 'You are selling below cost.'}
+                        {lang === 'am' ? 'ከዋጋ በታች እየሸጡ ነው።' : 'You are selling below cost.'}
                       </p>
                     </div>
                   )}
                   {cost > 0 && !belowCost && sellingPrice > 0 && (() => {
-                    // Reclaimed from the deprecated ProfitCalculatorModal.jsx Ã¢â‚¬â€
+                    // Reclaimed from the deprecated ProfitCalculatorModal.jsx —
                     // live profit + margin% indicator. Margin colored by health:
-                    // Ã¢â€°Â¥30% green, 15-30% amber, <15% red. Helps shopkeepers price.
+                    // ≥30% green, 15-30% amber, <15% red. Helps shopkeepers price.
                     const profit = sellingPrice - cost * qty;
                     const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
                     const marginColor = margin >= 30 ? '#16a34a' : margin >= 15 ? '#C4883A' : '#dc2626';
@@ -2163,32 +2124,34 @@ try {
                       <div className="mt-2 p-2.5 border" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 'var(--radius-sm)' }}>
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="text-xs font-semibold" style={{ color: '#166534' }}>
-                            {lang === 'am' ? 'Ã¡â€°ÂµÃ¡Ë†Â­Ã¡ÂÂ' : 'Profit'}: {fmt(profit)} {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}
+                            {lang === 'am' ? 'ትርፍ' : 'Profit'}: {fmt(profit)} {lang === 'am' ? 'ብር' : 'birr'}
                           </p>
                           <p className="text-xs font-bold flex-shrink-0" style={{ color: marginColor }}>
-                            {Math.round(margin * 10) / 10}% {lang === 'am' ? 'Ã¡Ë†â€¦Ã¡â€¹Â³Ã¡Å’Â' : 'margin'}
+                            {Math.round(margin * 10) / 10}% {lang === 'am' ? 'ህዳግ' : 'margin'}
                           </p>
                         </div>
                       </div>
                     );
                   })()}
                 </div>
-               </div>
-              )}
-          )}
-       
-       {/* Sticky save button Ã‚Â· with a clear hint when something blocks saving.
-           Surfaces "what's missing" so the user doesn't have to guess. */}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sticky save button · with a clear hint when something blocks saving.
+          Surfaces "what's missing" so the user doesn't have to guess. */}
       <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8' }}>
         {!canSave && sellingPrice > 0 && (() => {
           // Identify the blocker, in priority order
           let blocker = null;
           if (isCredit && !item.trim()) {
-            blocker = lang === 'am' ? 'Ã¢â€ â€˜ Ã¡Ë†ÂµÃ¡Ë†Â Ã¡â€¹Â­Ã¡â€°Â°Ã¡â€¹Â­Ã¡â€°Â¡' : 'Ã¢â€ â€˜ Enter customer name';
+            blocker = lang === 'am' ? '↑ ስም ይተይቡ' : '↑ Enter customer name';
           } else if (isCredit && !hasDueDate) {
-            blocker = lang === 'am' ? 'Ã¢â€ â€˜ Ã¡â€¹Â¨Ã¡Ë†ËœÃ¡Å Â­Ã¡ÂË†Ã¡â€¹Â« Ã¡â€°â‚¬Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ÂÃ¡Ë†Â¨Ã¡Å’Â¡' : 'Ã¢â€ â€˜ Pick due date';
+            blocker = lang === 'am' ? '↑ የመክፈያ ቀን ይምረጡ' : '↑ Pick due date';
           } else if (phoneEntered && !phoneValid) {
-            blocker = lang === 'am' ? 'Ã¢â€ â€˜ Ã¡Ë†ÂµÃ¡Ë†ÂÃ¡Å Â­ Ã¡Ë†ÂµÃ¡Ë†â€¦Ã¡â€°Â°Ã¡â€°Âµ' : 'Ã¢â€ â€˜ Phone format invalid';
+            blocker = lang === 'am' ? '↑ ስልክ ስህተት' : '↑ Phone format invalid';
           }
           if (!blocker) return null;
           return (
@@ -2235,37 +2198,37 @@ try {
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-bold" style={{ color: '#1a1a1a' }}>
-                {lang === 'am' ? 'Ã¡â€°Â°Ã¡â€¹Â°Ã¡Å’â€¹Ã¡Å’â€¹Ã¡Ë†Å¡ Ã¡â€¹Ë†Ã¡Å’Âª Ã¡Å Â Ã¡Å Â­Ã¡Ë†Â' : 'Add recurring expense'}
+                {lang === 'am' ? 'ተደጋጋሚ ወጪ አክል' : 'Add recurring expense'}
               </h3>
               <button
                 onClick={() => setShowAddRecurring(false)}
                 className="press-scale flex items-center justify-center"
                 style={{ minWidth: '36px', minHeight: '36px' }}
-                aria-label={lang === 'am' ? 'Ã¡â€¹ÂÃ¡Å’â€¹' : 'Close'}
+                aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
               >
                 <X className="w-4 h-4" style={{ color: '#6b7280' }} />
               </button>
             </div>
             <p className="text-xs mb-4" style={{ color: '#6b7280' }}>
-              {lang === 'am' ? 'Ã¡â€¹Â­Ã¡Ë†â€¦Ã¡Å â€¢ Ã¡â€¹Ë†Ã¡Å’Âª Ã¡Ë†Ë†Ã¡Ë†Å¡Ã¡â€°â‚¬Ã¡Å’Â¥Ã¡Ë†â€° Ã¡Å’Å Ã¡â€¹Å“Ã¡â€¹Â«Ã¡â€°Âµ Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥' : 'Save this as a recurring expense to reuse it anytime'}
+              {lang === 'am' ? 'ይህን ወጪ ለሚቀጥሉ ጊዜያት አስቀምጥ' : 'Save this as a recurring expense to reuse it anytime'}
             </p>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>
-                  {lang === 'am' ? 'Ã¡Ë†ÂÃ¡Å â€¢ Ã¡Ë†â€¹Ã¡â€¹Â­ Ã¡â€¹Ë†Ã¡Å’Âª?' : 'What did you spend on?'}
+                  {lang === 'am' ? 'ምን ላይ ወጪ?' : 'What did you spend on?'}
                 </label>
                 <input
                   type="text"
                   value={popupName}
                   onChange={e => setPopupName(e.target.value)}
-                  placeholder={lang === 'am' ? 'Ã¡â€¹ÂÃ¡Ë†Â­Ã¡â€¹ÂÃ¡Ë†Â©Ã¡Å â€¢ Ã¡â€¹Â­Ã¡Ë†ËœÃ¡â€¹ÂÃ¡â€°Â¡...' : 'Add details...'}
+                  placeholder={lang === 'am' ? 'ዝርዝሩን ይመዝቡ...' : 'Add details...'}
                   className="w-full p-2.5 border-2 focus:outline-none text-sm"
                   style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>
-                  {lang === 'am' ? 'Ã¡Å’Â Ã¡â€°â€¦Ã¡Ë†â€¹Ã¡Ë†â€¹ Ã¡Ë†ÂµÃ¡Å â€¢Ã¡â€°Âµ?' : 'How much total?'}
+                  {lang === 'am' ? 'ጠቅላላ ስንት?' : 'How much total?'}
                 </label>
                 <div className="relative">
                   <input
@@ -2278,19 +2241,19 @@ try {
                     style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#9ca3af' }}>
-                    {lang === 'am' ? 'Ã¡â€°Â¥Ã¡Ë†Â­' : 'birr'}
+                    {lang === 'am' ? 'ብር' : 'birr'}
                   </span>
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: '#374151' }}>
-                  {lang === 'am' ? 'Ã¡â€¹ÂµÃ¡Å’ÂÃ¡Å’ÂÃ¡Ë†Å¾Ã¡Ë†Â½' : 'Frequency'}
+                  {lang === 'am' ? 'ድግግሞሽ' : 'Frequency'}
                 </label>
                 <div className="flex gap-2">
                   {[
-                    { id: 'daily',   label: lang === 'am' ? 'Ã¡â€¹â€¢Ã¡Ë†Ë†Ã¡â€°Â³Ã¡â€¹Å ' : 'Daily' },
-                    { id: 'weekly',  label: lang === 'am' ? 'Ã¡Ë†Â³Ã¡Ë†ÂÃ¡Å â€¢Ã¡â€°Â³Ã¡â€¹Å ' : 'Weekly' },
-                    { id: 'monthly', label: lang === 'am' ? 'Ã¡â€¹Ë†Ã¡Ë†Â­Ã¡Ë†Æ’Ã¡â€¹Å ' : 'Monthly' },
+                    { id: 'daily',   label: lang === 'am' ? 'ዕለታዊ' : 'Daily' },
+                    { id: 'weekly',  label: lang === 'am' ? 'ሳምንታዊ' : 'Weekly' },
+                    { id: 'monthly', label: lang === 'am' ? 'ወርሃዊ' : 'Monthly' },
                   ].map(f => (
                     <button
                       key={f.id}
@@ -2322,7 +2285,7 @@ try {
               }}
             >
               <Plus className="w-5 h-5" />
-              {lang === 'am' ? 'Ã¡Å Â Ã¡Ë†ÂµÃ¡â€°â‚¬Ã¡Ë†ÂÃ¡Å’Â¥ Ã¡Å Â¥Ã¡Å â€œ Ã¡â€°Â°Ã¡Å’Â Ã¡â€°â‚¬Ã¡Ë†Â' : 'Add & Use'}
+              {lang === 'am' ? 'አስቀምጥ እና ተጠቀም' : 'Add & Use'}
             </button>
           </div>
         </div>
