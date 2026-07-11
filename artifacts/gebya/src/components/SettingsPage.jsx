@@ -182,6 +182,7 @@ function SettingsPage({
   const { hidden, toggle } = usePrivacy();
   const { lang, t } = useLang();
   const [openSection, setOpenSection] = useState(null);
+  const shopId = shopProfile?.shop_id || shopProfile?.id;
 
   const [recurring, setRecurring] = useState(recurringExpenses || []);
   useEffect(() => { setRecurring(recurringExpenses || []); }, [recurringExpenses]);
