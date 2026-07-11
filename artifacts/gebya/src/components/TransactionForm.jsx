@@ -4,32 +4,25 @@
 // User can navigate away via the bottom nav at any time — no trap.
 //
 // Layout (top to bottom):
-//   - Header: ← back, colored type label
+//   - Header: ← back, colored type label, Clear (expense only)
 //   - Scrollable body:
-//       actor chip
 //       credit direction (credit only)
 //       recurring quick-fill (expense only)
-//       saved-item dropdown (catalog)
-//       AMOUNT (large, auto-focused) + quick-pick chips (50/100/200/500/1k)
+//       AMOUNT (large, auto-focused)
 //       ITEM/NAME (optional for sale+expense, required name for credit) + photo button
-//       quick saved-item chips (from catalogEntries)
 //       payment chips (sale+expense) OR phone+due+direction (credit)
-//       advanced cost-price (sale+expense)
 //       photo preview if attached
 //   - Sticky bottom: solid colored save button per type
 //
 // Preserves all existing handlers, save data shape, success screen, recurring popup.
 // NEW: photo capture (B-009) — base64 stored on transaction record.
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   X,
-  ChevronDown,
-  ChevronUp,
+  Check,
   Save,
-  AlertTriangle,
   Plus,
-  Minus,
   Camera,
   ArrowLeft,
 } from 'lucide-react';
@@ -42,13 +35,6 @@ import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS, photoCountLabel }
 import { fireToast } from './Toast';
 import CameraCapture from './CameraCapture';
 import { db } from '../db';
-import {
-  trackSuggestionShown,
-  trackSuggestionAccepted,
-  trackSuggestionRejected,
-  recordPriceObservation,
-  computeAcceptanceWeight,
-} from '../utils/learningEngine';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -56,59 +42,6 @@ function handleNumericInput(e, setter) {
   if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
   setter(raw);
 }
-
-const DEFAULT_QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
-
-export function parseItemDraft(input, catalogEntries = []) {
-  const raw = String(input || '').trim();
-  if (!raw) return { kind: 'empty', raw: '' };
-  const query = raw.toLowerCase();
-  const exactCatalog = catalogEntries.find((entry) => {
-    const name = String(entry?.name || '').trim().toLowerCase();
-    const code = String(entry?.code || entry?.sku || entry?.item_code || '').trim().toLowerCase();
-    return query && (query === name || query === code);
-  });
-  if (exactCatalog) return { kind: 'catalog', entry: exactCatalog, raw };
-
-  const qtyMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
-  if (qtyMatch) {
-    const qty = Number(qtyMatch[2]);
-    const unitPrice = Number(qtyMatch[3]);
-    if (qty > 0 && unitPrice > 0) {
-      return { kind: 'item', name: qtyMatch[1].trim(), qty, unitPrice, raw };
-    }
-  }
-
-  const itemAmountMatch = raw.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr|\u1265\u122d))?$/i);
-  if (itemAmountMatch) {
-    const unitPrice = Number(itemAmountMatch[2]);
-    if (unitPrice > 0) return { kind: 'item', name: itemAmountMatch[1].trim(), qty: 1, unitPrice, raw };
-  }
-
-  return { kind: 'item', name: raw, qty: 1, unitPrice: null, raw };
-}
-
-export function parseItemInput(raw) {
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-
-  const namePrice = trimmed.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:\s*(?:etb|birr|\u1265\u122d))?$/i)
-  if (namePrice) {
-    return { kind: 'item', name: namePrice[1].trim(), unitPrice: Number(namePrice[2]), qty: 1, raw }
-  }
-
-  const qtyName = trimmed.match(/^(\d+)\s*[x×]\s*(.+)$/i)
-  if (qtyName) {
-    return { kind: 'item', name: qtyName[2].trim(), qty: Number(qtyName[1]), unitPrice: null, raw }
-  }
-
-  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
-    return { kind: 'amount', value: Number(trimmed), raw }
-  }
-
-  return { kind: 'item', name: trimmed, unitPrice: null, qty: 1, raw }
-}
-
 
 function TransactionForm({
    type,
@@ -120,9 +53,7 @@ function TransactionForm({
    catalogEntries = [],
    recurringExpenses,
    onRecurringChange,
-   onSaveCatalogEntry,
-   customQuickAmounts = [],
-   onCustomQuickAmountsChange,
+    onSaveCatalogEntry,
    customers = [],
    onAddCustomerInline,
    initialPaymentType,
@@ -168,14 +99,11 @@ function TransactionForm({
   // ─── State ──────────────────────────────────────────────────────────────
   const [item, setItem] = useState('');
   const [catalogEntryId, setCatalogEntryId] = useState('');
-  const [quantity, setQuantity] = useState('1');
   const [amount, setAmount] = useState('');
-  const [costPrice, setCostPrice] = useState('');
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [phoneDigits, setPhoneDigits] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [selectedDue, setSelectedDue] = useState(null);
@@ -189,21 +117,8 @@ function TransactionForm({
   const [amountDisplay, setAmountDisplay] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
   const [undoStack, setUndoStack] = useState(null);
-  const [lineItems, setLineItems] = useState([]);
-  const [showBreakdown, setShowBreakdown] = useState(false);
-  const [saleItemInput, setSaleItemInput] = useState('');
-  const [saleItems, setSaleItems] = useState([]);
-  const [saleAmountBasis, setSaleAmountBasis] = useState('entered');
-  const [parsedPreview, setParsedPreview] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedTransaction, setLastSavedTransaction] = useState(null);
-  const [customAmountValue, setCustomAmountValue] = useState('');
-  const [showCustomAmount, setShowCustomAmount] = useState(false);
-  const [newCatalogName, setNewCatalogName] = useState('');
-  const [newCatalogPrice, setNewCatalogPrice] = useState('');
-  const [catalogSaving, setCatalogSaving] = useState(false);
-  const [showAddCatalog, setShowAddCatalog] = useState(false);
-  const [showAddCatalogBreakdown, setShowAddCatalogBreakdown] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [popupName, setPopupName] = useState('');
   const [popupAmount, setPopupAmount] = useState('');
   const [popupFreq, setPopupFreq] = useState('monthly');
@@ -211,6 +126,10 @@ function TransactionForm({
   const [addRecurringHint, setAddRecurringHint] = useState(false);
   const [showUndo, setShowUndo] = useState(false);
   const amountInputRef = useRef(null);
+  const justSavedTimerRef = useRef(null);
+
+  // Clear any pending "Saved ✓" flash timer on unmount to avoid setState-after-unmount.
+  useEffect(() => () => { if (justSavedTimerRef.current) clearTimeout(justSavedTimerRef.current); }, []);
 
   const handleUndo = () => {
     if (undoStack) executeUndo(undoStack);
@@ -231,9 +150,6 @@ function TransactionForm({
   const selectedCatalogEntry =
     catalogEntries.find(entry => String(entry.id) === String(catalogEntryId)) || null;
   const sellingPrice = parseFloat(parseInput(amountDisplay || amount)) || 0;
-  const cost = parseFloat(parseInput(costPrice)) || 0;
-  const qty = Math.max(1, parseInt(quantity) || 1);
-  const belowCost = !isCredit && cost > 0 && sellingPrice < cost * qty;
 
   const phoneValid = !phoneDigits || /^[79]\d{8}$/.test(phoneDigits);
   const phoneEntered = phoneDigits.length > 0;
@@ -243,90 +159,17 @@ function TransactionForm({
         || (selectedDue === 'custom' && customDue)
     : true;
 
-  // Context-aware Quick Items ranking (spec §4.2)
-  const activeCatalogItems = useMemo(() => {
-    const now = Date.now();
-    const currentHour = new Date().getHours();
-    return catalogEntries
-      .filter(e => e && e.active !== false && e.name)
-      .slice()
-      .sort((a, b) => {
-        const freqA = Number(a.use_count || 0);
-        const freqB = Number(b.use_count || 0);
-        const recencyA = Number(a.last_used_at || a.updated_at || 0);
-        const recencyB = Number(b.last_used_at || b.updated_at || 0);
-        const todA = a.last_used_at ? (Math.abs(new Date(a.last_used_at).getHours() - currentHour) <= 2 ? 1 : 0) : 0;
-        const todB = b.last_used_at ? (Math.abs(new Date(b.last_used_at).getHours() - currentHour) <= 2 ? 1 : 0) : 0;
-        const priceA = (a.default_price || a.last_unit_price || a.last_price) ? 1 : 0;
-        const priceB = (b.default_price || b.last_unit_price || b.last_price) ? 1 : 0;
-        const acceptWeightA = computeAcceptanceWeight(a);
-        const acceptWeightB = computeAcceptanceWeight(b);
-        const scoreA = freqA * 10000000000000 * acceptWeightA + recencyA + todA * 1000000000000 + priceA * 100000000000;
-        const scoreB = freqB * 10000000000000 * acceptWeightB + recencyB + todB * 1000000000000 + priceB * 100000000000;
-        return scoreB - scoreA;
-      });
-  }, [catalogEntries]);
-  const topCatalogItems = activeCatalogItems.slice(0, 8);
-
-  // Multi-item breakdown — derived
-  const lineItemsTotal = lineItems.reduce((sum, l) => {
-    const v = parseFloat(parseInput(l.amount));
-    return sum + (isNaN(v) ? 0 : v);
-  }, 0);
-  const validLineItems = lineItems.filter(
-    l => l.name.trim() && parseFloat(parseInput(l.amount)) > 0
-  );
-  const breakdownDelta = sellingPrice - lineItemsTotal;
-
-  const saleItemDraft = useMemo(
-    () => parseItemDraft(saleItemInput, activeCatalogItems),
-    [activeCatalogItems, saleItemInput]
-  );
-  const saleItemSuggestions = useMemo(() => {
-    const query = saleItemInput.trim().toLowerCase();
-    if (!query) return [];
-    return activeCatalogItems
-      .filter(entry => {
-        const haystack = [
-          entry.name, entry.code, entry.sku, entry.item_code, entry.note,
-        ].filter(Boolean).join(' ').toLowerCase();
-        return haystack.includes(query);
-      })
-      .slice(0, 5);
-  }, [activeCatalogItems, saleItemInput]);
-  const saleItemsSubtotal = saleItems.reduce((sum, line) => sum + Number(line.line_total || 0), 0);
-  const saleUnitCount = saleItems.reduce((sum, line) => sum + Number(line.qty || 0), 0);
-  const saleFinalAmount = isCredit || isExpense
-    ? sellingPrice
-    : (saleAmountBasis === 'items' && saleItemsSubtotal > 0 ? saleItemsSubtotal : sellingPrice);
-  const saleHasMismatch = type === 'sale'
-    && sellingPrice > 0
-    && saleItemsSubtotal > 0
-    && Math.abs(sellingPrice - saleItemsSubtotal) >= 0.01;
-  const salePaymentOptions = useMemo(() => {
-    const banks = enabledProviders?.banks?.length ? enabledProviders.banks : ['CBE', 'Dashen', 'Awash', 'Abyssinia'];
-    const wallets = enabledProviders?.wallets?.length ? enabledProviders.wallets : ['telebirr', 'CBE Birr'];
-    return [
-      { id: 'cash', label: 'Cash', paymentType: 'cash', provider: '' },
-      ...wallets.map(provider => ({ id: `wallet:${provider}`, label: provider, paymentType: 'wallet', provider })),
-      ...banks.map(provider => ({ id: `bank:${provider}`, label: provider, paymentType: 'bank', provider })),
-      { id: 'credit', label: 'Credit', paymentType: 'credit', provider: '' },
-    ];
-  }, [enabledProviders]);
-  const selectedSalePaymentId = paymentType === 'cash'
-    ? 'cash'
-    : paymentType === 'credit'
-      ? 'credit'
-      : `${paymentType}:${paymentProvider}`;
-  const activeSalePayment = salePaymentOptions.find(option => option.id === selectedSalePaymentId) || salePaymentOptions[0];
   const isCreditSale = paymentType === 'credit';
 
-  const effectiveSellingPrice = type === 'sale' ? saleFinalAmount : sellingPrice;
-
-  const creditAmount = !isCredit && paymentType === 'credit' ? effectiveSellingPrice : 0;
+  // Display-only label for the amount hero badge (payment selector lives in the chips row).
+  const paymentLabel = paymentType === 'cash'
+    ? (lang === 'am' ? 'ጥሬ' : 'Cash')
+    : paymentType === 'credit'
+      ? (lang === 'am' ? 'ዱቤ' : 'Credit')
+      : (paymentProvider || (lang === 'am' ? 'ጥሬ' : 'Cash'));
 
   const canSave =
-     (type === 'sale' ? saleFinalAmount : sellingPrice) > 0
+     sellingPrice > 0
      && (isCredit ? item.trim() && hasDueDate : true)
      && (!phoneEntered || phoneValid)
      && !isSaving
@@ -368,37 +211,18 @@ function TransactionForm({
     setIsSaving(true);
     const fullPhone = phoneEntered && phoneValid ? '+251' + phoneDigits : null;
 
-    const saleCleanedItems = saleItems.map(line => ({
-      name: line.name,
-      code: line.code || null,
-      amount: Number(line.line_total || 0),
-      qty: Number(line.qty || 1),
-      unit_price: Number(line.unit_price || 0),
-      line_total: Number(line.line_total || 0),
-      catalog_entry_id: line.catalog_entry_id || null,
-      item_kind: line.item_kind || 'item',
-      photo_uri: line.photo_uri || null,
-    }));
-    const cleanedItems = type === 'sale'
-      ? saleCleanedItems
-      : validLineItems.map(l => ({ name: l.name.trim(), amount: parseFloat(parseInput(l.amount)) }));
-    const itemNameForSave = (!isCredit && cleanedItems.length > 0)
-      ? cleanedItems.map(li => li.name).join(', ').substring(0, 200)
-      : item.trim();
-
-    const cashReceived = !isCredit && !isCreditSale ? effectiveSellingPrice : 0;
+    const itemNameForSave = item.trim();
+    const cashReceived = !isCredit && !isCreditSale ? sellingPrice : 0;
     const photoFields = buildPhotoFields(photos);
     const data = {
       type,
       item_name: itemNameForSave,
-      catalog_entry_id: type === 'sale'
-        ? (saleItems[0]?.catalog_entry_id ? Number(saleItems[0].catalog_entry_id) : null)
-        : (catalogEntryId ? Number(catalogEntryId) : null),
-      item_kind: type === 'sale' ? (saleItems[0]?.item_kind || null) : (selectedCatalogEntry?.kind || null),
-      quantity: isCredit ? 1 : (type === 'sale' && saleUnitCount > 0 ? saleUnitCount : qty),
-      amount: effectiveSellingPrice,
-      cost_price: isCredit ? 0 : cost,
-      profit: (!isCredit && !isCreditSale && cost > 0) ? (effectiveSellingPrice - cost * qty) : null,
+      catalog_entry_id: type === 'sale' ? null : (catalogEntryId ? Number(catalogEntryId) : null),
+      item_kind: type === 'sale' ? null : (selectedCatalogEntry?.kind || null),
+      quantity: 1,
+      amount: sellingPrice,
+      cost_price: 0,
+      profit: null,
       is_credit: isCredit,
       customer_id: customerMatch?.id || null,
       customer_name: customerMatch?.display_name || customerMatch?.name || (isCredit ? item.trim() : null) || null,
@@ -408,54 +232,34 @@ function TransactionForm({
       payment_provider: (!isCredit && !isCreditSale && paymentType !== 'cash') ? paymentProvider || null : null,
       direction: isCredit ? creditDirection : null,
       ...photoFields,
-      items: cleanedItems.length > 0 ? cleanedItems : null,
+      items: null,
       settlement_mode: isCreditSale ? 'credit' : 'paid',
       cash_received: cashReceived,
-      credit_amount: isCreditSale ? effectiveSellingPrice : 0,
+      credit_amount: isCreditSale ? sellingPrice : 0,
       entered_total: type === 'sale' && sellingPrice > 0 ? sellingPrice : null,
-      items_subtotal: type === 'sale' && saleItemsSubtotal > 0 ? saleItemsSubtotal : null,
-      amount_basis: type === 'sale' ? saleAmountBasis : null,
+      items_subtotal: null,
+      amount_basis: null,
       created_at: Date.now(),
     };
     try {
       await onSave(data);
-      setLastSavedTransaction(data);
       setUndoStack({
         createdAt: data.created_at,
         customerCreated: data.customer_id || null,
-        saleItems: saleItems.map(i => ({ name: i.name })),
       });
-      await updateLearning({ items: saleItems });
       resetFormInternal();
+      // Seamless flow: re-enable saving immediately and show a brief "Saved ✓" flash
+      // so fast back-to-back entries need no navigation. Ref-held timer is cleared on
+      // each new save and on unmount to stay race-safe.
+      setIsSaving(false);
+      setJustSaved(true);
+      if (justSavedTimerRef.current) clearTimeout(justSavedTimerRef.current);
+      justSavedTimerRef.current = setTimeout(() => setJustSaved(false), 1200);
     } catch (err) {
       setIsSaving(false);
       fireToast(t.saveFailed || 'Could not save. Please try again.', 3500);
     }
   };
-
-  async function updateLearning({ items }) {
-    for (const item of items) {
-      if (!item.name) continue;
-      const existing = await db.catalogEntries.where('name').equalsIgnoreCase(item.name).first();
-      const now = Date.now();
-      if (existing) {
-        await db.catalogEntries.update(existing.id, {
-          use_count: (existing.use_count || 0) + 1,
-          last_unit_price: item.unitPrice ?? existing.last_unit_price,
-          last_price: item.unitPrice ?? existing.last_price,
-          last_used_at: now, updated_at: now,
-        });
-        if (item.unitPrice) recordPriceObservation(existing.id, item.unitPrice);
-      } else if (item.unitPrice) {
-        const newId = await db.catalogEntries.add({
-          name: item.name, default_price: item.unitPrice, last_price: item.unitPrice,
-          last_unit_price: item.unitPrice, use_count: 1, last_used_at: now,
-          created_at: now, updated_at: now, active: true,
-        });
-        onSaveCatalogEntry?.({ id: newId, name: item.name, default_price: item.unitPrice });
-      }
-    }
-  }
 
   async function executeUndo(snapshot) {
     try {
@@ -479,148 +283,14 @@ function TransactionForm({
   }
 
   function resetFormInternal() {
+    setAmount('');
     setAmountDisplay('');
-    setSaleItems([]);
-    setSaleItemInput('');
+    setItem('');
     setPhotos([]);
     setCustomerQuery('');
     setCustomerMatch(null);
-    setParsedPreview(null);
     setTimeout(() => { amountInputRef.current?.focus(); }, 50);
   }
-
-  // ─── Breakdown handlers ─────────────────────────────────────────
-  const addLineItem = (preset = {}) => {
-    setLineItems(prev => [...prev, { id: Date.now() + Math.random(), name: preset.name || '', amount: preset.amount != null ? String(preset.amount) : '' }]);
-    setShowBreakdown(true);
-  };
-  const removeLineItem = (id) => setLineItems(prev => prev.filter(l => l.id !== id));
-  const updateLineItem = (id, field, value) => setLineItems(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)));
-  const handleLineItemAmount = (id, e) => {
-    let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
-    const parts = raw.split('.');
-    if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
-    updateLineItem(id, 'amount', raw);
-  };
-  const addFromCatalogToBreakdown = (entry) => addLineItem({ name: entry.name, amount: entry.default_price });
-  const syncAmountToBreakdownSum = () => { if (lineItemsTotal > 0) setAmount(String(lineItemsTotal)); };
-
-  const applyCustomAmount = () => {
-    const val = parseFloat(parseInput(customAmountValue));
-    if (!val || val <= 0) return;
-    const current = parseFloat(parseInput(amount)) || 0;
-    setAmount(String(current + val));
-    if (onCustomQuickAmountsChange && !DEFAULT_QUICK_AMOUNTS.includes(val)) {
-      onCustomQuickAmountsChange([...customQuickAmounts, val]);
-    }
-    setCustomAmountValue('');
-    setShowCustomAmount(false);
-  };
-
-  const submitNewCatalog = async () => {
-    if (!newCatalogName.trim() || !onSaveCatalogEntry || catalogSaving) return;
-    setCatalogSaving(true);
-    try {
-      const saved = await onSaveCatalogEntry({ name: newCatalogName.trim(), kind: 'item', default_price: newCatalogPrice ? parseFloat(parseInput(newCatalogPrice)) : null });
-      if (saved) {
-        setItem(saved.name);
-        if (saved.default_price != null && (!amount || parseFloat(parseInput(amount)) === 0)) setAmount(String(saved.default_price));
-        setCatalogEntryId(String(saved.id));
-      }
-      setNewCatalogName(''); setNewCatalogPrice(''); setShowAddCatalog(false);
-    } catch { fireToast(t.saveFailed || 'Could not save item', 2800); } finally { setCatalogSaving(false); }
-  };
-
-  const submitNewCatalogToBreakdown = async () => {
-    if (!newCatalogName.trim() || !onSaveCatalogEntry || catalogSaving) return;
-    setCatalogSaving(true);
-    try {
-      const saved = await onSaveCatalogEntry({ name: newCatalogName.trim(), kind: 'item', default_price: newCatalogPrice ? parseFloat(parseInput(newCatalogPrice)) : null });
-      if (saved) addLineItem({ name: saved.name, amount: saved.default_price });
-      setNewCatalogName(''); setNewCatalogPrice(''); setShowAddCatalogBreakdown(false);
-    } catch { fireToast(t.saveFailed || 'Could not save item', 2800); } finally { setCatalogSaving(false); }
-  };
-
-  const handleQuickItem = (entry) => {
-    setCatalogEntryId(String(entry.id));
-    setItem(entry.name || '');
-    if (!amount && entry.default_price != null) setAmount(String(entry.default_price));
-    if (!costPrice && entry.default_cost != null) setCostPrice(String(entry.default_cost));
-  };
-
-  const addSaleItem = (draft) => {
-    if (!draft?.name) return;
-    const qtyValue = Math.max(1, Number(draft.qty || 1));
-    const unitPrice = Number(draft.unitPrice || 0);
-    const lineTotal = Math.round(qtyValue * unitPrice * 100) / 100;
-    const nextItem = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      name: draft.name.trim(), code: draft.code || '', qty: qtyValue, unit_price: unitPrice,
-      line_total: lineTotal, catalog_entry_id: draft.catalog_entry_id || null,
-      item_kind: draft.item_kind || 'item', photo_uri: photos[0]?.dataUrl || null,
-    };
-    setSaleItems(prev => {
-      const matchKey = String(nextItem.catalog_entry_id || nextItem.code || nextItem.name).toLowerCase();
-      const existing = prev.find(line => String(line.catalog_entry_id || line.code || line.name).toLowerCase() === matchKey);
-      if (existing) {
-        return prev.map(line => {
-          const lineKey = String(line.catalog_entry_id || line.code || line.name).toLowerCase();
-          if (lineKey !== matchKey) return line;
-          const nextQty = Number(line.qty || 1) + nextItem.qty;
-          const nextUnitPrice = Number(line.unit_price || nextItem.unit_price || 0);
-          return { ...line, qty: nextQty, unit_price: nextUnitPrice, line_total: Math.round(nextQty * nextUnitPrice * 100) / 100, photo_uri: line.photo_uri || nextItem.photo_uri || null };
-        });
-      }
-      return [...prev, nextItem];
-    });
-    if (!amount && lineTotal > 0) { setAmount(String(lineTotal)); setSaleAmountBasis('items'); }
-    setSaleItemInput('');
-    navigator.vibrate?.(40);
-  };
-
-  const addSaleCatalogItem = (entry) => {
-    const unitPrice = Number(entry?.default_price || entry?.last_price || 0);
-    addSaleItem({ name: entry?.name || '', code: entry?.code || entry?.sku || entry?.item_code || '', qty: 1, unitPrice: unitPrice || (saleItems.length === 0 ? sellingPrice : 0), catalog_entry_id: entry?.id || null, item_kind: entry?.kind || 'item' });
-    setCatalogEntryId(String(entry?.id || ''));
-    setItem(entry?.name || '');
-    if (entry?.id) trackSuggestionAccepted(entry.id);
-  };
-
-  const handleSaleAddItem = () => {
-    if (saleItemDraft.kind === 'catalog' && saleItemDraft.entry) { addSaleCatalogItem(saleItemDraft.entry); return; }
-    if (saleItemDraft.kind === 'item') {
-      const fallbackUnitPrice = saleItemDraft.unitPrice ?? (saleItems.length === 0 ? sellingPrice : 0);
-      addSaleItem({ ...saleItemDraft, unitPrice: fallbackUnitPrice });
-      if (!item) setItem(saleItemDraft.name || '');
-    }
-  };
-
-  const updateSaleItemQty = (id, nextQty) => {
-    setSaleItems(prev => prev.map(line => {
-      if (line.id !== id) return line;
-      const qtyValue = Math.max(1, Number(nextQty || 1));
-      const unitPrice = Number(line.unit_price || 0);
-      return { ...line, qty: qtyValue, line_total: Math.round(qtyValue * unitPrice * 100) / 100 };
-    }));
-    setSaleAmountBasis(current => (current === 'items' ? 'items' : current));
-  };
-
-  const removeSaleItem = (id) => setSaleItems(prev => prev.filter(line => line.id !== id));
-
-  const handleSalePaymentSelect = (option) => {
-    if (option.id === 'credit') { setPaymentType('credit'); setPaymentProvider(''); return; }
-    setPaymentType(option.paymentType);
-    setPaymentProvider(option.provider || '');
-  };
-
-  const buildSaleSaveLabel = () => {
-    if (saleFinalAmount <= 0) return photos.length > 0 ? 'Add amount to save photo sale' : 'Save';
-    if (isCreditSale) return `Save Credit · ${fmt(saleFinalAmount)} ETB`;
-    if (saleItems.length > 0) { const itemCount = saleUnitCount || saleItems.length; return `Save ${itemCount} ${itemCount === 1 ? 'item' : 'items'} · ${fmt(saleFinalAmount)} ETB`; }
-    if (photos.length > 0) return `Save photo sale · ${fmt(saleFinalAmount)} ETB`;
-    if (activeSalePayment.id !== 'cash') return `Save ${activeSalePayment.label} · ${fmt(saleFinalAmount)} ETB`;
-    return `Save ${fmt(saleFinalAmount)} ETB`;
-  };
 
   const openAddRecurring = (demoName = '') => { setPopupName(demoName); setPopupAmount(''); setPopupFreq('monthly'); setShowAddRecurring(true); };
 
@@ -638,10 +308,11 @@ function TransactionForm({
     setTimeout(() => setAddRecurringHint(false), 4000);
   };
 
-  // ═══════════════════ SALE FORM ═══════════════════════════════════
+  // ═══════════════════ SALE FORM (simplified: amount + optional note/photo + payment) ═══
   if (type === 'sale') {
-    const saleSaveLabel = buildSaleSaveLabel();
-    const canAddSaleItem = saleItemDraft.kind === 'item' || saleItemDraft.kind === 'catalog';
+    const saleSaveLabel = sellingPrice > 0
+      ? (isCreditSale ? `Save Credit · ${fmt(sellingPrice)} ETB` : `Save ${fmt(sellingPrice)} ETB`)
+      : (photos.length > 0 ? (lang === 'am' ? 'ለፎቶ ሽያጭ መጠን ያክሉ' : 'Add amount to save photo sale') : (lang === 'am' ? 'አስቀምጥ' : 'Save'));
 
     return (
       <div className="fixed inset-x-0 top-0 bottom-[60px] bg-white z-30 max-w-md mx-auto flex flex-col" style={{ background: '#ffffff' }}>
@@ -652,7 +323,7 @@ function TransactionForm({
           </button>
           <div className="text-center min-w-0">
             <h2 className="text-base font-bold" style={{ color: accentColor }}>{headerLabel}</h2>
-            {actorLabel && <p className="text-[11px] font-semibold truncate" style={{ color: '#6b7280', maxWidth: '220px' }}>Recording as {actorLabel}</p>}
+            {actorLabel && <p className="text-[11px] font-semibold truncate" style={{ color: '#6b7280', maxWidth: '220px' }}>{lang === 'am' ? `በ${actorLabel} እየተመዘገበ` : `Recording as ${actorLabel}`}</p>}
           </div>
           <div style={{ width: '36px' }} />
         </div>
@@ -662,143 +333,55 @@ function TransactionForm({
           <section className="border" style={{ borderColor: '#d8eadf', borderRadius: 'var(--radius-md)', background: '#f7fcf8' }}>
             <div className="px-3 py-2.5 flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold" style={{ color: '#4b6855' }}>Total amount</p>
-                <p className="text-2xl font-black leading-tight" style={{ color: saleFinalAmount > 0 ? '#14532d' : '#9ca3af' }}>{fmt(saleFinalAmount)} ETB</p>
+                <p className="text-xs font-bold" style={{ color: '#4b6855' }}>{lang === 'am' ? 'ጠቅላላ መጠን' : 'Total amount'}</p>
+                <p className="text-2xl font-black leading-tight" style={{ color: sellingPrice > 0 ? '#14532d' : '#9ca3af' }}>{fmt(sellingPrice)} ETB</p>
               </div>
-              <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>{activeSalePayment.label} ▾</span>
+              <span className="px-2.5 py-1.5 text-xs font-black border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>{paymentLabel}</span>
             </div>
             <div className="px-3 pb-3">
-              <input type="text" inputMode="decimal" autoFocus value={fmtInput(amount)}
-                onChange={event => { handleNumericInput(event, setAmount); setSaleAmountBasis('entered'); }}
+              <input ref={amountInputRef} type="text" inputMode="decimal" autoFocus value={fmtInput(amount)}
+                onChange={event => handleNumericInput(event, setAmount)}
                 placeholder="0" className="w-full px-3 py-3 border-2 focus:outline-none text-2xl font-black"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: amount ? '#86efac' : '#d7e3da', color: amount ? '#14532d' : '#9ca3af' }} />
             </div>
           </section>
 
-          {/* Item details section */}
+          {/* Note (optional) + photo */}
           <section className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Item details - optional</p>
-              {saleItems.length > 0 && <p className="text-[11px] font-bold" style={{ color: '#14532d' }}>{saleItems.length} {saleItems.length === 1 ? 'item' : 'items'}</p>}
-            </div>
+            <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>{lang === 'am' ? 'ማስታወሻ (አማራጭ)' : 'Note (optional)'}</p>
             <div className="flex gap-2 items-stretch">
-              {/* Photo button */}
               <button type="button" onClick={() => setShowCamera(true)}
-                className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+                className="press-scale flex items-center justify-center flex-shrink-0"
                 style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }}
-                aria-label="Take or choose photo">
+                aria-label={lang === 'am' ? 'ፎቶ አክል' : 'Take or choose photo'}>
                 {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
               </button>
-              <input type="text" value={saleItemInput}
-                onChange={(e) => { setSaleItemInput(e.target.value); setParsedPreview(parseItemInput(e.target.value)); }}
-                onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }}
-                placeholder={lang === 'am' ? 'ንጥል ወይም "ስንዴ 40"' : 'Item  or  "Sugar 40"'}
+              <input type="text" value={item} onChange={e => setItem(e.target.value)}
+                placeholder={lang === 'am' ? 'ዝርዝሩን ይመዝቡ...' : 'Add details...'}
                 className="flex-1 min-w-0 px-3 py-3 border-2 focus:outline-none text-base"
-                style={{ borderRadius: 'var(--radius-md)', borderColor: saleItemInput ? '#86efac' : '#d7e3da' }} />
-              <button type="button" onClick={handleSaleAddItem} disabled={!canAddSaleItem}
-                className="px-3 py-2 text-sm font-black press-scale flex-shrink-0"
-                style={{ borderRadius: 'var(--radius-md)', background: canAddSaleItem ? '#14532d' : '#e5e7eb', color: canAddSaleItem ? '#fff' : '#6b7280', minWidth: 66 }}>{t.addItem || 'Add Item'}</button>
+                style={{ borderRadius: 'var(--radius-md)', borderColor: item ? '#86efac' : '#d7e3da' }} />
             </div>
-            {/* draft preview */}
-            {saleItemInput.trim() && !canAddSaleItem && (
-              <div className="p-2 border text-sm flex items-center justify-between" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#faf9f7' }}>
-                <span style={{ color: '#374151' }}>"{saleItemInput.trim()}"</span>
-                <span className="text-[10px]" style={{ color: '#9ca3af' }}>{t.tapAddItemToConfirm || 'Tap Add Item to confirm'}</span>
-              </div>
-            )}
-            {parsedPreview?.kind === 'item' && parsedPreview.name && (parsedPreview.unitPrice || parsedPreview.qty >= 1) && (
-              <div className="p-2.5 border" style={{ borderColor: '#bbd7c5', borderRadius: 'var(--radius-sm)', background: '#f7fcf8' }}>
+            {photos.length > 0 && (
+              <div className="p-2" style={{ background: '#fafaf6', border: '1px solid #e8e2d8', borderRadius: 'var(--radius-sm)' }}>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black truncate" style={{ color: '#14532d' }}>{parsedPreview.name}</p>
-                    <p className="text-xs" style={{ color: '#4b6855' }}>Qty: {parsedPreview.qty || 1} · Unit: {fmt(parsedPreview.unitPrice || 0)} ETB</p>
-                  </div>
-                  <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt((parsedPreview.qty || 1) * (parsedPreview.unitPrice || 0))} ETB</p>
+                  <p className="text-xs font-semibold" style={{ color: '#1a1a1a' }}>{lang === 'am' ? 'ፎቶ' : 'Proof photos'}</p>
+                  <p className="text-[10px] font-bold" style={{ color: '#6b7280' }}>{photoCountLabel(photos.length, lang)}</p>
                 </div>
-                <button type="button" onClick={handleSaleAddItem} className="mt-1.5 w-full py-1.5 text-xs font-black text-center press-scale"
-                  style={{ borderRadius: 'var(--radius-sm)', background: '#14532d', color: '#fff' }}>Add Item</button>
-              </div>
-            )}
-            {photos.length > 0 && <p className="text-xs font-black" style={{ color: '#14532d' }}>✓ {photoCountLabel(photos.length, lang)}</p>}
-            {photoError && <p className="text-xs font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
-          </section>
-
-          {/* Quick items */}
-          <section className="space-y-1.5">
-            <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Quick Items</p>
-            {saleItemInput.trim() ? (
-              saleItemSuggestions.length > 0 ? (
-                <div className="space-y-1.5">
-                  {saleItemSuggestions.map(entry => (
-                    <button key={entry.id} type="button" onClick={() => addSaleCatalogItem(entry)} className="w-full p-2.5 border text-left press-scale flex items-center justify-between gap-2"
-                      style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-black truncate" style={{ color: '#111827' }}>{entry.name}</span>
-                        {(entry.code || entry.sku || entry.item_code) && <span className="block text-xs truncate" style={{ color: '#6b7280' }}>Code: {entry.code || entry.sku || entry.item_code}</span>}
-                      </span>
-                      {(entry.default_price || entry.last_price) && <span className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(entry.default_price || entry.last_price)} ETB</span>}
-                    </button>
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                  {photos.map((entry) => (
+                    <div key={entry.id} className="relative flex-shrink-0">
+                      <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
+                      <button type="button" onClick={() => handleRemovePhoto(entry.id)} className="press-scale flex items-center justify-center"
+                        style={{ position: 'absolute', top: -6, right: -6, minWidth: 28, minHeight: 28, borderRadius: 999, border: '1px solid #e8e2d8', background: '#fff' }}>
+                        <X className="w-3.5 h-3.5" style={{ color: '#6b7280' }} /></button>
+                      <p className="text-[10px] text-center mt-1" style={{ color: '#9ca3af' }}>{Math.round(photoSizeBytes(entry.dataUrl) / 1024)} KB</p>
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <button type="button" onClick={() => { const draft = parseItemInput(saleItemInput); if (draft?.kind === 'item') addSaleItem({ name: draft.name, unitPrice: draft.unitPrice, qty: 1 }); else if (draft?.kind === 'amount') setAmount(String(draft.value)); }}
-                  className="w-full p-2.5 border text-left press-scale" style={{ borderColor: '#1B4332', borderRadius: 'var(--radius-sm)', background: '#f7fcf8' }}>
-                  <span className="text-sm font-bold" style={{ color: '#1B4332' }}>+ Use "{saleItemInput.trim()}"</span></button>
-              )
-            ) : topCatalogItems.length > 0 ? (
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {topCatalogItems.map(entry => (
-                  <button key={entry.id} type="button" onClick={() => addSaleCatalogItem(entry)} className="flex-shrink-0 px-3 py-2 text-xs font-black border press-scale"
-                    style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#14532d' }}>{entry.code || entry.sku || entry.item_code || entry.name}</button>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3 border text-sm" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', color: '#6b7280' }}>
-                <p className="font-bold" style={{ color: '#374151' }}>No items yet</p><p>Saved items will appear here after you use them.</p>
               </div>
             )}
+            {photoError && <p className="text-xs font-semibold" style={{ color: '#dc2626' }}>{photoError}</p>}
           </section>
-
-          {/* Items in this sale */}
-          {saleItems.length > 0 && (
-            <section className="space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: '#6b7280' }}>Items in this sale</p>
-              {saleItems.map(line => (
-                <div key={line.id} className="p-2.5 border" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black truncate" style={{ color: '#111827' }}>{line.name}</p>
-                      {line.code && <p className="text-xs" style={{ color: '#6b7280' }}>{line.code}</p>}
-                      <p className="text-xs" style={{ color: '#6b7280' }}>Qty: {line.qty} · Unit: {fmt(line.unit_price)}</p>
-                    </div>
-                    <p className="text-sm font-black flex-shrink-0" style={{ color: '#14532d' }}>{fmt(line.line_total)} ETB</p>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) - 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Minus className="w-4 h-4" /></button>
-                      <span className="text-sm font-black min-w-6 text-center">{line.qty}</span>
-                      <button type="button" onClick={() => updateSaleItemQty(line.id, Number(line.qty || 1) + 1)} className="p-2 border press-scale" style={{ borderColor: '#e8e2d8', borderRadius: 6 }}><Plus className="w-4 h-4" /></button>
-                    </div>
-                    <button type="button" onClick={() => removeSaleItem(line.id)} className="px-3 py-2 text-xs font-bold border press-scale" style={{ borderColor: '#fecaca', color: '#b91c1c', borderRadius: 6 }}>Delete</button>
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-between text-sm font-black px-1" style={{ color: '#374151' }}>
-                <span>Items subtotal ({saleUnitCount || saleItems.length} units)</span>
-                <span>{fmt(saleItemsSubtotal)} ETB</span>
-              </div>
-              {saleHasMismatch && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setSaleAmountBasis('entered')} className="p-2 text-xs font-black border-2 press-scale"
-                    style={{ borderColor: saleAmountBasis === 'entered' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'entered' ? '#ecfdf3' : '#fff', color: '#14532d' }}>
-                    Use entered total {fmt(sellingPrice)}</button>
-                  <button type="button" onClick={() => setSaleAmountBasis('items')} className="p-2 text-xs font-black border-2 press-scale"
-                    style={{ borderColor: saleAmountBasis === 'items' ? '#14532d' : '#e8e2d8', borderRadius: 6, background: saleAmountBasis === 'items' ? '#ecfdf3' : '#fff', color: '#14532d' }}>
-                    Use item subtotal {fmt(saleItemsSubtotal)}</button>
-                </div>
-              )}
-            </section>
-          )}
 
           {/* Payment chips */}
           <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar">
@@ -813,22 +396,32 @@ function TransactionForm({
 
         {/* Save button */}
         <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid #e8e2d8', background: '#fff' }}>
-          {!canSave && saleFinalAmount > 0 && isCreditSale && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>Add or pick a customer above</p>}
+          {!canSave && sellingPrice > 0 && isCreditSale && <p className="text-xs font-semibold text-center mb-2" style={{ color: '#92400e' }}>{lang === 'am' ? 'ከላይ ደንበኛ ይምረጡ ወይም ያክሉ' : 'Add or pick a customer above'}</p>}
           <button type="button" onClick={handleSave} disabled={!canSave} className="w-full p-3 font-black text-base flex items-center justify-center gap-2 transition-all press-scale"
-            style={{ background: canSave ? '#14532d' : '#e5e7eb', color: canSave ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-md)' }}>
-            <Save className="w-5 h-5" />{saleSaveLabel}</button>
-          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>Saved on this phone · Syncs later</p>
+            style={{ background: (justSaved && !canSave) ? '#16a34a' : (canSave ? '#14532d' : '#e5e7eb'), color: ((justSaved && !canSave) || canSave) ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'default', borderRadius: 'var(--radius-md)' }}>
+            {(justSaved && !canSave)
+              ? <><Check className="w-5 h-5" />{lang === 'am' ? 'ተቀምጧል ✓' : 'Saved ✓'}</>
+              : <><Save className="w-5 h-5" />{saleSaveLabel}</>}</button>
+          <p className="text-[11px] font-semibold text-center mt-1.5" style={{ color: '#6b7280' }}>{lang === 'am' ? 'በዚህ ስልክ ተቀምጧል · በኋላ ይመሳሰላል' : 'Saved on this phone · Syncs later'}</p>
         </div>
 
         {/* Undo bar */}
         {showUndo && (
           <div className="fixed bottom-16 left-0 right-0 mx-auto max-w-md px-3 z-50">
             <div className="bg-white border shadow-lg flex items-center justify-between px-4 py-3" style={{ borderColor: '#d7e3da', borderRadius: 'var(--radius-md)' }}>
-              <span className="text-sm font-bold" style={{ color: '#14532d' }}>Sale saved</span>
-              <button type="button" onClick={handleUndo} className="text-sm font-black" style={{ color: '#dc2626' }}>UNDO</button>
+              <span className="text-sm font-bold" style={{ color: '#14532d' }}>{lang === 'am' ? 'ሽያጭ ተቀምጧል' : 'Sale saved'}</span>
+              <button type="button" onClick={handleUndo} className="text-sm font-black" style={{ color: '#dc2626' }}>{lang === 'am' ? 'ቀልብስ' : 'UNDO'}</button>
             </div>
           </div>
         )}
+
+        {/* Camera capture modal (was missing from the sale branch) */}
+        <CameraCapture
+          open={showCamera}
+          onCapture={(dataUrl) => { handleCameraPhoto(dataUrl); setShowCamera(false); }}
+          onClose={() => setShowCamera(false)}
+          lang={lang}
+        />
       </div>
     );
   }
@@ -842,7 +435,11 @@ function TransactionForm({
           <ArrowLeft className="w-5 h-5" style={{ color: '#6b7280' }} />
         </button>
         <h2 className="text-base font-bold" style={{ color: accentColor }}>{headerLabel}</h2>
-        {actorLabel ? (
+        {isExpense ? (
+          <button onClick={resetFormInternal} className="text-xs font-bold press-scale px-2 py-1" style={{ color: '#9ca3af', minWidth: '36px', textAlign: 'right' }}>
+            {lang === 'am' ? 'አጽዳ' : 'Clear'}
+          </button>
+        ) : actorLabel ? (
           <span className="text-[11px] font-semibold truncate" style={{ color: '#6b4f1d', maxWidth: '100px', textAlign: 'right' }} title={actorLabel}>{actorLabel}</span>
         ) : <div style={{ width: '36px' }} />}
       </div>
@@ -895,87 +492,19 @@ function TransactionForm({
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>{lang === 'am' ? 'መጠን' : 'AMOUNT'}</label>
           <div className="relative">
-            <input ref={amountInputRef} type="text" inputMode="decimal" value={amountDisplay} placeholder="0"
+            <input ref={amountInputRef} type="text" inputMode="decimal" value={amountDisplay}
+              onChange={e => { let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, ''); const parts = raw.split('.'); if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join(''); setAmountDisplay(raw); setAmount(raw); }}
+              placeholder="0"
               className="w-full py-3 pr-20 text-3xl sm:text-4xl font-bold text-center focus:outline-none"
               style={{ borderBottom: `2px solid ${amountDisplay ? accentColor : '#e8e2d8'}`, background: 'transparent', color: amountDisplay ? accentColor : '#9ca3af' }} />
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-base sm:text-lg font-semibold" style={{ color: '#9ca3af' }}>{lang === 'am' ? 'ብር' : 'birr'}</span>
           </div>
-          {/* Quick-pick chips */}
-          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 items-center">
-            {Array.from(new Set([...DEFAULT_QUICK_AMOUNTS, ...customQuickAmounts])).filter(n => typeof n === 'number' && n > 0).sort((a, b) => a - b).map(amt => {
-              const isCustom = !DEFAULT_QUICK_AMOUNTS.includes(amt);
-              return (
-                <button key={amt} type="button" onClick={() => { const current = parseFloat(parseInput(amount)) || 0; setAmount(String(current + amt)); }}
-                  onContextMenu={isCustom ? (e) => { e.preventDefault(); if (onCustomQuickAmountsChange) onCustomQuickAmountsChange(customQuickAmounts.filter(n => n !== amt)); } : undefined}
-                  className="flex-shrink-0 px-3 py-1.5 text-xs font-bold border press-scale"
-                  style={{ borderColor: isCustom ? '#C4883A' : '#e8e2d8', borderRadius: 'var(--radius-sm)', background: isCustom ? 'rgba(196,136,58,0.06)' : '#fff', color: isCustom ? '#6b4f1d' : '#374151', minWidth: '52px' }}
-                  title={isCustom ? (lang === 'am' ? 'ለማስወገድ ይያዙ' : 'Long-press to remove') : undefined}>+{amt}</button>
-              );
-            })}
-            <button type="button" onClick={() => setShowCustomAmount(v => !v)} className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-              style={{ borderColor: showCustomAmount ? accentColor : '#c9bfa8', borderStyle: 'dashed', borderRadius: 'var(--radius-sm)', background: showCustomAmount ? `${accentColor}10` : '#faf9f7', color: showCustomAmount ? accentColor : '#6b7280', minWidth: '40px', minHeight: '32px' }}><Plus className="w-3.5 h-3.5" /></button>
-            {amount && (
-              <button type="button" onClick={() => setAmount('')} className="flex-shrink-0 ml-auto px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center justify-center"
-                style={{ borderColor: '#fecaca', borderRadius: 'var(--radius-sm)', background: '#fef2f2', color: '#dc2626', minWidth: '40px', minHeight: '32px' }}><X className="w-3.5 h-3.5" /></button>
-            )}
-          </div>
-        </div>
 
-        {/* Multi-item breakdown — SALE ONLY (not expense) */}
-        {!isCredit && type !== 'expense' && (
-          <div>
-            <button type="button" onClick={() => setShowBreakdown(v => !v)} className="flex items-center gap-1 text-sm font-semibold py-1 min-h-[36px]" style={{ color: '#C4883A' }}>
-              {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {validLineItems.length > 0
-                ? (lang === 'am' ? `🧺 ${validLineItems.length} ዕቃዎች` : `🧺 ${validLineItems.length} items`)
-                : (lang === 'am' ? '🧺 ብዙ ዕቃዎች ይከፋፍሉ' : '🧺 Break down into items')}
-            </button>
-            {showBreakdown && (
-              <div className="mt-2 p-3 border space-y-3" style={{ background: 'var(--color-bg)', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}>
-                {(topCatalogItems.length > 0 || onSaveCatalogEntry) && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#6b7280' }}>{lang === 'am' ? 'ለማከል ይጫኑ' : 'Tap saved item to add'}</p>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 items-center">
-                      {topCatalogItems.map(entry => (
-                        <button key={entry.id} type="button" onClick={() => addFromCatalogToBreakdown(entry)} className="flex-shrink-0 px-2.5 py-1.5 text-xs font-bold border press-scale flex items-center gap-1"
-                          style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#fff', color: '#374151' }}>
-                          <Plus className="w-3 h-3" />{entry.name}{entry.default_price != null && <span className="ml-1 font-normal" style={{ color: '#9ca3af' }}>{fmt(entry.default_price)}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {lineItems.length > 0 && (
-                  <div className="space-y-1.5">
-                    {lineItems.map((line, idx) => (
-                      <div key={line.id} className="flex items-center gap-1.5">
-                        <input type="text" value={line.name} onChange={e => updateLineItem(line.id, 'name', e.target.value)} placeholder={lang === 'am' ? `ዕቃ ${idx + 1}` : `item ${idx + 1}`}
-                          className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm" style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }} />
-                        <input type="text" inputMode="decimal" value={fmtInput(line.amount)} onChange={e => handleLineItemAmount(line.id, e)} placeholder="0"
-                          className="w-20 px-2 py-2 border focus:outline-none text-sm text-right font-bold" style={{ borderRadius: 'var(--radius-sm)', borderColor: '#e8e2d8', background: '#fff' }} />
-                        <button type="button" onClick={() => removeLineItem(line.id)} className="press-scale flex items-center justify-center flex-shrink-0" style={{ minWidth: '32px', minHeight: '32px' }}><X className="w-4 h-4" style={{ color: '#9ca3af' }} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button type="button" onClick={() => addLineItem()} className="w-full py-2 text-xs font-bold border border-dashed press-scale flex items-center justify-center gap-1"
-                  style={{ borderColor: '#c9bfa8', borderRadius: 'var(--radius-sm)', background: '#faf9f7', color: '#6b7280' }}>
-                  <Plus className="w-4 h-4" />{lineItems.length === 0 ? (lang === 'am' ? 'የመጀመሪያ ዕቃ ጨምር' : 'Add first item') : (lang === 'am' ? 'ሌላ ዕቃ ጨምር' : 'Add another item')}</button>
-                {validLineItems.length > 0 && (
-                  <div className="text-xs pt-2 border-t space-y-1" style={{ borderColor: '#e8e2d8' }}>
-                    <div className="flex justify-between" style={{ color: '#374151' }}><span>{lang === 'am' ? 'የዕቃዎች ድምር' : 'Items total'}:</span><span className="font-bold">{fmt(lineItemsTotal)} {lang === 'am' ? 'ብር' : 'birr'}</span></div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        </div>
 
         {/* ITEM / NAME + photo button */}
         <div>
-          <label className="block text-[10px] font-bold tracking-widest mb-1.5" style={{ color: '#6b7280' }}>
-            {validLineItems.length > 0 && !isCredit ? (lang === 'am' ? 'ማስታወሻ (አማራጭ)' : 'NOTE (OPTIONAL)') : itemLabel}
-          </label>
+          <label className="block text-[10px] font-bold tracking-widest mb-1.5" style={{ color: '#6b7280' }}>{itemLabel}</label>
           <div className="flex gap-2 items-stretch">
             <input type="text" value={item} onChange={e => setItem(e.target.value)} placeholder={itemPlaceholder}
               className="flex-1 min-w-0 p-3 border-2 focus:outline-none text-base" style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
@@ -1071,54 +600,7 @@ function TransactionForm({
 
         <EthiopianDatePicker open={showDatePicker} value={customDue} onChange={(iso) => { setCustomDue(iso); setSelectedDue('custom'); }} onClose={() => setShowDatePicker(false)} lang={lang} />
 
-        {/* More options */}
-        {!isCredit && (
-          <div>
-            <button type="button" onClick={() => setShowAdvanced(v => !v)} className="flex items-center gap-1 text-sm font-semibold py-1 min-h-[36px]" style={{ color: '#C4883A' }}>
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {lang === 'am' ? `ተጨማሪ (ብዛት፣ ዋጋ) ${qty > 1 ? `• ×${qty}` : ''}` : `More options (qty, cost) ${qty > 1 ? `• ×${qty}` : ''}`}
-            </button>
-            {showAdvanced && (
-              <div className="mt-2 p-3 border space-y-3" style={{ background: 'var(--color-bg)', borderColor: '#e8e2d8', borderRadius: 'var(--radius-md)' }}>
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>{lang === 'am' ? 'ብዛት' : 'Quantity'} <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(በነባሪ 1)' : '(default 1)'}</span></label>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setQuantity(String(Math.max(1, qty - 1)))} className="flex items-center justify-center press-scale" style={{ minWidth: '44px', minHeight: '44px', border: '2px solid #e8e2d8', borderRadius: 'var(--radius-md)', background: '#fff' }}><Minus className="w-4 h-4" style={{ color: '#374151' }} /></button>
-                    <input type="number" inputMode="numeric" value={quantity} onChange={e => { const raw = e.target.value; if (raw === '') { setQuantity(''); return; } const v = parseInt(raw); if (!isNaN(v) && v >= 1) setQuantity(String(v)); }} onBlur={e => { const v = parseInt(e.target.value); setQuantity(isNaN(v) || v < 1 ? '1' : String(v)); }} min="1"
-                      className="flex-1 p-2.5 border-2 focus:outline-none text-base text-center font-bold" style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
-                    <button type="button" onClick={() => setQuantity(String(qty + 1))} className="flex items-center justify-center press-scale" style={{ minWidth: '44px', minHeight: '44px', border: '2px solid #e8e2d8', borderRadius: 'var(--radius-md)', background: '#fff' }}><Plus className="w-4 h-4" style={{ color: '#374151' }} /></button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>{lang === 'am' ? 'ለዚህ ምን ከፈሉ?' : 'What did you pay for this?'} <span style={{ color: '#9ca3af' }}>{lang === 'am' ? '(በአንድ)' : '(per unit)'}</span></label>
-                  <div className="relative">
-                    <input type="text" inputMode="decimal" value={fmtInput(costPrice)} onChange={e => handleNumericInput(e, setCostPrice)} placeholder="0" className="w-full p-3 pr-14 border-2 focus:outline-none text-base" style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: '#9ca3af' }}>{lang === 'am' ? 'ብር' : 'birr'}</span>
-                  </div>
-                  {belowCost && (
-                    <div className="mt-2 flex items-start gap-2 p-2.5" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)' }}>
-                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#d97706' }} />
-                      <p className="text-xs" style={{ color: '#92400e' }}>{lang === 'am' ? 'ከዋጋ በታች እየሸጡ ነው።' : 'You are selling below cost.'}</p>
-                    </div>
-                  )}
-                  {cost > 0 && !belowCost && sellingPrice > 0 && (() => {
-                    const profit = sellingPrice - cost * qty;
-                    const margin = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
-                    const marginColor = margin >= 30 ? '#16a34a' : margin >= 15 ? '#C4883A' : '#dc2626';
-                    return (
-                      <div className="mt-2 p-2.5 border" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 'var(--radius-sm)' }}>
-                        <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-xs font-semibold" style={{ color: '#166534' }}>{lang === 'am' ? 'ትርፍ' : 'Profit'}: {fmt(profit)} {lang === 'am' ? 'ብር' : 'birr'}</p>
-                          <p className="text-xs font-bold flex-shrink-0" style={{ color: marginColor }}>{Math.round(margin * 10) / 10}% {lang === 'am' ? 'ህዳግ' : 'margin'}</p>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
       </div>
 
       {/* Save button */}
@@ -1132,8 +614,10 @@ function TransactionForm({
           return <p style={{ fontSize: '0.78rem', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontWeight: 600, textAlign: 'center' }}>{blocker}</p>;
         })()}
         <button onClick={handleSave} disabled={!canSave} className="w-full p-3 font-bold text-white text-base flex items-center justify-center gap-2 transition-all press-scale"
-          style={{ background: canSave ? accentColor : '#e5e7eb', color: canSave ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-md)' }}>
-          <Save className="w-5 h-5" />{saveButtonText}</button>
+          style={{ background: (justSaved && !canSave) ? '#16a34a' : (canSave ? accentColor : '#e5e7eb'), color: ((justSaved && !canSave) || canSave) ? '#fff' : '#9ca3af', cursor: canSave ? 'pointer' : 'default', borderRadius: 'var(--radius-md)' }}>
+          {(justSaved && !canSave)
+            ? <><Check className="w-5 h-5" />{lang === 'am' ? 'ተቀምጧል ✓' : 'Saved ✓'}</>
+            : <><Save className="w-5 h-5" />{saveButtonText}</>}</button>
       </div>
 
       {/* Recurring popup */}

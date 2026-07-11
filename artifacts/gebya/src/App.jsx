@@ -3517,8 +3517,6 @@ function AppInner() {
             recurringExpenses={recurringExpenses}
             onRecurringChange={setRecurringExpenses}
             onSaveCatalogEntry={handleSaveCatalogEntry}
-            customQuickAmounts={customQuickAmounts}
-            onCustomQuickAmountsChange={handleCustomQuickAmountsChange}
             customers={customerSummaries}
             onAddCustomerInline={handleAddCustomerInline}
             initialPaymentType={(showForm === 'sale' || showForm === 'expense') ? lastPayment[showForm]?.type : undefined}
