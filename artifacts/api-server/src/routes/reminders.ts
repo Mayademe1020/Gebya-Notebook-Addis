@@ -74,6 +74,10 @@ function verifyReminderCronSecret(req: Request, res: Response, next: Function) {
   const receivedSecret =
     (req.headers["x-reminder-cron-secret"] as string | undefined) ||
     (req.query?.secret as string | undefined) ||
+    // Vercel Cron sends Authorization: Bearer <CRON_SECRET>
+    (req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7)
+      : undefined) ||
     null;
 
   if (!receivedSecret || receivedSecret !== expectedSecret) {
