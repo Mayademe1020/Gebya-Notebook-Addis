@@ -9,9 +9,9 @@
 // On save, parent passes payload.id back through handleSaveSupplier's edit branch.
 
 import { useState } from 'react';
-import { Save, X, Camera, Image as ImageIcon, Trash2, CheckCircle2 } from 'lucide-react';
+import { Save, X, Camera, Trash2, CheckCircle2 } from 'lucide-react';
 import { useLang } from '../context/LangContext';
-import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { photoSizeBytes } from '../utils/photoCapture';
 import CameraCapture from './CameraCapture';
 import {
   extractSubscriberDigits,
@@ -45,22 +45,6 @@ function SupplierForm({ existing = null, onSave, onDone }) {
   };
   const initials = (displayName.trim() || existing?.display_name || '?')
     .split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-
-  const handlePhotoCapture = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoError(null);
-    setPhotoLoading(true);
-    try {
-      const dataUrl = await compressPhoto(file);
-      setPhoto(dataUrl);
-    } catch (err) {
-      setPhotoError(err.message || 'Photo capture failed');
-    } finally {
-      setPhotoLoading(false);
-      e.target.value = ''; // allow re-selecting the same file
-    }
-  };
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -189,7 +173,7 @@ function SupplierForm({ existing = null, onSave, onDone }) {
                 </div>
               </div>
             ) : (
-              <div className="flex gap-2 w-full">
+              <div>
                 <button
                   type="button"
                   onClick={() => setShowCamera(true)}
@@ -197,16 +181,8 @@ function SupplierForm({ existing = null, onSave, onDone }) {
                   style={{ borderColor: '#dc2626', color: '#dc2626', background: '#fff' }}
                 >
                   <Camera className="w-4 h-4" />
-                  {lang === 'am' ? 'ካሜራ' : 'Camera'}
+                  {lang === 'am' ? 'ፎቶ ይምረጡ' : 'Add Photo'}
                 </button>
-                <label
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 border-2 rounded-xl font-bold text-sm cursor-pointer press-scale"
-                  style={{ borderColor: '#e8e2d8', color: '#4b5563', background: '#fff' }}
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  {lang === 'am' ? 'ጋለሪ' : 'Gallery'}
-                  <input type="file" accept="image/*" onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
-                </label>
               </div>
             )}
             {photoError && (

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { ArrowLeft, Camera, Save, Image, X } from 'lucide-react';
+import { ArrowLeft, Camera, Save, X } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { db } from '../../db';
 import { fmt, fmtInput } from '../../utils/numformat';
-import { compressPhoto } from '../../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof } from '../../utils/photoProof';
+import CameraCapture from '../CameraCapture';
 import { fireToast } from '../Toast';
 import PaymentTypeChips from '../PaymentTypeChips';
 import ItemRow from './ItemRow';
@@ -64,7 +64,7 @@ export default function ItemizedSaleView({
   const [showDiscount, setShowDiscount] = useState(draft?.showDiscount || false);
   const [sessionRecentIds, setSessionRecentIds] = useState(new Set());
   const [lastSaleItems, setLastSaleItems] = useState([]);
-  const [showCameraSheet, setShowCameraSheet] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(!!draft);
   const [creditCustomerSearch, setCreditCustomerSearch] = useState('');
@@ -74,7 +74,6 @@ export default function ItemizedSaleView({
   const [selectedDueTs, setSelectedDueTs] = useState(null);
   const [customDueIso, setCustomDueIso] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const fileInputRef = useRef(null);
   const creditSearchRef = useRef(null);
   const filteredCustomers = customers.filter(c =>
     c.name?.toLowerCase().includes(creditCustomerSearch.toLowerCase())
@@ -154,43 +153,20 @@ export default function ItemizedSaleView({
   }, []);
 
   // --- Photo handlers ---
-  const handlePhotoCapture = async (files) => {
-    if (!files || files.length === 0) return;
-    if (photos.length + files.length > MAX_PHOTOS) {
-      fireToast(lang === 'am' ? `ከፍተኛ ${MAX_PHOTOS} ፎቶ` : `Max ${MAX_PHOTOS} photos`, 2500);
-      return;
-    }
+  const handleCameraPhoto = async (dataUrl) => {
+    if (!dataUrl) return;
     setPhotoLoading(true);
     setPhotoError(null);
     try {
-      const next = await Promise.all(files.map(async (f) => createPhotoProof(await compressPhoto(f))));
-      setPhotos(prev => [...prev, ...next.filter(Boolean)].slice(0, MAX_PHOTOS));
+      const proof = createPhotoProof(dataUrl);
+      if (proof) {
+        setPhotos(prev => [...prev, proof].slice(0, MAX_PHOTOS));
+      }
     } catch (err) {
       setPhotoError(err.message || 'Photo failed');
     } finally {
       setPhotoLoading(false);
     }
-  };
-
-  const handleRemovePhoto = (id) => {
-    setPhotos(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleCameraOption = (option) => {
-    setShowCameraSheet(false);
-    if (option === 'camera') {
-      fileInputRef.current?.setAttribute('capture', 'environment');
-      fileInputRef.current?.click();
-    } else if (option === 'gallery') {
-      fileInputRef.current?.removeAttribute('capture');
-      fileInputRef.current?.click();
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    handlePhotoCapture(files);
-    e.target.value = '';
   };
 
   // --- Save ---
@@ -375,7 +351,7 @@ export default function ItemizedSaleView({
         </h2>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowCameraSheet(true)}
+            onClick={() => setShowCamera(true)}
             className="press-scale flex items-center justify-center relative"
             style={{ minWidth: '40px', minHeight: '40px' }}
             disabled={photoLoading}
@@ -391,13 +367,6 @@ export default function ItemizedSaleView({
               </span>
             )}
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
           <button
             onClick={() => setShowRecentSales(true)}
             className="press-scale flex items-center justify-center"
@@ -408,23 +377,6 @@ export default function ItemizedSaleView({
           </button>
         </div>
       </div>
-
-      {/* Camera action sheet */}
-      {showCameraSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowCameraSheet(false)}>
-          <div className="bg-white w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <button onClick={() => handleCameraOption('camera')} className="w-full px-4 py-3 text-left text-xs font-bold border-b flex items-center gap-3" style={{ borderColor: '#edeae5', minHeight: '44px' }}>
-              <Camera className="w-4 h-4" /> {lang === 'am' ? 'ፎቶ አንሳ' : 'Take Photo'}
-            </button>
-            <button onClick={() => handleCameraOption('gallery')} className="w-full px-4 py-3 text-left text-xs font-bold border-b flex items-center gap-3" style={{ borderColor: '#edeae5', minHeight: '44px' }}>
-              <Image className="w-4 h-4" /> {lang === 'am' ? 'ከማዕከለ-ስዕላት ምረጥ' : 'Choose from Gallery'}
-            </button>
-            <button onClick={() => setShowCameraSheet(false)} className="w-full px-4 py-3 text-left text-xs font-bold flex items-center gap-3" style={{ minHeight: '44px', color: '#6b7280' }}>
-              {lang === 'am' ? 'ተው' : 'Cancel'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Photo indicators — inline, no background */}
       {photos.length > 0 && (
@@ -894,6 +846,14 @@ export default function ItemizedSaleView({
           onHistory={onHistory}
         />
       )}
+
+      {/* Camera capture modal */}
+      <CameraCapture
+        open={showCamera}
+        onCapture={(dataUrl) => { handleCameraPhoto(dataUrl); setShowCamera(false); }}
+        onClose={() => setShowCamera(false)}
+        lang={lang}
+      />
     </div>
   );
 }

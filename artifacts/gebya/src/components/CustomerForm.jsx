@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { Camera, CheckCircle2, Save, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { normalizeTelegram } from '../utils/customerTelegram';
-import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { photoSizeBytes } from '../utils/photoCapture';
 import CameraCapture from './CameraCapture';
 import {
   extractSubscriberDigits,
@@ -60,22 +60,6 @@ function CustomerForm({ onSave, onDone, existing }) {
     // Accept only digits, max 9 characters. Validation kicks in once 9 reached.
     const raw = e.target.value.replace(/\D/g, '');
     setPhoneDigits(raw.slice(0, 9));
-  };
-
-  const handlePhotoCapture = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoLoading(true);
-    setPhotoError(null);
-    try {
-      const dataUrl = await compressPhoto(file);
-      setPhoto(dataUrl);
-    } catch (err) {
-      setPhotoError(err.message || 'Photo capture failed');
-    } finally {
-      setPhotoLoading(false);
-    }
-    e.target.value = '';
   };
 
   const handleSave = async () => {
@@ -228,7 +212,7 @@ function CustomerForm({ onSave, onDone, existing }) {
                 <p style={{ fontSize: '0.68rem', color: '#9ca3af', marginTop: 1 }}>
                   {lang === 'am' ? 'በቆጣሪው ላይ ለማወቅ ይረዳዎታል' : 'recognize them faster at the counter'}
                 </p>
-                <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <div style={{ marginTop: 4 }}>
                   <button
                     type="button"
                     onClick={() => setShowCamera(true)}
@@ -241,18 +225,8 @@ function CustomerForm({ onSave, onDone, existing }) {
                     }}
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    {lang === 'am' ? 'ካሜራ' : 'Camera'}
+                    {lang === 'am' ? 'ፎቶ ይምረጡ' : 'Add Photo'}
                   </button>
-                  <label className="cursor-pointer press-scale" style={{
-                    padding: '5px 10px', fontSize: '0.72rem', fontWeight: 700,
-                    background: '#fff', color: '#1a1a1a',
-                    border: '1px solid #ece6d6',
-                    borderRadius: 6,
-                    display: 'inline-flex', alignItems: 'center', gap: 3,
-                  }}>
-                    🖼 {lang === 'am' ? 'ጋለሪ' : 'Gallery'}
-                    <input type="file" accept="image/*" onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
-                  </label>
                 </div>
               </>
             )}

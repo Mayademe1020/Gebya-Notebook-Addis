@@ -4,8 +4,9 @@ import { useLang } from '../context/LangContext';
 import PaymentTypeChips from './PaymentTypeChips';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput } from '../utils/numformat';
-import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, normalizePhotos } from '../utils/photoProof';
+import CameraCapture from './CameraCapture';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -42,6 +43,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoChanged, setPhotoChanged] = useState(false);
   const [replacePhotoId, setReplacePhotoId] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
   const lastProviderByType = {
     bank:   initPType === 'bank'   ? initPProvider : '',
     wallet: initPType === 'wallet' ? initPProvider : '',
@@ -92,31 +94,25 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
       { id: `new-${Date.now()}-${Math.random()}`, name: '', amount: '' },
     ]);
 
-  const handlePhotoCapture = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const handleCameraPhoto = async (dataUrl) => {
+    if (!dataUrl) return;
     setPhotoLoading(true);
     setPhotoError(null);
     try {
-      const nextPhotos = await Promise.all(files.map(async (file) => (
-        createPhotoProof(await compressPhoto(file))
-      )));
-      const cleanPhotos = nextPhotos.filter(Boolean);
-      if (replacePhotoId) {
-        const replacement = cleanPhotos[0];
-        if (replacement) {
-          setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? replacement : entry)));
+      const proof = createPhotoProof(dataUrl);
+      if (proof) {
+        if (replacePhotoId) {
+          setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? proof : entry)));
+        } else {
+          setPhotos(prev => [...prev, proof]);
         }
-      } else {
-        setPhotos(prev => [...prev, ...cleanPhotos]);
+        setPhotoChanged(true);
       }
-      setPhotoChanged(true);
     } catch (err) {
       setPhotoError(err.message || 'Photo capture failed');
     } finally {
       setPhotoLoading(false);
       setReplacePhotoId(null);
-      e.target.value = '';
     }
   };
 
@@ -325,7 +321,9 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                 style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }}
               />
               {!isCredit && (
-                <label
+                <button
+                  type="button"
+                  onClick={() => { setReplacePhotoId(null); setShowCamera(true); }}
                   className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
                   style={{
                     width: 56,
@@ -337,16 +335,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                     position: 'relative',
                   }}
                   aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
-                  onClick={() => setReplacePhotoId(null)}
                 >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoCapture}
-                    className="hidden"
-                     disabled={photoLoading}
-                  />
                   {photoLoading
                     ? <span className="text-sm">...</span>
                     : <Camera className="w-6 h-6" style={{ color: photos.length > 0 ? '#16a34a' : '#6b7280' }} />
@@ -372,7 +361,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                   >
                      +1
                   </span>
-                </label>
+                </button>
               )}
             </div>
             {!isCredit && photoError && (
@@ -396,14 +385,15 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
                 <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
                   {photos.map((entry, index) => (
                     <div key={entry.id} className="relative flex-shrink-0">
-                      <label
+                      <button
+                        type="button"
+                        onClick={() => { setReplacePhotoId(entry.id); setShowCamera(true); }}
                         className="cursor-pointer press-scale block"
+                        style={{ padding: 0, border: 'none', background: 'transparent' }}
                         aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
-                        onClick={() => setReplacePhotoId(entry.id)}
                       >
                         <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
-                        <input type="file" accept="image/*" onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
-                      </label>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleRemovePhoto(entry.id)}
@@ -613,6 +603,14 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
           </button>
         </div>
       </div>
+
+      {/* Camera capture modal */}
+      <CameraCapture
+        open={showCamera}
+        onCapture={(dataUrl) => { handleCameraPhoto(dataUrl); setShowCamera(false); }}
+        onClose={() => { setShowCamera(false); setReplacePhotoId(null); }}
+        lang={lang}
+      />
     </div>
   );
 }

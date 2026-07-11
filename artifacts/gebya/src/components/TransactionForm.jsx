@@ -37,9 +37,10 @@ import { useLang } from '../context/LangContext';
 import EthiopianDatePicker from './EthiopianDatePicker';
 import { getDueDateOptions, formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
-import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
+import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS, photoCountLabel } from '../utils/photoProof';
 import { fireToast } from './Toast';
+import CameraCapture from './CameraCapture';
 import { db } from '../db';
 import {
   trackSuggestionShown,
@@ -173,6 +174,7 @@ function TransactionForm({
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [phoneDigits, setPhoneDigits] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
@@ -336,34 +338,24 @@ function TransactionForm({
   };
 
   // ─── Photo handler — max 3 proof photos ─────────────────────────────
-  const handlePhotoCapture = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    const remaining = Math.max(0, MAX_PROOF_PHOTOS - photos.length);
-    if (remaining === 0) {
+  const handleCameraPhoto = async (dataUrl) => {
+    if (!dataUrl) return;
+    if (photos.length >= MAX_PROOF_PHOTOS) {
       setPhotoError(lang === 'am' ? '3 ፎቶዎች ሙሉ በሙሉ ተያዝዋል' : 'You can attach up to 3 photos');
-      e.target.value = '';
       return;
     }
     setPhotoLoading(true);
     setPhotoError(null);
     try {
-      const slice = files.slice(0, remaining);
-      const nextPhotos = await Promise.all(slice.map(async (file) => (
-        createPhotoProof(await compressPhoto(file))
-      )));
-      setPhotos(prev => [...prev, ...nextPhotos.filter(Boolean)].slice(0, MAX_PROOF_PHOTOS));
-      if (files.length > remaining) {
-        setPhotoError(lang === 'am' ? '3 ፎቶዎች ብቻ ማያያዝ ይችላሉ' : 'Only 3 photos can be attached');
-      } else {
-        setPhotoError(null);
+      const proof = createPhotoProof(dataUrl);
+      if (proof) {
+        setPhotos(prev => [...prev, proof].slice(0, MAX_PROOF_PHOTOS));
       }
     } catch (err) {
       setPhotoError(err.message || 'Photo capture failed');
     } finally {
       setPhotoLoading(false);
     }
-    e.target.value = '';
   };
 
   const handleRemovePhoto = (photoId) => {
@@ -691,12 +683,12 @@ function TransactionForm({
             </div>
             <div className="flex gap-2 items-stretch">
               {/* Photo button */}
-              <label className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+              <button type="button" onClick={() => setShowCamera(true)}
+                className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
                 style={{ width: 48, minHeight: 48, border: '2px solid #d7e3da', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6' }}
                 aria-label="Take or choose photo">
-                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
                 {photoLoading ? <span className="text-xs">...</span> : <Camera className="w-5 h-5" style={{ color: photos.length > 0 ? '#16a34a' : '#4b5563' }} />}
-              </label>
+              </button>
               <input type="text" value={saleItemInput}
                 onChange={(e) => { setSaleItemInput(e.target.value); setParsedPreview(parseItemInput(e.target.value)); }}
                 onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }}
@@ -988,12 +980,12 @@ function TransactionForm({
             <input type="text" value={item} onChange={e => setItem(e.target.value)} placeholder={itemPlaceholder}
               className="flex-1 min-w-0 p-3 border-2 focus:outline-none text-base" style={{ borderRadius: 'var(--radius-md)', borderColor: '#e8e2d8' }} />
             {!isCredit && (
-              <label className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
+              <button type="button" onClick={() => setShowCamera(true)}
+                className="cursor-pointer press-scale flex items-center justify-center flex-shrink-0"
                 style={{ width: '56px', border: '2px solid #e8e2d8', borderRadius: 'var(--radius-md)', background: photos.length > 0 ? '#f0fdf4' : '#fafaf6', position: 'relative' }}>
-                <input type="file" accept="image/*" multiple onChange={handlePhotoCapture} className="hidden" disabled={photoLoading} />
                 {photoLoading ? <span className="text-sm">...</span> : <Camera className="w-6 h-6" style={{ color: photos.length > 0 ? '#16a34a' : '#6b7280' }} />}
                 <span aria-hidden="true" style={{ position: 'absolute', top: -7, right: -7, minWidth: 24, height: 20, padding: '0 5px', borderRadius: 999, background: '#16a34a', color: '#fff', border: '2px solid #fff', fontSize: 10, fontWeight: 900, lineHeight: '16px', textAlign: 'center' }}>+</span>
-              </label>
+              </button>
             )}
           </div>
           {photos.length > 0 && (
@@ -1191,6 +1183,14 @@ function TransactionForm({
           <button onPointerDown={() => executeUndo(undoStack)} className="text-sm font-bold text-yellow-400 tracking-wide">UNDO</button>
         </div>
       )}
+
+      {/* Camera capture modal */}
+      <CameraCapture
+        open={showCamera}
+        onCapture={(dataUrl) => { handleCameraPhoto(dataUrl); setShowCamera(false); }}
+        onClose={() => setShowCamera(false)}
+        lang={lang}
+      />
     </div>
   );
 }
