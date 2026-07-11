@@ -16,7 +16,7 @@ import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES, isValidCustomerTransactionType } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
 import { photoSizeBytes } from '../utils/photoCapture';
-import { buildPhotoFields, createPhotoProof, normalizePhotos } from '../utils/photoProof';
+import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -96,12 +96,13 @@ function CustomerTransactionSheet({
   const [paymentProvider, setPaymentProvider] = useState(initPaymentProvider);
 
   const handleCameraPhoto = (dataUrl) => {
-    const proof = createPhotoProof(dataUrl);
-    if (!proof) return;
     if (replacePhotoId) {
-      setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? proof : entry)));
+      const proof = createPhotoProof(dataUrl);
+      if (proof) setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? proof : entry)));
     } else {
-      setPhotos(prev => [...prev, proof]);
+      if (photos.length >= MAX_PROOF_PHOTOS) return;
+      const proof = createPhotoProof(dataUrl);
+      if (proof) setPhotos(prev => [...prev, proof].slice(0, MAX_PROOF_PHOTOS));
     }
     setReplacePhotoId(null);
     setShowCamera(false);

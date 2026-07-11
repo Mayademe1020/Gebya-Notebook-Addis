@@ -126,7 +126,14 @@ async function clickBottomAction(page, label: RegExp) {
 }
 
 async function uploadTransactionPhotos(page, files = [photoFile]) {
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles(files);
+  for (const file of files) {
+    await page.getByRole('button', { name: /take or choose photo/i }).click();
+    await expect(page.getByText(/choose from gallery/i)).toBeVisible();
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.getByText(/choose from gallery/i).click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles(file);
+  }
   await expect(page.getByText(new RegExp(`${files.length}/3`))).toBeVisible();
 }
 
@@ -299,7 +306,10 @@ test('sale edit mode can add, replace, and remove individual proof photos', asyn
   await expect(page.getByRole('button', { name: /view transaction photo/i })).toHaveCount(0);
   await openTransactionEditor(page, 'Edit multi photo sale');
   await expect(page.getByText(/voice/i)).toHaveCount(0);
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles(photoFile);
+  await page.getByRole('button', { name: /take or choose photo/i }).click();
+  const editChooser1 = page.waitForEvent('filechooser');
+  await page.getByText(/choose from gallery/i).click();
+  (await editChooser1).setFiles(photoFile);
   await expect(page.getByText(/1\/3/)).toBeVisible();
   await saveEdit(page);
 
@@ -308,7 +318,10 @@ test('sale edit mode can add, replace, and remove individual proof photos', asyn
   expect(withOne?.photo).toMatch(/^data:image\/jpeg;base64,/);
 
   await openTransactionEditor(page, 'Edit multi photo sale');
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles(replacementPhotoFile);
+  await page.getByRole('button', { name: /take or choose photo/i }).click();
+  const editChooser2 = page.waitForEvent('filechooser');
+  await page.getByText(/choose from gallery/i).click();
+  (await editChooser2).setFiles(replacementPhotoFile);
   await expect(page.getByText(/2\/3/)).toBeVisible();
   await saveEdit(page);
 
@@ -316,8 +329,10 @@ test('sale edit mode can add, replace, and remove individual proof photos', asyn
   expect(withTwo?.photos).toHaveLength(2);
 
   await openTransactionEditor(page, 'Edit multi photo sale');
+  await page.getByRole('button', { name: /replace photo 1/i }).click();
+  await expect(page.getByText(/choose from gallery/i)).toBeVisible();
   const replaceChooserPromise = page.waitForEvent('filechooser');
-  await page.getByLabel(/replace photo 1/i).click();
+  await page.getByText(/choose from gallery/i).click();
   const replaceChooser = await replaceChooserPromise;
   await replaceChooser.setFiles(thirdPhotoFile);
   await saveEdit(page);
@@ -412,9 +427,13 @@ test('direct Dubie supports proof photos and payment rows stay photo-free', asyn
   await page.getByPlaceholder(/what they took/i).fill('Direct photo dubie');
 
   await page.getByRole('button', { name: /take or choose photo/i }).click();
-  await page.locator('input[type="file"][accept="image/*"]').last().setInputFiles(photoFile);
+  const dubieChooser1 = page.waitForEvent('filechooser');
+  await page.getByText(/choose from gallery/i).click();
+  (await dubieChooser1).setFiles(photoFile);
   await page.getByRole('button', { name: /take or choose photo/i }).click();
-  await page.locator('input[type="file"][accept="image/*"]').last().setInputFiles(replacementPhotoFile);
+  const dubieChooser2 = page.waitForEvent('filechooser');
+  await page.getByText(/choose from gallery/i).click();
+  (await dubieChooser2).setFiles(replacementPhotoFile);
   await expect(page.getByText(/2\/3/)).toBeVisible();
   await page.getByRole('button', { name: /save credit/i }).click();
 

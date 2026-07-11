@@ -5,7 +5,7 @@ import PaymentTypeChips from './PaymentTypeChips';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput } from '../utils/numformat';
 import { photoSizeBytes } from '../utils/photoCapture';
-import { buildPhotoFields, createPhotoProof, normalizePhotos } from '../utils/photoProof';
+import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import CameraCapture from './CameraCapture';
 
 function handleNumericInput(e, setter) {
@@ -104,7 +104,8 @@ function EditTransactionSheet({ transaction, enabledProviders, onUpdate, onClose
         if (replacePhotoId) {
           setPhotos(prev => prev.map(entry => (entry.id === replacePhotoId ? proof : entry)));
         } else {
-          setPhotos(prev => [...prev, proof]);
+          if (photos.length >= MAX_PROOF_PHOTOS) return;
+          setPhotos(prev => [...prev, proof].slice(0, MAX_PROOF_PHOTOS));
         }
         setPhotoChanged(true);
       }
