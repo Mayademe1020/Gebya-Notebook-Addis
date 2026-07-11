@@ -500,6 +500,11 @@ function CustomerList({
                       {lang === 'am' ? 'የተፈተነ' : 'Settled'}
                     </span>
                   )}
+                  {customer.last_reminded_at && (
+                    <span style={{ color: '#6b7280', marginLeft: 4 }}>
+                      🔔 {daysAgoLabel(customer.last_reminded_at, lang)}
+                    </span>
+                  )}
                 </p>
               </div>
 

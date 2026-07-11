@@ -20,6 +20,7 @@ import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { getCreditAllocationStatus, getPaymentSettlementCount } from '../utils/customerLedgerMutations';
 import { useLang } from '../context/LangContext';
+import CustomerReminderHistory from './CustomerReminderHistory';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -495,6 +496,16 @@ function CustomerDetail({
           )}
         </div>
       </div>
+
+      {/* ═══ 4. REMINDER HISTORY (collapsible) ═══════════════════════════════ */}
+      {customer.has_overdue && (
+        <CustomerReminderHistory
+          customerId={customer.id || customer.customer_id}
+          shopId={customer.shop_id || customer.business_id}
+          lang={lang}
+          onResend={() => onRemind?.(customer)}
+        />
+      )}
 
       {/* ═══ 5. HISTORY ══════════════════════════════════════════ */}
       <div>

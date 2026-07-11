@@ -9,6 +9,7 @@ export const useNotificationsStore = create((set, get) => ({
   loading: false,
   loadingMore: false,
   fetched: false,
+  lastFetchedAt: 0,
 
   fetchNotifications: async () => {
     if (get().loading) return;
@@ -17,7 +18,7 @@ export const useNotificationsStore = create((set, get) => ({
       const token = await getAuthToken();
       if (!token) { set({ loading: false }); return; }
       const data = await notificationsApi.list({ limit: 50, offset: 0 }, token);
-      set({ notifications: data.notifications || [], total: data.total || 0, fetched: true });
+      set({ notifications: data.notifications || [], total: data.total || 0, fetched: true, lastFetchedAt: Date.now() });
     } catch (err) {
       console.error('[notifications] fetch failed:', err);
     } finally {
@@ -46,7 +47,7 @@ export const useNotificationsStore = create((set, get) => ({
       const token = await getAuthToken();
       if (!token) return;
       const data = await notificationsApi.unreadCount(token);
-      set({ unreadCount: data.count || 0 });
+      set({ unreadCount: data.count || 0, lastFetchedAt: Date.now() });
     } catch (err) {
       console.error('[notifications] unreadCount failed:', err);
     }

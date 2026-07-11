@@ -594,6 +594,52 @@ function buildJSON({ transactions, ledgerTransactions, customers, suppliers }, f
   return JSON.stringify({ exported_at: new Date().toISOString(), period: { from, to }, transactions, ledgerTransactions, customers, suppliers }, null, 2);
 }
 
+function ReminderSummaryCard({ overdueCustomers, hidden, lang }) {
+  if (!overdueCustomers || overdueCustomers.length === 0) return null;
+  const totalOverdue = overdueCustomers.reduce((sum, c) => sum + Number(c.balance || 0), 0);
+  const remindedCount = overdueCustomers.filter(c => c.last_reminded_at).length;
+  const lastReminded = overdueCustomers
+    .filter(c => c.last_reminded_at)
+    .sort((a, b) => (b.last_reminded_at || 0) - (a.last_reminded_at || 0))[0]?.last_reminded_at;
+  const lastRemindedLabel = lastReminded
+    ? new Date(lastReminded).toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', { month: 'short', day: 'numeric' })
+    : null;
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+      <div style={{ background: '#fff', border: '1px solid #ece6d6', borderRadius: 10, padding: '10px 12px' }}>
+        <p style={{ fontSize: 10, fontWeight: 800, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          {lang === 'am' ? 'የዘገዩ' : 'Overdue'}
+        </p>
+        <p style={{ fontSize: 18, fontWeight: 900, color: '#dc2626', marginTop: 2 }}>
+          {overdueCustomers.length}
+        </p>
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #ece6d6', borderRadius: 10, padding: '10px 12px' }}>
+        <p style={{ fontSize: 10, fontWeight: 800, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          {lang === 'am' ? 'ጠቅላላ ዱቤ' : 'Total owed'}
+        </p>
+        <p style={{ fontSize: 18, fontWeight: 900, color: '#b8842c', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+          {hidden ? '••••' : totalOverdue.toLocaleString()}
+        </p>
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #ece6d6', borderRadius: 10, padding: '10px 12px' }}>
+        <p style={{ fontSize: 10, fontWeight: 800, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          {lang === 'am' ? 'ያስታወሰ' : 'Reminded'}
+        </p>
+        <p style={{ fontSize: 18, fontWeight: 900, color: '#166534', marginTop: 2 }}>
+          {remindedCount}
+          {lastRemindedLabel && (
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', marginLeft: 4 }}>
+              · {lastRemindedLabel}
+            </span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const HistoryView = ({ transactions, onEdit }) => (
   <div>
     {transactions.map(tx => (
@@ -1125,6 +1171,16 @@ export default function ReportView({
               hidden={hidden}
               lang={lang}
             />
+          </Section>
+        )}
+
+        {/* Reminder Summary — replaces the deleted Reminders tab for global view */}
+        {!isStaffView && overdueCustomers.length > 0 && (
+          <Section
+            title={lang === 'am' ? 'ማስታወሻ ማጠቃለያ' : 'Reminder Summary'}
+            isCollapsible={false}
+          >
+            <ReminderSummaryCard overdueCustomers={overdueCustomers} hidden={hidden} lang={lang} />
           </Section>
         )}
 

@@ -91,12 +91,11 @@ const importCustomerForm = () => import('./components/CustomerForm');
 const importCustomerTransactionSheet = () => import('./components/CustomerTransactionSheet');
 const importCustomerTelegramConnectSheet = () => import('./components/CustomerTelegramConnectSheet');
 const importHistoryView = () => import('./components/HistoryView');
-const importReminderHistory = () => import('./components/ReminderHistory');
+const importNotificationPanel = () => import('./components/NotificationPanel');
 const importReportView = () => import('./components/ReportView');
 const importSettingsPage = () => import('./components/SettingsPage');
 const importDailySuggestions = () => import('./components/DailySuggestions');
 const importTransactionDetailSheet = () => import('./components/TransactionDetailSheet');
-const importNotificationsTab = () => import('./components/NotificationsTab');
 const importItemizedSaleView = () => import('./components/smartSale/ItemizedSaleView');
 
 const TransactionForm = lazyWithRetry(importTransactionForm, 'TransactionForm');
@@ -112,12 +111,11 @@ const CustomerForm = lazyWithRetry(importCustomerForm, 'CustomerForm');
 const CustomerTransactionSheet = lazyWithRetry(importCustomerTransactionSheet, 'CustomerTransactionSheet');
 const CustomerTelegramConnectSheet = lazyWithRetry(importCustomerTelegramConnectSheet, 'CustomerTelegramConnectSheet');
 const HistoryView = lazyWithRetry(importHistoryView, 'HistoryView');
-const ReminderHistory = lazyWithRetry(importReminderHistory, 'ReminderHistory');
+const NotificationPanel = lazyWithRetry(importNotificationPanel, 'NotificationPanel');
 const ReportView = lazyWithRetry(importReportView, 'ReminderView');
 const SettingsPage = lazyWithRetry(importSettingsPage, 'SettingsPage');
 const DailySuggestions = lazyWithRetry(importDailySuggestions, 'DailySuggestions');
 const TransactionDetailSheet = lazyWithRetry(importTransactionDetailSheet, 'TransactionDetailSheet');
-const NotificationsTab = lazyWithRetry(importNotificationsTab, 'NotificationsTab');
 const ItemizedSaleView = lazyWithRetry(importItemizedSaleView, 'ItemizedSaleView');
 
 const P = {
@@ -687,6 +685,7 @@ function AppInner() {
   // Commit C.2: track the customer being edited (vs added). When non-null,
   // CustomerForm renders in edit mode pre-filled with `existing={customer}`.
   const [customerEditTarget, setCustomerEditTarget] = useState(null);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   // Supplier credit ("I owe") — Khatabook-style second ledger
   const [creditView, setCreditView] = useState('customers'); // 'customers' | 'suppliers'
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
@@ -2773,8 +2772,6 @@ function AppInner() {
     today:     { en: 'Today',     am: 'የዛሬ' },
     credit:    { en: 'Credit',    am: 'ዱቤ' },
     history:   { en: 'Report',    am: 'ሪፖርት' },
-    reminders: { en: 'Reminders', am: 'ማስታወሻ' },
-    notifications: { en: 'Alerts', am: 'ማስጠንቂ' },
     settings:  { en: 'More',      am: 'ተጨማሪ' },
   };
   // Tab IDs are UNCHANGED — only display labels and icons swap. activeTab logic stays intact.
@@ -2782,8 +2779,6 @@ function AppInner() {
     { id: 'today',     label: TAB_LABELS.today[lang],     icon: BookOpen },
     { id: 'credit',    label: TAB_LABELS.credit[lang],    icon: CreditCard },
     { id: 'history',   label: TAB_LABELS.history[lang],   icon: BarChart3 },
-    { id: 'reminders', label: TAB_LABELS.reminders[lang], icon: Bell },
-    { id: 'notifications', label: TAB_LABELS.notifications[lang], icon: Bell },
     { id: 'settings',  label: TAB_LABELS.settings[lang],  icon: MoreHorizontal },
   ];
 
@@ -2865,6 +2860,28 @@ function AppInner() {
             >
               አማ
             </span>
+          </button>
+
+          {/* Notification bell — always visible, opens NotificationPanel */}
+          <button
+            onClick={() => setShowNotificationPanel(true)}
+            className="flex-shrink-0 press-scale flex items-center justify-center"
+            aria-label={lang === 'am' ? 'ማስጠንቂቾች' : 'Notifications'}
+            style={{ position: 'relative', minWidth: '44px', minHeight: '44px', padding: '8px' }}
+          >
+            <Bell className="w-5 h-5" style={{ color: unreadNotifCount > 0 ? '#1B4332' : '#9ca3af' }} />
+            {unreadNotifCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 6, right: 6,
+                minWidth: 14, height: 14, borderRadius: 999,
+                background: '#dc2626', color: '#fff',
+                fontSize: '0.5rem', fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 3px',
+              }}>
+                {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+              </span>
+            )}
           </button>
 
           {/* Settings gear */}
@@ -3234,20 +3251,6 @@ function AppInner() {
           </Suspense>
         )}
 
-        {activeTab === 'reminders' && (
-          <Suspense fallback={<PanelFallback label={t.loading} />}>
-            <ReminderHistory
-              shopId={shopProfile?.shop_id || shopProfile?.id}
-            />
-          </Suspense>
-        )}
-
-        {activeTab === 'notifications' && (
-          <Suspense fallback={<PanelFallback label={t.loading} />}>
-            <NotificationsTab />
-          </Suspense>
-        )}
-
         {activeTab === 'settings' && (
           <Suspense fallback={<PanelFallback label={t.loading} />}>
             <SettingsPage
@@ -3293,7 +3296,7 @@ function AppInner() {
       </main>
 
       {/* Action bar (Today only) — fixed above bottom nav for thumb reach */}
-      {activeTab === 'today' && !showForm && !showCustomerForm && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
+      {activeTab === 'today' && !showForm && !showCustomerForm && !showItemizedSale && !customerEditTarget && !customerTransactionModal && !customerTransactionEditTarget && !showSupplierForm && !supplierEditTarget && !supplierTransactionModal && !supplierTransactionEditTarget && (
         <div
           className="fixed left-0 right-0 max-w-md mx-auto z-30 px-3 py-2 border-t"
           style={{ bottom: '60px', background: '#ffffff', borderColor: '#e5e7eb' }}
@@ -3301,7 +3304,6 @@ function AppInner() {
           <div className="flex gap-1.5 sm:gap-2">
             {[
               { type: 'sale',    label: t.saleButton,    color: '#16a34a', icon: Plus    },
-              { type: 'itemized', label: t.itemsButton, color: '#C4883A', icon: Plus },
               { type: 'expense', label: t.expenseButton,  color: '#dc2626', icon: Minus   },
               { type: 'credit',  label: t.creditButton,  color: '#2563eb', icon: RotateCw },
             ].map(b => {
@@ -3318,7 +3320,7 @@ function AppInner() {
                       }
                       return;
                     }
-                    if (b.type === 'itemized') {
+                    if (b.type === 'sale') {
                       setShowItemizedSale(true);
                       return;
                     }
@@ -3474,7 +3476,7 @@ function AppInner() {
                       {creditMetrics.overdueCount}
                     </span>
                   )}
-                  {tab.id === 'notifications' && unreadNotifCount > 0 && (
+                  {tab.id === 'today' && unreadNotifCount > 0 && (
                     <span style={{
                       position: 'absolute', top: -4, right: -8,
                       minWidth: 16, height: 16, borderRadius: 999,
@@ -3534,6 +3536,7 @@ function AppInner() {
             onSaveCatalogEntry={handleSaveCatalogEntry}
             customers={customerSummaries}
             transactions={todaySales}
+            onHistory={() => { setShowItemizedSale(false); setActiveTab('report'); }}
           />
         </Suspense>
       )}
@@ -3683,6 +3686,14 @@ function AppInner() {
             defaultChannel={reminderDefaultChannel}
             onClose={() => { setReminderTarget(null); setReminderDefaultChannel(null); }}
             onSent={handleCustomerReminderSent}
+          />
+        </Suspense>
+      )}
+
+      {showNotificationPanel && (
+        <Suspense fallback={<ModalFallback label={t.loading} />}>
+          <NotificationPanel
+            onClose={() => setShowNotificationPanel(false)}
           />
         </Suspense>
       )}
