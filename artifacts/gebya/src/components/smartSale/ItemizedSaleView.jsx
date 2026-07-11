@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ArrowLeft, Camera, Save, Image, X } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { db } from '../../db';
@@ -10,6 +10,8 @@ import PaymentTypeChips from '../PaymentTypeChips';
 import ItemRow from './ItemRow';
 import { useSmartSaleRows } from './useSmartSaleRows';
 import RecentSalesSheet from './RecentSalesSheet';
+import { getDueDateOptions, formatEthiopian } from '../../utils/ethiopianCalendar';
+import EthiopianDatePicker from '../EthiopianDatePicker';
 
 const MAX_PHOTOS = 3;
 const DRAFT_KEY = 'gebya_sale_draft';
@@ -69,11 +71,21 @@ export default function ItemizedSaleView({
   const [creditCustomerId, setCreditCustomerId] = useState(null);
   const [creditCustomerName, setCreditCustomerName] = useState('');
   const [creditCustomerPhone, setCreditCustomerPhone] = useState('');
-  const [creditDueDate, setCreditDueDate] = useState('');
+  const [selectedDueTs, setSelectedDueTs] = useState(null);
+  const [customDueIso, setCustomDueIso] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const fileInputRef = useRef(null);
   const filteredCustomers = customers.filter(c =>
     c.name?.toLowerCase().includes(creditCustomerSearch.toLowerCase())
   );
+  const recentCreditCustomers = useMemo(() =>
+    customers
+      .filter(c => c.last_activity_at)
+      .sort((a, b) => (b.last_activity_at || 0) - (a.last_activity_at || 0))
+      .slice(0, 4),
+    [customers]
+  );
+  const dueDateOptions = useMemo(() => getDueDateOptions(), []);
 
   const {
     rows,
@@ -212,7 +224,7 @@ export default function ItemizedSaleView({
         customer_id: isCredit ? creditCustomerId : null,
         customer_name: isCredit ? (creditCustomerName || creditCustomerSearch) : null,
         customer_phone: isCredit ? normalizePhone(creditCustomerPhone) : null,
-        due_date: isCredit ? (creditDueDate || null) : null,
+        due_date: isCredit ? (customDueIso ? new Date(`${customDueIso}T12:00:00`).getTime() : selectedDueTs) : null,
         payment_type: paymentType === 'cash' ? 'cash' : paymentType,
         payment_provider: paymentType !== 'cash' ? paymentProvider || null : null,
         direction: null,
@@ -532,9 +544,10 @@ export default function ItemizedSaleView({
           </div>
         </div>
 
-        {/* Credit fields — customer search + due date + phone */}
+        {/* Credit fields — customer search + recent chips + due date + phone */}
         {isCredit && (
           <div className="px-2 py-1.5 space-y-1.5">
+            {/* Search + Add button — always visible */}
             <div className="flex gap-1">
               <div className="relative flex-1">
                 <input
@@ -543,27 +556,54 @@ export default function ItemizedSaleView({
                   onChange={e => setCreditCustomerSearch(e.target.value)}
                   placeholder={lang === 'am' ? 'ደንበኛ ፈልግ...' : 'Search customer...'}
                   className="w-full p-1.5 text-[10px] border font-bold"
-                  style={{ borderColor: '#edeae5', borderRadius: 'var(--radius-sm)', minHeight: '36px' }}
+                  style={{ borderColor: creditCustomerId ? '#16a34a' : '#edeae5', borderRadius: 'var(--radius-sm)', minHeight: '36px' }}
                 />
-                {creditCustomerSearch && !creditCustomerId && filteredCustomers.length > 0 && (
-                  <div className="absolute z-10 top-full left-0 right-0 bg-white border shadow-sm max-h-[140px] overflow-y-auto" style={{ borderColor: '#edeae5', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)' }}>
-                    {filteredCustomers.slice(0, 6).map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setCreditCustomerId(c.id);
-                          setCreditCustomerName(c.name);
-                          setCreditCustomerPhone(c.phone || '');
-                          setCreditCustomerSearch(c.name);
-                        }}
-                        className="w-full px-2 py-1.5 text-left text-[10px] font-bold border-b flex items-center gap-2"
-                        style={{ borderColor: '#f3f4f6', minHeight: '36px' }}
-                      >
-                        <span>{c.name}</span>
-                        {c.phone && <span className="text-[9px]" style={{ color: '#9ca3af' }}>{c.phone}</span>}
-                      </button>
-                    ))}
+                {creditCustomerSearch && !creditCustomerId && (
+                  <div className="absolute z-10 top-full left-0 right-0 bg-white border shadow-sm max-h-[160px] overflow-y-auto" style={{ borderColor: '#edeae5', borderRadius: '0 0 var(--radius-sm) var(--radius-sm)' }}>
+                    {filteredCustomers.length > 0 ? (
+                      <>
+                        {filteredCustomers.slice(0, 6).map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCreditCustomerId(c.id);
+                              setCreditCustomerName(c.name);
+                              setCreditCustomerPhone(c.phone || '');
+                              setCreditCustomerSearch(c.name);
+                            }}
+                            className="w-full px-2 py-1.5 text-left text-[10px] font-bold border-b flex items-center gap-2"
+                            style={{ borderColor: '#f3f4f6', minHeight: '36px' }}
+                          >
+                            <span>👤 {c.name}</span>
+                            {c.phone && <span className="text-[9px]" style={{ color: '#9ca3af' }}>{c.phone}</span>}
+                          </button>
+                        ))}
+                        {onAddCustomerInline && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const name = creditCustomerSearch.trim();
+                              if (!name) return;
+                              const saved = await onAddCustomerInline({ display_name: name });
+                              if (saved?.id) {
+                                setCreditCustomerId(saved.id);
+                                setCreditCustomerName(saved.display_name || saved.name || name);
+                                setCreditCustomerSearch(saved.display_name || saved.name || name);
+                              }
+                            }}
+                            className="w-full px-2 py-1.5 text-left text-[10px] font-bold border-t border-dashed flex items-center gap-1"
+                            style={{ borderColor: '#16a34a', color: '#16a34a', minHeight: '36px' }}
+                          >
+                            + {lang === 'am' ? 'እንደ አዲስ ደንበኛ አክል' : 'Add as new customer'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-2 py-2 text-[10px]" style={{ color: '#9ca3af' }}>
+                        {lang === 'am' ? 'ደንበኛ አልተገኘም' : 'No customer found'}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -571,7 +611,7 @@ export default function ItemizedSaleView({
                 type="button"
                 onClick={async () => {
                   const name = creditCustomerSearch.trim();
-                  if (!name && !creditCustomerId) {
+                  if (!name) {
                     const input = document.querySelector('input[placeholder*="Search"]');
                     input?.focus();
                     return;
@@ -590,23 +630,115 @@ export default function ItemizedSaleView({
                 <span className="text-[13px] mr-0.5">+</span>{lang === 'am' ? 'አክል' : 'Add'}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <input
-                type="date"
-                value={creditDueDate}
-                onChange={e => setCreditDueDate(e.target.value)}
-                className="p-1.5 text-[10px] border font-bold"
-                style={{ borderColor: '#edeae5', borderRadius: 'var(--radius-sm)', minHeight: '36px' }}
-              />
+
+            {/* Recent credit customers — quick-select chips */}
+            {!creditCustomerSearch && !creditCustomerId && recentCreditCustomers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {recentCreditCustomers.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setCreditCustomerId(c.id);
+                      setCreditCustomerName(c.name);
+                      setCreditCustomerPhone(c.phone || '');
+                      setCreditCustomerSearch(c.name);
+                    }}
+                    className="flex items-center gap-1 px-1.5 py-1 text-[9px] font-bold border press-scale"
+                    style={{ borderColor: '#edeae5', borderRadius: '2px', minHeight: '28px', background: '#fff' }}
+                  >
+                    <span>👤</span>
+                    <span>{c.name}</span>
+                    {c.phone && <span className="text-[8px]" style={{ color: '#9ca3af' }}>{c.phone}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Customer summary chip — compact when selected */}
+            {creditCustomerId && (
+              <div className="flex items-center gap-1 px-1.5 py-1" style={{ background: 'rgba(22,163,74,0.06)', borderRadius: '2px', minHeight: '28px' }}>
+                <span className="text-[10px]">👤</span>
+                <span className="text-[10px] font-bold flex-1">{creditCustomerName}</span>
+                {creditCustomerPhone && <span className="text-[9px]" style={{ color: '#6b7280' }}>{creditCustomerPhone}</span>}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreditCustomerId(null);
+                    setCreditCustomerName('');
+                    setCreditCustomerPhone('');
+                    setCreditCustomerSearch('');
+                    setSelectedDueTs(null);
+                    setCustomDueIso('');
+                  }}
+                  className="ml-1 text-[10px] font-bold press-scale" style={{ color: '#9ca3af' }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Due date quick presets + phone */}
+            <div className="space-y-1">
+              <div className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#9ca3af' }}>
+                {lang === 'am' ? 'መክፈያ ቀን' : 'Due date'}
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {dueDateOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { setSelectedDueTs(opt.value); setCustomDueIso(''); }}
+                    className="px-1.5 py-1 text-[9px] font-bold border press-scale"
+                    style={{
+                      borderColor: selectedDueTs === opt.value && !customDueIso ? '#16a34a' : '#edeae5',
+                      background: selectedDueTs === opt.value && !customDueIso ? 'rgba(22,163,74,0.06)' : '#fff',
+                      color: selectedDueTs === opt.value && !customDueIso ? '#16a34a' : '#374151',
+                      borderRadius: '2px', minHeight: '28px',
+                    }}
+                  >
+                    {opt.label.split('(')[0].trim()}
+                    <span className="ml-0.5 text-[8px]" style={{ opacity: 0.6 }}>{opt.display}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(true)}
+                  className="px-1.5 py-1 text-[9px] font-bold border press-scale"
+                  style={{
+                    borderColor: customDueIso ? '#16a34a' : '#edeae5',
+                    background: customDueIso ? 'rgba(22,163,74,0.06)' : '#fff',
+                    color: customDueIso ? '#16a34a' : '#374151',
+                    borderRadius: '2px', minHeight: '28px',
+                  }}
+                >
+                  📅 {customDueIso ? formatEthiopian(new Date(`${customDueIso}T12:00:00`)) : (lang === 'am' ? 'ቀን ምረጥ' : 'Pick date')}
+                </button>
+              </div>
+            </div>
+
+            {/* Phone */}
+            <div>
+              <div className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#9ca3af' }}>
+                {lang === 'am' ? 'ስልክ ቁጥር' : 'Phone'}
+              </div>
               <input
                 type="tel"
                 value={creditCustomerPhone}
                 onChange={e => setCreditCustomerPhone(e.target.value)}
-                placeholder={lang === 'am' ? 'ስልክ ቁጥር' : 'Phone number'}
-                className="p-1.5 text-[10px] border font-bold"
+                placeholder={lang === 'am' ? '+251 9XX XXX XXX' : '+251 9XX XXX XXX'}
+                className="w-full p-1.5 text-[10px] border font-bold"
                 style={{ borderColor: '#edeae5', borderRadius: 'var(--radius-sm)', minHeight: '36px' }}
               />
             </div>
+
+            <EthiopianDatePicker
+              open={showDatePicker}
+              value={customDueIso}
+              onChange={(iso) => { setCustomDueIso(iso); setSelectedDueTs(null); }}
+              onClose={() => setShowDatePicker(false)}
+              lang={lang}
+            />
           </div>
         )}
 
