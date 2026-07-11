@@ -294,8 +294,10 @@ export default function ItemizedSaleView({
         shareAuto
           ? (lang === 'am' ? 'ተጠናቋል · ተጋሯል' : 'Completed · Shared')
           : (lang === 'am' ? 'ተጠናቋል' : 'Completed'),
-        2500
+        1500
       );
+
+      setTimeout(() => onDone(), 200);
     } catch (err) {
       fireToast(lang === 'am' ? 'መቀመጫ አልተሳካም — እንደገና ይሞክሩ' : "Couldn't save — retry", 3000);
     } finally {

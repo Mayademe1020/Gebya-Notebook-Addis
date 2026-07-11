@@ -3450,11 +3450,12 @@ function AppInner() {
             return (
               <button
                 key={tab.id}
-                onClick={() => {
-                  // Close any open overlay so the nav click actually navigates
-                  setShowForm(null);
-                  setShowCustomerForm(false);
-                  setShowSupplierForm(false);
+                  onClick={() => {
+                    // Close any open overlay so the nav click actually navigates
+                    setShowForm(null);
+                    setShowItemizedSale(false);
+                    setShowCustomerForm(false);
+                    setShowSupplierForm(false);
                   setCustomerTransactionModal(null);
                   setCustomerTransactionEditTarget(null);
                   setSupplierTransactionModal(null);
