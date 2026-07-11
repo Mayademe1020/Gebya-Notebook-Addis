@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react';
 import { useLang } from '../context/LangContext';
+import { fireToast } from './Toast';
 import db, { setIdentity } from '../db';
 import { identityApi } from '../api/identity';
 
@@ -173,6 +174,7 @@ function OnboardingScreen({ onComplete }) {
       await db.settings.put({ key: 'shop_name', value: name.trim() });
       await db.settings.put({ key: 'shop_phone', value: fullPhone });
       await db.settings.put({ key: 'shop_business_type', value: businessType });
+      fireToast(lang === 'am' ? 'በዚህ ስልክ ብቻ ተቀምጧል — ኢንተርኔት ሲገኝ ማገናኘት ይችላሉ' : 'Saved on this phone — connect to internet to enable sync', 5000);
       onComplete({ name: name.trim(), phone: fullPhone, businessType });
     } finally {
       setSaving(false);

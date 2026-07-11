@@ -39,6 +39,7 @@ import { getDueDateOptions, formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { compressPhoto, photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, MAX_PROOF_PHOTOS, photoCountLabel } from '../utils/photoProof';
+import { fireToast } from './Toast';
 import { db } from '../db';
 import {
   trackSuggestionShown,
@@ -436,6 +437,7 @@ function TransactionForm({
       resetFormInternal();
     } catch (err) {
       setIsSaving(false);
+      fireToast(t.saveFailed || 'Could not save. Please try again.', 3500);
     }
   };
 
@@ -534,7 +536,7 @@ function TransactionForm({
         setCatalogEntryId(String(saved.id));
       }
       setNewCatalogName(''); setNewCatalogPrice(''); setShowAddCatalog(false);
-    } catch {} finally { setCatalogSaving(false); }
+    } catch { fireToast(t.saveFailed || 'Could not save item', 2800); } finally { setCatalogSaving(false); }
   };
 
   const submitNewCatalogToBreakdown = async () => {
@@ -544,7 +546,7 @@ function TransactionForm({
       const saved = await onSaveCatalogEntry({ name: newCatalogName.trim(), kind: 'item', default_price: newCatalogPrice ? parseFloat(parseInput(newCatalogPrice)) : null });
       if (saved) addLineItem({ name: saved.name, amount: saved.default_price });
       setNewCatalogName(''); setNewCatalogPrice(''); setShowAddCatalogBreakdown(false);
-    } catch {} finally { setCatalogSaving(false); }
+    } catch { fireToast(t.saveFailed || 'Could not save item', 2800); } finally { setCatalogSaving(false); }
   };
 
   const handleQuickItem = (entry) => {
@@ -703,13 +705,13 @@ function TransactionForm({
                 style={{ borderRadius: 'var(--radius-md)', borderColor: saleItemInput ? '#86efac' : '#d7e3da' }} />
               <button type="button" onClick={handleSaleAddItem} disabled={!canAddSaleItem}
                 className="px-3 py-2 text-sm font-black press-scale flex-shrink-0"
-                style={{ borderRadius: 'var(--radius-md)', background: canAddSaleItem ? '#14532d' : '#e5e7eb', color: canAddSaleItem ? '#fff' : '#6b7280', minWidth: 66 }}>Add Item</button>
+                style={{ borderRadius: 'var(--radius-md)', background: canAddSaleItem ? '#14532d' : '#e5e7eb', color: canAddSaleItem ? '#fff' : '#6b7280', minWidth: 66 }}>{t.addItem || 'Add Item'}</button>
             </div>
             {/* draft preview */}
             {saleItemInput.trim() && !canAddSaleItem && (
               <div className="p-2 border text-sm flex items-center justify-between" style={{ borderColor: '#e8e2d8', borderRadius: 'var(--radius-sm)', background: '#faf9f7' }}>
                 <span style={{ color: '#374151' }}>"{saleItemInput.trim()}"</span>
-                <span className="text-[10px]" style={{ color: '#9ca3af' }}>Tap Add Item to confirm</span>
+                <span className="text-[10px]" style={{ color: '#9ca3af' }}>{t.tapAddItemToConfirm || 'Tap Add Item to confirm'}</span>
               </div>
             )}
             {parsedPreview?.kind === 'item' && parsedPreview.name && (parsedPreview.unitPrice || parsedPreview.qty >= 1) && (

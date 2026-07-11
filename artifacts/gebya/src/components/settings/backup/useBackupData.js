@@ -32,6 +32,11 @@ export const buildBackupJSON = async () => {
     staffRows,
     settingsRows,
     analyticsRows,
+    suggestionLogRows,
+    crossShopRows,
+    creditRecordsRows,
+    creditPaymentLogRows,
+    dailyClosingsRows,
   ] = await Promise.all([
     db.transactions.toArray(),
     db.customers.toArray(),
@@ -42,6 +47,11 @@ export const buildBackupJSON = async () => {
     db.staff_members?.toArray?.() || [],
     db.settings?.toArray?.() || [],
     db.analytics?.toArray?.() || [],
+    db.suggestion_log?.toArray?.() || [],
+    db.cross_shop_unmatched?.toArray?.() || [],
+    db.credit_records?.toArray?.() || [],
+    db.credit_payment_logs?.toArray?.() || [],
+    db.daily_closings?.toArray?.() || [],
   ]);
 
   return {
@@ -56,6 +66,9 @@ export const buildBackupJSON = async () => {
       supplier_transactions: supplierTxRows.length,
       catalog_entries: catalogRows.length,
       staff_members: staffRows.length,
+      credit_records: creditRecordsRows.length,
+      credit_payment_logs: creditPaymentLogRows.length,
+      daily_closings: dailyClosingsRows.length,
     },
     tables: {
       transactions: transactionsRows,
@@ -67,6 +80,11 @@ export const buildBackupJSON = async () => {
       staff_members: staffRows,
       settings: settingsRows,
       analytics: analyticsRows,
+      suggestion_log: suggestionLogRows,
+      cross_shop_unmatched: crossShopRows,
+      credit_records: creditRecordsRows,
+      credit_payment_logs: creditPaymentLogRows,
+      daily_closings: dailyClosingsRows,
     },
   };
 };
@@ -209,19 +227,26 @@ export const exportToCSV = async (transactions, lang) => {
 };
 
 export const clearAllData = async (setCleared, setShowClearConfirm) => {
-  await Promise.all([
-    db.transactions.clear(),
-    db.customers.clear(),
-    db.customer_transactions.clear(),
-    db.catalog_entries.clear(),
-    db.suppliers.clear(),
-    db.supplier_transactions.clear(),
-    db.staff_members?.clear?.() || Promise.resolve(),
-    db.credit_records?.clear?.() || Promise.resolve(),
-    db.credit_payment_logs?.clear?.() || Promise.resolve(),
-    db.settings.clear(),
-    db.analytics.clear(),
-  ]);
+  await db.transaction(
+    'rw',
+    db.transactions, db.customers, db.customer_transactions, db.catalog_entries,
+    db.suppliers, db.supplier_transactions, db.staff_members, db.settings, db.analytics,
+    db.suggestion_log, db.cross_shop_unmatched, db.credit_records, db.credit_payment_logs, db.daily_closings,
+    async () => {
+      await Promise.all([
+        db.transactions.clear(), db.customers.clear(),
+        db.customer_transactions.clear(), db.catalog_entries.clear(),
+        db.suppliers.clear(), db.supplier_transactions.clear(),
+        db.staff_members?.clear?.() || Promise.resolve(),
+        db.settings.clear(), db.analytics?.clear?.() || Promise.resolve(),
+        db.suggestion_log?.clear?.() || Promise.resolve(),
+        db.cross_shop_unmatched?.clear?.() || Promise.resolve(),
+        db.credit_records?.clear?.() || Promise.resolve(),
+        db.credit_payment_logs?.clear?.() || Promise.resolve(),
+        db.daily_closings?.clear?.() || Promise.resolve(),
+      ]);
+    }
+  );
   setCleared(true);
   setShowClearConfirm(false);
   setTimeout(() => window.location.reload(), 800);
@@ -234,6 +259,7 @@ export const restoreFromJSON = async (data, setLastBackupAt) => {
     'rw',
     db.transactions, db.customers, db.customer_transactions, db.catalog_entries,
     db.suppliers, db.supplier_transactions, db.staff_members, db.settings, db.analytics,
+    db.suggestion_log, db.cross_shop_unmatched, db.credit_records, db.credit_payment_logs, db.daily_closings,
     async () => {
       await Promise.all([
         db.transactions.clear(), db.customers.clear(),
@@ -241,6 +267,11 @@ export const restoreFromJSON = async (data, setLastBackupAt) => {
         db.suppliers.clear(), db.supplier_transactions.clear(),
         db.staff_members?.clear?.() || Promise.resolve(),
         db.settings.clear(), db.analytics?.clear?.() || Promise.resolve(),
+        db.suggestion_log?.clear?.() || Promise.resolve(),
+        db.cross_shop_unmatched?.clear?.() || Promise.resolve(),
+        db.credit_records?.clear?.() || Promise.resolve(),
+        db.credit_payment_logs?.clear?.() || Promise.resolve(),
+        db.daily_closings?.clear?.() || Promise.resolve(),
       ]);
       if (Array.isArray(tables.customers))             await db.customers.bulkAdd(tables.customers);
       if (Array.isArray(tables.suppliers))             await db.suppliers.bulkAdd(tables.suppliers);
@@ -251,6 +282,11 @@ export const restoreFromJSON = async (data, setLastBackupAt) => {
       if (Array.isArray(tables.supplier_transactions)) await db.supplier_transactions.bulkAdd(tables.supplier_transactions);
       if (Array.isArray(tables.settings))              await db.settings.bulkAdd(tables.settings);
       if (Array.isArray(tables.analytics))             await db.analytics.bulkAdd(tables.analytics);
+      if (Array.isArray(tables.suggestion_log))        await db.suggestion_log.bulkAdd(tables.suggestion_log);
+      if (Array.isArray(tables.cross_shop_unmatched))  await db.cross_shop_unmatched.bulkAdd(tables.cross_shop_unmatched);
+      if (Array.isArray(tables.credit_records))        await db.credit_records.bulkAdd(tables.credit_records);
+      if (Array.isArray(tables.credit_payment_logs))   await db.credit_payment_logs.bulkAdd(tables.credit_payment_logs);
+      if (Array.isArray(tables.daily_closings))        await db.daily_closings.bulkAdd(tables.daily_closings);
     }
   );
 };

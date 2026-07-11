@@ -1358,7 +1358,7 @@ function AppInner() {
       });
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to save:', err);
-      alert('Could not save. Please try again.');
+      fireToast(t.saveFailed || 'Could not save. Please try again.', 3500);
       throw err;
     }
   };
@@ -1378,7 +1378,7 @@ function AppInner() {
       setTransactions(prev => prev.map(t2 => t2.id === id ? updated : t2));
     } catch (err) {
       if (import.meta.env.DEV) console.error('Failed to update:', err);
-      alert('Could not update. Please try again.');
+      fireToast(t.updateFailed || 'Could not update. Please try again.', 3500);
       throw err;
     }
   };

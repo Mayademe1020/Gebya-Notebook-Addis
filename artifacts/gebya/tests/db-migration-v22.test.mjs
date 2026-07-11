@@ -1,12 +1,15 @@
 /**
- * Migration test: v21 → v22 voice-field removal.
+ * Migration test: v21 → v22 → v23.
+ *
+ * v22: voice-field removal.
+ * v23: drop 17 unused indexes on transactions (data preserved, only indexes change).
  *
  * Catches the critical bug where v22's .stores() only declared the
  * `transactions` table, which would cause Dexie to DROP all other
  * tables on upgrade — destroying customers, suppliers, credit records,
  * settings, sync queue, and everything else.
  *
- * This test defines both v21 and v22 schemas inline (matching db.js
+ * This test defines v21, v22, and v23 schemas inline (matching db.js
  * exactly) so it's runnable in pure Node without browser imports.
  *
  * Run: node tests/db-migration-v22.test.mjs
@@ -55,6 +58,27 @@ const V22_STORES = {
   daily_closings: '++id, closed_at, date_start, date_end, actor_role, actor_staff_member_id, actor_name_snapshot, finalized',
   settings: 'key, value',
   analytics: 'key, value',
+};
+
+// ── v23 schema: drop 17 unused indexes on transactions ─────────────────
+// Only type, created_at, updated_at, transaction_id remain indexed.
+
+const V23_STORES = {
+  transactions: '++id, type, created_at, updated_at, transaction_id',
+  customers: V22_STORES.customers,
+  customer_transactions: V22_STORES.customer_transactions,
+  catalog_entries: V22_STORES.catalog_entries,
+  suggestion_log: V22_STORES.suggestion_log,
+  cross_shop_unmatched: V22_STORES.cross_shop_unmatched,
+  suppliers: V22_STORES.suppliers,
+  supplier_transactions: V22_STORES.supplier_transactions,
+  staff_members: V22_STORES.staff_members,
+  sync_queue: V22_STORES.sync_queue,
+  credit_records: V22_STORES.credit_records,
+  credit_payment_logs: V22_STORES.credit_payment_logs,
+  daily_closings: V22_STORES.daily_closings,
+  settings: V22_STORES.settings,
+  analytics: V22_STORES.analytics,
 };
 
 // ── Seed data: one record per table ────────────────────────────────────
@@ -250,6 +274,39 @@ assert(suggestion.accepted === true, 'suggestion_log: accepted preserved');
 
 const unmatched = await v22.cross_shop_unmatched.toCollection().first();
 assert(unmatched.item_name === 'Mystery Item', 'cross_shop_unmatched: item_name preserved');
+
+await v22.close();
+
+// ── Step 4: Reopen with v23 schema (index removal — no data change) ────
+
+console.log('\n=== v22 → v23 Migration Test (index removal) ===\n');
+
+const v23 = new Dexie(DB_NAME);
+v23.version(21).stores(V21_STORES);
+v23.version(22).stores(V22_STORES).upgrade(async (tx) => {
+  await tx.table('transactions').toCollection().modify((record) => {
+    delete record.raw_transcript;
+    delete record.detected_total;
+    delete record.transcription_provider;
+    delete record.parsing_confidence;
+    delete record.voice_note;
+    delete record.raw_audio_ref;
+  });
+});
+v23.version(23).stores(V23_STORES);
+await v23.open();
+
+// Verify data survived the index-only migration
+for (const [table] of Object.entries(SEED)) {
+  const count = await v23.table(table).count();
+  assert(count === 1, `[v23] ${table}: survived upgrade (count=${count})`);
+}
+
+const v23tx = await v23.transactions.toCollection().first();
+assert(v23tx.amount === 500, `[v23] transactions: amount preserved (${v23tx.amount})`);
+assert(v23tx.item_name === 'Test Item', '[v23] transactions: item_name preserved');
+assert(v23tx.transaction_id === 'txn_test_001', '[v23] transactions: transaction_id preserved');
+assert(!('raw_transcript' in v23tx), '[v23] transactions: raw_transcript still removed');
 
 // ── Summary ────────────────────────────────────────────────────────────
 

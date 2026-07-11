@@ -917,6 +917,12 @@ const EN_OVERRIDES = {
   addSupplier: '+ Add Supplier',
   creditGave: 'YOU GAVE (Dubie)',
   creditGot: 'YOU GOT (Paid)',
+
+  // Save/update error toasts
+  saveFailed: 'Could not save. Please try again.',
+  updateFailed: 'Could not update. Please try again.',
+  addItem: 'Add Item',
+  tapAddItemToConfirm: 'Tap Add Item to confirm',
 };
 
 const AM_OVERRIDES = {
@@ -936,8 +942,8 @@ const AM_OVERRIDES = {
   settings: 'ቅንብሮች',
   close: 'ዝጋ',
   cancel: 'ሰርዝ',
-  add: 'መዝግብ',
-  delete: 'ለማጥፋት',
+  add: 'አክል',
+  delete: 'ሰርዝ',
   saved: 'ተቀምጧል',
   done: 'ተጠናቀቀ',
 
@@ -1406,6 +1412,12 @@ const AM_OVERRIDES = {
   addSupplier: 'አቅራቢ ጨምር',
   creditGave: 'እቃ በዱቤ ሰጠሁ (-)',
   creditGot: 'ክፍያ ተቀበልኩ (+)',
+
+  // Save/update error toasts
+  saveFailed: 'ማስቀመጥ አልተሳካም — እንደገና ይሞክሩ',
+  updateFailed: 'ማስተካከል አልተሳካም — እንደገና ይሞክሩ',
+  addItem: 'አክል',
+  tapAddItemToConfirm: 'ለማስቀመጥ አክል ይጫኑ',
 };
 
 const LangContext = createContext(null);

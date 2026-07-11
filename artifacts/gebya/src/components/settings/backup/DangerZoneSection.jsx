@@ -31,6 +31,8 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
       try {
         const data = JSON.parse(event.target.result);
         if (data?.gebya_backup_version !== 1) throw new Error('Not a valid Gebya backup file');
+        if (!data.tables || typeof data.tables !== 'object') throw new Error('Missing tables in backup');
+        if (!Array.isArray(data.tables.transactions)) throw new Error('Missing transactions table');
         setRestoreTarget(data);
       } catch (err) {
         fireToast(lang === 'am' ? 'የተበላሸ ምትኬ ፋይል' : 'Invalid backup file', 2400);

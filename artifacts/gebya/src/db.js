@@ -525,6 +525,16 @@ db.version(22).stores({
   });
 });
 
+// Version 23: Drop 17 unused indexes on transactions.
+// Only 4 fields are actually queried via .where()/.orderBy():
+//   type (trustScore), created_at (TransactionForm), updated_at (syncEngine push),
+//   transaction_id (syncEngine pull).
+// All other fields are read-only after toArray() — no index needed.
+// Data is preserved; Dexie auto-reindexes on upgrade.
+db.version(23).stores({
+  transactions: '++id, type, created_at, updated_at, transaction_id',
+});
+
 db.on('ready', async () => {
   const privacySetting = await db.settings.get('privacy_mode');
   if (!privacySetting) {
