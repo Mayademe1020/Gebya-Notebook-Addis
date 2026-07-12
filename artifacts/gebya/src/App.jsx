@@ -3532,6 +3532,7 @@ function AppInner() {
             onSave={handleAddTransaction}
             onDone={() => setShowItemizedSale(false)}
             actorLabel={currentActorLabel}
+            shopProfile={shopProfile}
             enabledProviders={enabledProviders}
             catalogEntries={activeCatalogEntries}
             onSaveCatalogEntry={handleSaveCatalogEntry}

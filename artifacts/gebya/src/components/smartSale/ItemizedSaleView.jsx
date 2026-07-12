@@ -45,6 +45,7 @@ export default function ItemizedSaleView({
   transactions = [],
   actorLabel = '',
   onHistory,
+  shopProfile = {},
 }) {
   const { lang, t } = useLang();
 
@@ -74,6 +75,8 @@ export default function ItemizedSaleView({
   const [selectedDueTs, setSelectedDueTs] = useState(null);
   const [customDueIso, setCustomDueIso] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
+  const [pendingSharePhone, setPendingSharePhone] = useState('');
   const creditSearchRef = useRef(null);
   const filteredCustomers = customers.filter(c =>
     c.name?.toLowerCase().includes(creditCustomerSearch.toLowerCase())
@@ -168,6 +171,31 @@ export default function ItemizedSaleView({
       setPhotoLoading(false);
     }
   };
+
+  // --- Share text builder ---
+  const buildShareText = useCallback(() => {
+    const items = buildItemsArray();
+    const shopName = shopProfile?.name || actorLabel || 'Shop';
+    const shopPhone = shopProfile?.phone || '';
+    const grandTotalVal = Math.max(0, totalAmount - discount);
+
+    let lines = [];
+    if (shopName) lines.push(shopName);
+    if (shopPhone) lines.push(shopPhone);
+    lines.push('');
+    items.forEach(it => {
+      if (it.name) lines.push(`${it.name}  ×${it.qty}  ${fmt(it.amount)} ETB`);
+    });
+    lines.push('');
+    if (discount > 0) lines.push(`Subtotal: ${fmt(totalAmount)} ETB`);
+    if (discount > 0) lines.push(`Discount: -${fmt(discount)} ETB`);
+    lines.push(`Total: ${fmt(grandTotalVal)} ETB`);
+    lines.push(`Payment: ${paymentType === 'cash' ? 'Cash' : paymentProvider || paymentType}`);
+    lines.push('');
+    lines.push('via Gebya');
+
+    return lines.join('\n');
+  }, [shopProfile, actorLabel, buildItemsArray, totalAmount, discount, paymentType, paymentProvider]);
 
   // --- Save ---
   const isCredit = paymentType === 'credit';
@@ -272,6 +300,21 @@ export default function ItemizedSaleView({
           : (lang === 'am' ? 'ተጠናቋል' : 'Completed'),
         1500
       );
+
+      if (shareAuto) {
+        if (!shopProfile?.phone) {
+          setShowPhonePrompt(true);
+        } else {
+          const shareText = buildShareText();
+          if (navigator.share) {
+            navigator.share({ title: 'Gebya Sale', text: shareText }).catch(() => {});
+          } else {
+            navigator.clipboard.writeText(shareText).then(() => {
+              fireToast(lang === 'am' ? 'ኮፒ ተደርጓል' : 'Copied to clipboard', 2000);
+            }).catch(() => {});
+          }
+        }
+      }
 
       setTimeout(() => onDone(), 200);
     } catch (err) {
@@ -399,16 +442,16 @@ export default function ItemizedSaleView({
 
       {/* Column headers — like notebook column labels */}
       <div className="flex-shrink-0 px-2 flex gap-1 items-center" style={{ borderBottom: '1px solid #edeae5' }}>
-        <span className="text-[8px] font-bold uppercase tracking-widest" style={{ flex: '5 1 0%', color: '#bbb0a0' }}>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ flex: '5 1 0%', color: '#bbb0a0' }}>
           {lang === 'am' ? 'ንጥል' : 'Item'}
         </span>
-        <span className="text-[8px] font-bold text-center uppercase tracking-widest" style={{ width: '40px', color: '#bbb0a0' }}>
+        <span className="text-[10px] font-bold text-center uppercase tracking-widest" style={{ width: '40px', color: '#bbb0a0' }}>
           {lang === 'am' ? 'ብዛት' : 'Qty'}
         </span>
-        <span className="text-[8px] font-bold text-right uppercase tracking-widest" style={{ width: '64px', color: '#bbb0a0' }}>
+        <span className="text-[10px] font-bold text-right uppercase tracking-widest" style={{ width: '64px', color: '#bbb0a0' }}>
           {lang === 'am' ? 'ዋጋ' : 'Price'}
         </span>
-        <span className="text-[8px] font-bold text-right uppercase tracking-widest" style={{ width: '58px', color: '#bbb0a0' }}>
+        <span className="text-[10px] font-bold text-right uppercase tracking-widest" style={{ width: '58px', color: '#bbb0a0' }}>
           {lang === 'am' ? 'ጠቅላላ' : 'Total'}
         </span>
       </div>
@@ -451,22 +494,22 @@ export default function ItemizedSaleView({
       <div className="flex-shrink-0" style={{ background: '#fff' }}>
         {/* Running Summary — compact, no internal borders */}
         <div className="px-2 py-1.5 space-y-0.5">
-          <div className="flex justify-between items-center text-[10px]">
+          <div className="flex justify-between items-center text-[11px]">
             <span style={{ color: '#9ca3af' }}>
               {lang === 'am' ? 'እቃዎች' : 'Items'}: <span className="font-bold" style={{ color: '#374151' }}>{filledRows.length}</span>
               <span className="ml-2">
                 {lang === 'am' ? 'ብዛት' : 'Qty'}: <span className="font-bold" style={{ color: '#374151' }}>{totalQty}</span>
               </span>
             </span>
-            <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+            <span className="text-[11px]" style={{ color: '#9ca3af' }}>
               {lang === 'am' ? 'ድምር' : 'Subtotal'}: <span className="font-bold" style={{ color: '#374151' }}>{fmt(totalAmount)}</span>
             </span>
           </div>
           {showDiscount && (
             <div className="flex justify-between items-center">
-              <span className="text-[10px]" style={{ color: '#9ca3af' }}>{lang === 'am' ? 'ቅናሽ' : 'Discount'}</span>
+              <span className="text-[11px]" style={{ color: '#9ca3af' }}>{lang === 'am' ? 'ቅናሽ' : 'Discount'}</span>
               <div className="flex items-center gap-1">
-                <span className="text-[10px]" style={{ color: '#dc2626' }}>−</span>
+                <span className="text-[11px]" style={{ color: '#dc2626' }}>−</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -476,7 +519,7 @@ export default function ItemizedSaleView({
                     const val = parseFloat(raw) || 0;
                     setDiscount(Math.min(val, totalAmount));
                   }}
-                  className="w-14 text-right text-[10px] font-bold px-0.5"
+                  className="w-14 text-right text-[11px] font-bold px-0.5"
                   style={{ border: 'none', borderBottom: '1px solid #e8e2d8', borderRadius: '0', minHeight: '20px', background: 'transparent' }}
                 />
               </div>
@@ -492,8 +535,8 @@ export default function ItemizedSaleView({
             </button>
           )}
           <div className="flex justify-between items-center pt-0.5">
-            <span className="text-xs font-black" style={{ color: '#111827' }}>{lang === 'am' ? 'ጠቅላላ' : 'TOTAL'}</span>
-            <span className="text-sm font-black" style={{ color: '#16a34a' }}>
+            <span className="text-[13px] font-black" style={{ color: '#111827' }}>{lang === 'am' ? 'ጠቅላላ' : 'TOTAL'}</span>
+            <span className="text-base font-black" style={{ color: '#16a34a' }}>
               {fmt(grandTotal)} ETB
             </span>
           </div>
@@ -724,6 +767,48 @@ export default function ItemizedSaleView({
             {lang === 'am' ? 'አጋራ' : 'Share'}
           </label>
 
+          {showPhonePrompt && (
+            <div className="flex items-center gap-1 flex-1">
+              <span className="text-[10px]" style={{ color: '#9ca3af' }}>
+                {lang === 'am' ? 'ስልክ:' : 'Phone:'}
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={pendingSharePhone}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  setPendingSharePhone(v);
+                }}
+                placeholder={lang === 'am' ? '0912345678' : '0912345678'}
+                className="flex-1 text-[11px] font-bold px-1 py-0.5"
+                style={{ border: 'none', borderBottom: '1px solid #e8e2d8', background: 'transparent', minHeight: '20px' }}
+              />
+              <button
+                onClick={async () => {
+                  if (pendingSharePhone.length === 9 && /^[79]/.test(pendingSharePhone)) {
+                    const fullPhone = '+251' + pendingSharePhone;
+                    await db.settings.put({ key: 'shop_phone', value: fullPhone });
+                    shopProfile.phone = fullPhone;
+                    setShowPhonePrompt(false);
+                    const shareText = buildShareText();
+                    if (navigator.share) {
+                      navigator.share({ title: 'Gebya Sale', text: shareText }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(shareText).then(() => {
+                        fireToast(lang === 'am' ? 'ኮፒ ተደርጓል' : 'Copied to clipboard', 2000);
+                      }).catch(() => {});
+                    }
+                  }
+                }}
+                className="text-[10px] font-bold px-1.5 py-0.5"
+                style={{ color: '#16a34a', background: '#f0fdf4', borderRadius: '3px' }}
+              >
+                {lang === 'am' ? 'ተቀጥል' : 'Done'}
+              </button>
+            </div>
+          )}
+
           <div className="flex-1" />
 
           <button
@@ -760,24 +845,27 @@ export default function ItemizedSaleView({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.2)' }} onClick={() => setShowReceipt(false)}>
           <div className="bg-white w-full max-w-sm p-4" style={{ fontFamily: 'monospace' }} onClick={e => e.stopPropagation()}>
             <div className="text-center mb-2">
-              <p className="text-xs font-bold" style={{ color: '#111827' }}>{actorLabel || 'Shop'}</p>
+              <p className="text-sm font-black" style={{ color: '#111827' }}>{actorLabel || 'Shop'}</p>
+              {shopProfile?.phone && (
+                <p className="text-[10px]" style={{ color: '#6b7280' }}>{shopProfile.phone}</p>
+              )}
               <p className="text-[9px]" style={{ color: '#6b7280' }}>{new Date().toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
             </div>
             <div className="border-t border-b py-1 mb-1.5" style={{ borderColor: '#d1d5db' }}>
-              <div className="flex justify-between text-[9px] font-bold mb-0.5" style={{ color: '#6b7280' }}>
+              <div className="flex justify-between text-[10px] font-bold mb-0.5" style={{ color: '#6b7280' }}>
                 <span style={{ flex: 2 }}>{lang === 'am' ? 'ንጥል' : 'Item'}</span>
                 <span style={{ width: '28px', textAlign: 'center' }}>{lang === 'am' ? 'ብ' : 'Qty'}</span>
                 <span style={{ width: '56px', textAlign: 'right' }}>{lang === 'am' ? 'ድምር' : 'Total'}</span>
               </div>
               {buildItemsArray().map((it, i) => (
-                <div key={i} className="flex justify-between text-[10px] py-0.5">
+                <div key={i} className="flex justify-between text-[11px] py-0.5">
                   <span className="truncate" style={{ flex: 2, color: '#374151' }}>{it.name}</span>
                   <span style={{ width: '28px', textAlign: 'center', color: '#374151' }}>{it.qty}</span>
                   <span style={{ width: '56px', textAlign: 'right', fontWeight: 'bold', color: '#111827' }}>{fmt(it.amount)}</span>
                 </div>
               ))}
             </div>
-            <div className="space-y-0.5 text-[10px] mb-2">
+            <div className="space-y-0.5 text-[11px] mb-2">
               <div className="flex justify-between">
                 <span style={{ color: '#6b7280' }}>{lang === 'am' ? 'ድምር' : 'Subtotal'}</span>
                 <span className="font-bold">{fmt(totalAmount)}</span>

@@ -163,7 +163,7 @@ export default function ItemRow({
             onFocus={() => { if (row.name.trim()) setShowAutocomplete(true); }}
             onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
             placeholder={lang === 'am' ? 'ንጥል...' : 'Item...'}
-            className="w-full px-1 text-xs bg-transparent focus:outline-none"
+            className="w-full px-1 text-[13px] font-medium bg-transparent focus:outline-none"
             style={{ minHeight: ROW_H, border: 'none' }}
             autoComplete="off"
           />
@@ -218,7 +218,7 @@ export default function ItemRow({
         </div>
 
         <div
-          className="flex items-center justify-end text-xs font-black flex-shrink-0"
+          className="flex items-center justify-end text-[13px] font-black flex-shrink-0"
           style={{ width: '58px', color: row.lineTotal > 0 ? '#14532d' : '#d1d5db' }}
         >
           {row.lineTotal > 0 ? fmt(row.lineTotal) : '—'}
