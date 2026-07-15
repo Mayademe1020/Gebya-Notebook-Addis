@@ -22,8 +22,6 @@
     "@replit/vite-plugin-cartographer": "catalog:",
     "@replit/vite-plugin-dev-banner": "catalog:",
     "@replit/vite-plugin-runtime-error-modal": "catalog:",
-    "@rollup/rollup-win32-x64-msvc": "^4.60.1",
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.2.2",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
@@ -31,7 +29,6 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "fake-indexeddb": "^6.2.5",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -40,6 +37,11 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.9",
     "zod": "catalog:"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.60.1",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.2.2",
+    "lightningcss-win32-x64-msvc": "^1.32.0"
   },
   "dependencies": {
     "@sentry/react": "^10.65.0",
