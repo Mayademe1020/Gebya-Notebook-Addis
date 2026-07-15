@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shopkeeper's Perspective</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', system-ui, sans-serif;
+    background: #f5f3ee;
+    padding: 20px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .page-header p {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr;
+    gap: 0;
+    max-width: 900px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  @media (max-width: 700px) {
+    .comparison { grid-template-columns: 1fr; }
+    .comparison-arrow { transform: rotate(90deg); margin: 16px auto; }
+  }
+
+  .perspective-label {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  .perspective-label.wrong { color: #dc2626; }
+  .perspective-label.right { color: #16a34a; }
+
+  .comparison-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #9ca3af;
+    padding-top: 200px;
+  }
+
+  /* Phone */
+  .phone {
+    width: 320px;
+    min-height: 600px;
+    background: #fafaf5;
+    border-radius: 32px;
+    border: 6px solid #1a1a1a;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    margin: 0 auto;
+  }
+
+  .phone-screen {
+    padding: 0 14px 60px;
+  }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .header {
+    padding: 2px 2px 10px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .header p {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .time-range {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    background: rgba(27,67,50,0.08);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 14px;
+  }
+
+  .time-btn {
+    padding: 6px 0;
+    border: none;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    background: transparent;
+    color: #6b7280;
+  }
+
+  .time-btn.active {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  /* ====== THE WRONG WAY: Accountant's categories ====== */
+  .wrong-card {
+    background: #fff;
+    border: 1px solid #ece6d6;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  .wrong-card-header {
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9ca3af;
+    margin-bottom: 6px;
+  }
+
+  .wrong-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+  }
+
+  .wrong-row + .wrong-row {
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .wrong-label { color: #6b7280; font-weight: 600; }
+  .wrong-value { font-weight: 900; font-variant-numeric: tabular-nums; }
+
+  /* ====== THE RIGHT WAY: Shopkeeper's questions ====== */
+  .right-card {
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .right-card.question {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #bbf7d0;
+  }
+
+  .right-card.action {
+    background: #fff;
+    border: 1px solid #ece6d6;
+  }
+
+  .right-card.risk {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+  }
+
+  .right-question {
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  .right-answer {
+    font-size: 15px;
+    font-weight: 900;
+    color: #1B4332;
+    line-height: 1.3;
+  }
+
+  .right-answer .number {
+    font-size: 28px;
+    display: block;
+    margin: 4px 0;
+  }
+
+  .right-answer .number.green { color: #16a34a; }
+  .right-answer .number.red { color: #dc2626; }
+  .right-answer .number.amber { color: #d97706; }
+
+  .right-detail {
+    font-size: 11px;
+    color: #4b5563;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  .right-action-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .right-action-btn.primary {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  .right-action-btn.secondary {
+    background: #fff;
+    color: #1B4332;
+    border: 1px solid #1B4332;
+  }
+
+  /* People list */
+  .people-list {
+    margin-top: 10px;
+  }
+
+  .person-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+  }
+
+  .person-row + .person-row {
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .person-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .person-detail {
+    font-size: 10px;
+    color: #6b7280;
+  }
+
+  .person-amount {
+    font-size: 14px;
+    font-weight: 900;
+    color: #d97706;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ====== EXPLANATION ====== */
+  .explanation {
+    max-width: 900px;
+    margin: 40px auto 0;
+    padding: 24px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+
+  .explanation h3 {
+    font-size: 16px;
+    font-weight: 900;
+    color: #1B4332;
+    margin-bottom: 16px;
+  }
+
+  .explanation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .explanation-grid { grid-template-columns: 1fr; }
+  }
+
+  .explanation-col h4 {
+    font-size: 13px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .explanation-col.wrong h4 { color: #dc2626; }
+  .explanation-col.right h4 { color: #16a34a; }
+
+  .explanation-col ul {
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.8;
+    padding-left: 16px;
+  }
+
+  .explanation-col.wrong li { color: #991b1b; }
+  .explanation-col.right li { color: #166534; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 6px 0 16px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 12px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #9ca3af;
+  }
+
+  .nav-item.active { color: #1B4332; }
+  .nav-icon { font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Accountant's View vs Shopkeeper's View</h1>
+  <p>The same data, organized around different questions</p>
+</div>
+
+<div class="comparison">
+
+  <!-- LEFT: Wrong way -->
+  <div>
+    <div class="perspective-label wrong">Accountant's Categories</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="header">
+          <h1>Report</h1>
+          <p>Abeba Grocery</p>
+        </div>
+        <div class="time-range">
+          <button class="time-btn active">Today</button>
+          <button class="time-btn">Week</button>
+          <button class="time-btn">Month</button>
+          <button class="time-btn">Custom</button>
+        </div>
+
+        <!-- Revenue card -->
+        <div class="wrong-card">
+          <div class="wrong-card-header">Revenue</div>
+          <div class="wrong-row">
+            <span class="wrong-label">Sales</span>
+            <span class="wrong-value" style="color:#16a34a">8,450 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Credit sales</span>
+            <span class="wrong-value" style="color:#d97706">3,200 ETB</span>
+          </div>
+        </div>
+
+        <!-- Expenses card -->
+        <div class="wrong-card">
+          <div class="wrong-card-header">Expenses</div>
+          <div class="wrong-row">
+            <span class="wrong-label">Rent</span>
+            <span class="wrong-value" style="color:#dc2626">1,800 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Supplies</span>
+            <span class="wrong-value" style="color:#dc2626">1,200 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Transport</span>
+            <span class="wrong-value" style="color:#dc2626">600 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Other</span>
+            <span class="wrong-value" style="color:#dc2626">600 ETB</span>
+          </div>
+        </div>
+
+        <!-- Cash card -->
+        <div class="wrong-card">
+          <div class="wrong-card-header">Cash Flow</div>
+          <div class="wrong-row">
+            <span class="wrong-label">Cash expected</span>
+            <span class="wrong-value">6,200 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Transfer expected</span>
+            <span class="wrong-value">2,100 ETB</span>
+          </div>
+        </div>
+
+        <!-- Credit card -->
+        <div class="wrong-card">
+          <div class="wrong-card-header">Credit</div>
+          <div class="wrong-row">
+            <span class="wrong-label">Extended</span>
+            <span class="wrong-value" style="color:#d97706">3,200 ETB</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Collected</span>
+            <span class="wrong-value" style="color:#16a34a">5,300 ETB</span>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="wrong-card">
+          <div class="wrong-card-header">Summary</div>
+          <div class="wrong-row">
+            <span class="wrong-label">Total sold</span>
+            <span class="wrong-value">8,450</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Total spent</span>
+            <span class="wrong-value">4,200</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Collected</span>
+            <span class="wrong-value">5,300</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Cash</span>
+            <span class="wrong-value">6,200</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Transfer</span>
+            <span class="wrong-value">2,100</span>
+          </div>
+          <div class="wrong-row">
+            <span class="wrong-label">Loan given</span>
+            <span class="wrong-value">3,200</span>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">📖</span><span>Today</span></div>
+          <div class="nav-item"><span class="nav-icon">💳</span><span>Credit</span></div>
+          <div class="nav-item active"><span class="nav-icon">📊</span><span>Report</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="comparison-arrow">→</div>
+
+  <!-- RIGHT: Right way -->
+  <div>
+    <div class="perspective-label right">Shopkeeper's Questions</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="header">
+          <h1>Shop Check</h1>
+          <p>Abeba Grocery · Tue, 15 Jul</p>
+        </div>
+        <div class="time-range">
+          <button class="time-btn active">Today</button>
+          <button class="time-btn">Week</button>
+          <button class="time-btn">Month</button>
+          <button class="time-btn">Custom</button>
+        </div>
+
+        <!-- Question 1: Did I make money? -->
+        <div class="right-card question">
+          <div class="right-question">Did I make money today?</div>
+          <div class="right-answer">
+            Yes.
+            <span class="number green">+2,400 ETB</span>
+          </div>
+          <div class="right-detail">
+            You sold 8,450 and spent 4,200. That's a good day — better than your average.
+          </div>
+        </div>
+
+        <!-- Question 2: Who owes me? -->
+        <div class="right-card risk">
+          <div class="right-question">Who still owes me?</div>
+          <div class="right-answer" style="font-size: 14px;">
+            2 people owe you
+            <span class="number amber" style="font-size: 22px;">1,000 ETB</span>
+          </div>
+          <div class="people-list">
+            <div class="person-row">
+              <div>
+                <div class="person-name">Abebe</div>
+                <div class="person-detail">18 days overdue</div>
+              </div>
+              <div class="person-amount">600 ETB</div>
+            </div>
+            <div class="person-row">
+              <div>
+                <div class="person-name">Tilahun</div>
+                <div class="person-detail">12 days overdue</div>
+              </div>
+              <div class="person-amount">400 ETB</div>
+            </div>
+          </div>
+          <button class="right-action-btn secondary">Remind them</button>
+        </div>
+
+        <!-- Question 3: Is everything OK? -->
+        <div class="right-card question">
+          <div class="right-question">Is everything OK?</div>
+          <div class="right-answer" style="font-size: 14px;">
+            Almost. One thing needs your attention.
+          </div>
+          <div class="right-detail" style="margin-top: 8px;">
+            <strong style="color: #d97706;">⚠ Cash not counted yet.</strong><br>
+            You should have about 6,200 ETB in the drawer.
+          </div>
+          <button class="right-action-btn primary">Count Cash</button>
+        </div>
+
+        <!-- Question 4: What happened? -->
+        <div class="right-card action">
+          <div class="right-question">What happened today?</div>
+          <div class="right-detail" style="margin-top: 0;">
+            <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+              <strong>Sugar</strong> was your best seller
+            </div>
+            <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+              You gave <strong>3 people credit</strong> today
+            </div>
+            <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+              <strong>8 customers</strong> paid with Telebirr
+            </div>
+            <div style="padding: 6px 0;">
+              Your biggest expense was <strong>Rent: 1,800 ETB</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">📖</span><span>Today</span></div>
+          <div class="nav-item"><span class="nav-icon">💳</span><span>Credit</span></div>
+          <div class="nav-item active"><span class="nav-icon">📊</span><span>Report</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Explanation -->
+<div class="explanation">
+  <h3>What changed?</h3>
+  <div class="explanation-grid">
+    <div class="explanation-col wrong">
+      <h4>Accountant's approach (wrong)</h4>
+      <ul>
+        <li>Organizes by financial category: Revenue, Expenses, Cash, Credit</li>
+        <li>Shows 6 KPI numbers with no context</li>
+        <li>Requires the owner to interpret: "Was today good?"</li>
+        <li>Mixes earning and spending in separate cards</li>
+        <li>No narrative — just numbers</li>
+      </ul>
+    </div>
+    <div class="explanation-col right">
+      <h4>Shopkeeper's approach (right)</h4>
+      <ul>
+        <li>Organizes by questions the owner actually asks</li>
+        <li>Answers each question directly: "Yes, +2,400 ETB"</li>
+        <li>Tells a story: "Better than your average"</li>
+        <li>Groups related info: "Who owes me?" shows all credit in one place</li>
+        <li>Each section has a clear next action</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- The 4 Questions -->
+<div class="explanation" style="margin-top: 20px;">
+  <h3>The 4 Questions</h3>
+  <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+    <thead>
+      <tr style="border-bottom: 2px solid #e5e7eb;">
+        <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Question</th>
+        <th style="text-align: left; padding: 10px 8px; font-weight: 900;">What it answers</th>
+        <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Data source</th>
+        <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 10px 8px; font-weight: 800;">Did I make money?</td>
+        <td style="padding: 10px 8px;">Profit for the period + trend</td>
+        <td style="padding: 10px 8px; font-size: 11px;">metrics.totalSold − metrics.spentToday</td>
+        <td style="padding: 10px 8px;">None (informational)</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 10px 8px; font-weight: 800;">Who owes me?</td>
+        <td style="padding: 10px 8px;">Overdue customers + amounts</td>
+        <td style="padding: 10px 8px; font-size: 11px;">enrichedCustomerSummaries.filter(has_overdue)</td>
+        <td style="padding: 10px 8px;">[Remind] button</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 10px 8px; font-weight: 800;">Is everything OK?</td>
+        <td style="padding: 10px 8px;">Cash match, credit health, anomalies</td>
+        <td style="padding: 10px 8px; font-size: 11px;">closing status, cashVariance, overdueRatio</td>
+        <td style="padding: 10px 8px;">[Count Cash] / [Remind]</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 8px; font-weight: 800;">What happened?</td>
+        <td style="padding: 10px 8px;">Top items, payment methods, observations</td>
+        <td style="padding: 10px 8px; font-size: 11px;">group saleRows by item_name, payment_provider</td>
+        <td style="padding: 10px 8px;">None (observations)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

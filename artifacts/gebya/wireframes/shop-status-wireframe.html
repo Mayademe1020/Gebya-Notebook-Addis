@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop Status — Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    background: #f5f3ee;
+    color: #1f2937;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px;
+    min-height: 844px;
+    background: #fafaf5;
+    border-radius: 40px;
+    border: 8px solid #1a1a1a;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    position: relative;
+  }
+
+  .phone-screen {
+    height: 100%;
+    overflow-y: auto;
+    padding: 0 16px 100px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .status-bar-right {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 4px 4px 12px;
+  }
+
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 950;
+    color: #1B4332;
+    line-height: 1.1;
+  }
+
+  .header-left p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .privacy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* Time range tabs */
+  .time-range {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    background: rgba(27,67,50,0.08);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+
+  .time-btn {
+    padding: 8px 0;
+    border: none;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+    background: transparent;
+    color: #6b7280;
+    transition: all 0.15s;
+  }
+
+  .time-btn.active {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  /* Chapter headers */
+  .chapter {
+    margin-bottom: 16px;
+  }
+
+  .chapter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 8px;
+  }
+
+  .chapter-title {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+
+  .chapter-toggle {
+    font-size: 11px;
+    font-weight: 800;
+    color: #1B4332;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  /* ====== CHAPTER 1: EXECUTIVE SUMMARY ====== */
+  .story-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .story-card.warning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fde68a;
+  }
+
+  .story-card.urgent {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
+  }
+
+  .story-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .story-emoji {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  .story-headline {
+    font-size: 15px;
+    font-weight: 900;
+    color: #1B4332;
+  }
+
+  .story-card.warning .story-headline { color: #92400e; }
+  .story-card.urgent .story-headline { color: #991b1b; }
+
+  .story-profit {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .story-profit-number {
+    font-size: 32px;
+    font-weight: 900;
+    color: #16a34a;
+    line-height: 1;
+  }
+
+  .story-profit-unit {
+    font-size: 14px;
+    font-weight: 700;
+    color: #16a34a;
+  }
+
+  .story-context {
+    font-size: 12px;
+    color: #4b5563;
+    font-weight: 600;
+  }
+
+  .story-context .trend-up { color: #16a34a; }
+  .story-context .trend-down { color: #dc2626; }
+
+  /* KPI sub-cards inside story */
+  .story-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(27,67,50,0.1);
+  }
+
+  .story-kpi {
+    text-align: center;
+  }
+
+  .story-kpi-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .story-kpi-value {
+    font-size: 16px;
+    font-weight: 900;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .story-kpi-value.green { color: #16a34a; }
+  .story-kpi-value.red { color: #dc2626; }
+  .story-kpi-value.amber { color: #d97706; }
+
+  /* ====== CHAPTER 2: MONEY ====== */
+  .money-card {
+    background: #fff;
+    border: 1px solid #ece6d6;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .money-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+  }
+
+  .money-row + .money-row {
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .money-row-label {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 700;
+  }
+
+  .money-row-value {
+    font-size: 14px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .money-row-value.green { color: #16a34a; }
+  .money-row-value.red { color: #dc2626; }
+  .money-row-value.amber { color: #d97706; }
+
+  .money-divider {
+    border: none;
+    border-top: 1px dashed #e5e7eb;
+    margin: 4px 0;
+  }
+
+  /* Expense bars */
+  .expense-bars {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .expense-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .expense-bar-label {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 700;
+    width: 70px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .expense-bar-track {
+    flex: 1;
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .expense-bar-fill {
+    height: 100%;
+    background: #1B4332;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .expense-bar-amount {
+    font-size: 11px;
+    font-weight: 800;
+    color: #374151;
+    width: 60px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ====== CHAPTER 3: ACTIVITY ====== */
+  .activity-card {
+    background: #fff;
+    border: 1px solid #ece6d6;
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .activity-observation {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+  }
+
+  .activity-observation + .activity-observation {
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .activity-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .activity-icon.green { background: #dcfce7; }
+  .activity-icon.amber { background: #fef3c7; }
+  .activity-icon.blue { background: #dbeafe; }
+  .activity-icon.purple { background: #f3e8ff; }
+
+  .activity-text {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .activity-text strong {
+    font-weight: 900;
+  }
+
+  /* ====== CHAPTER 4: ATTENTION ====== */
+  .attention-card {
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .attention-card.has-items {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+  }
+
+  .attention-card.all-good {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+  }
+
+  .attention-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .attention-item + .attention-item {
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .attention-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .attention-dot.red { background: #dc2626; }
+  .attention-dot.amber { background: #d97706; }
+
+  .attention-content {
+    flex: 1;
+  }
+
+  .attention-label {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .attention-detail {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .attention-action {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .attention-action.primary {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  .attention-action.secondary {
+    background: #fff;
+    color: #1B4332;
+    border: 1px solid #1B4332;
+  }
+
+  .all-good-text {
+    text-align: center;
+    padding: 8px 0;
+  }
+
+  .all-good-text .emoji { font-size: 18px; }
+  .all-good-text p {
+    font-size: 13px;
+    color: #16a34a;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* ====== CHAPTER 5: OPERATIONS (collapsed) ====== */
+  .collapsed-chapter {
+    background: #fff;
+    border: 1px solid #ece6d6;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .collapsed-chapter:hover {
+    background: #f9f7f2;
+  }
+
+  .collapsed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .collapsed-title {
+    font-size: 12px;
+    font-weight: 900;
+    color: #374151;
+  }
+
+  .collapsed-count {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 700;
+  }
+
+  .collapsed-chevron {
+    color: #d1d5db;
+    font-size: 14px;
+    transition: transform 0.2s;
+  }
+
+  /* Expanded operations */
+  .operations-expanded {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .staff-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .staff-row + .staff-row {
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .staff-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .staff-detail {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .staff-amount {
+    font-size: 14px;
+    font-weight: 900;
+    color: #16a34a;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ====== CHAPTER 6: RECORDS (collapsed) ====== */
+  .records-expanded {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 13px;
+    outline: none;
+    background: #fff;
+  }
+
+  .search-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 14px;
+  }
+
+  .tx-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .tx-row + .tx-row {
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .tx-info {
+    min-width: 0;
+  }
+
+  .tx-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tx-meta {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 2px;
+  }
+
+  .tx-amount {
+    font-size: 14px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .tx-amount.green { color: #16a34a; }
+  .tx-amount.red { color: #dc2626; }
+  .tx-amount.amber { color: #d97706; }
+
+  .records-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .records-footer-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    color: #374151;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  /* ====== BOTTOM NAV ====== */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 1px solid #e5e7eb;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 8px 0 20px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    cursor: pointer;
+  }
+
+  .nav-item.active {
+    color: #1B4332;
+  }
+
+  .nav-icon {
+    font-size: 18px;
+  }
+
+  /* ====== ANNOTATIONS ====== */
+  .annotation {
+    position: relative;
+    margin: 24px 0 8px;
+    padding: 12px 16px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #1e40af;
+    line-height: 1.5;
+  }
+
+  .annotation strong {
+    font-weight: 900;
+  }
+
+  .annotation::before {
+    content: '💡';
+    position: absolute;
+    left: -12px;
+    top: -12px;
+    font-size: 20px;
+  }
+
+  /* ====== WIREFRAME PAGE ====== */
+  .wireframe-page {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .wireframe-title {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .wireframe-title h1 {
+    font-size: 20px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .wireframe-title p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  .wireframe-note {
+    text-align: center;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 24px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .legend-dot.green { background: #dcfce7; border: 1px solid #bbf7d0; }
+  .legend-dot.white { background: #fff; border: 1px solid #ece6d6; }
+  .legend-dot.amber { background: #fffbeb; border: 1px solid #fde68a; }
+  .legend-dot.gray { background: #f3f4f6; border: 1px solid #e5e7eb; }
+</style>
+</head>
+<body>
+
+<div class="wireframe-page">
+  <div class="wireframe-title">
+    <h1>Shop Status — Wireframe</h1>
+    <p>Redesigned information architecture for Gebya Report page</p>
+  </div>
+  <p class="wireframe-note">390px phone view · Progressive disclosure · Adaptive sections</p>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot green"></div> Always visible</div>
+    <div class="legend-item"><div class="legend-dot amber"></div> Conditional (only if needed)</div>
+    <div class="legend-item"><div class="legend-dot gray"></div> Collapsed by default</div>
+  </div>
+
+  <!-- Phone frame -->
+  <div class="phone">
+    <div class="phone-screen">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-bar-right">
+          <span>📶</span>
+          <span>🔋</span>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="header">
+        <div class="header-left">
+          <h1>Shop Check</h1>
+          <p>Abeba Grocery · Tue, 15 Jul</p>
+        </div>
+        <button class="privacy-btn">👁 Hide</button>
+      </div>
+
+      <!-- Time Range -->
+      <div class="time-range">
+        <button class="time-btn active">Today</button>
+        <button class="time-btn">Week</button>
+        <button class="time-btn">Month</button>
+        <button class="time-btn">Custom</button>
+      </div>
+
+      <!-- ====== CHAPTER 1: EXECUTIVE SUMMARY ====== -->
+      <div class="annotation">
+        <strong>Chapter 1 — Executive Summary</strong><br>
+        Answers: "How is my business today?"<br>
+        Always visible. Takes ~30% of screen. Adapts color based on health.
+      </div>
+
+      <div class="story-card">
+        <div class="story-status">
+          <span class="story-emoji">🟢</span>
+          <span class="story-headline">Business is healthy today</span>
+        </div>
+        <div class="story-profit">
+          <span class="story-profit-number">+2,400</span>
+          <span class="story-profit-unit">ETB profit</span>
+        </div>
+        <div class="story-context">
+          <span class="trend-up">▲ 12%</span> vs yesterday · Better than your average
+        </div>
+        <div class="story-kpis">
+          <div class="story-kpi">
+            <div class="story-kpi-label">Sold</div>
+            <div class="story-kpi-value green">8,450</div>
+          </div>
+          <div class="story-kpi">
+            <div class="story-kpi-label">Spent</div>
+            <div class="story-kpi-value red">4,200</div>
+          </div>
+          <div class="story-kpi">
+            <div class="story-kpi-label">Profit</div>
+            <div class="story-kpi-value green">2,400</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== CHAPTER 2: MONEY ====== -->
+      <div class="annotation">
+        <strong>Chapter 2 — Money</strong><br>
+        Answers: "Where is my money?"<br>
+        All financial info in one place. Expense breakdown inline.
+      </div>
+
+      <div class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-title">Money</span>
+        </div>
+        <div class="money-card">
+          <div class="money-row">
+            <span class="money-row-label">Revenue</span>
+            <span class="money-row-value green">8,450 ETB</span>
+          </div>
+          <div class="money-row">
+            <span class="money-row-label">Expenses</span>
+            <span class="money-row-value red">−4,200 ETB</span>
+          </div>
+          <hr class="money-divider">
+          <div class="money-row">
+            <span class="money-row-label">Cash expected</span>
+            <span class="money-row-value">6,200 ETB</span>
+          </div>
+          <div class="money-row">
+            <span class="money-row-label">Transfer expected</span>
+            <span class="money-row-value amber">2,100 ETB</span>
+          </div>
+          <hr class="money-divider">
+          <div class="money-row">
+            <span class="money-row-label">Credit extended</span>
+            <span class="money-row-value amber">3,200 ETB</span>
+          </div>
+          <div class="money-row">
+            <span class="money-row-label">Credit collected</span>
+            <span class="money-row-value green">5,300 ETB</span>
+          </div>
+
+          <!-- Expense breakdown -->
+          <div class="expense-bars">
+            <div class="expense-bar-row">
+              <span class="expense-bar-label">Rent</span>
+              <div class="expense-bar-track">
+                <div class="expense-bar-fill" style="width: 43%"></div>
+              </div>
+              <span class="expense-bar-amount">1,800</span>
+            </div>
+            <div class="expense-bar-row">
+              <span class="expense-bar-label">Supplies</span>
+              <div class="expense-bar-track">
+                <div class="expense-bar-fill" style="width: 29%"></div>
+              </div>
+              <span class="expense-bar-amount">1,200</span>
+            </div>
+            <div class="expense-bar-row">
+              <span class="expense-bar-label">Transport</span>
+              <div class="expense-bar-track">
+                <div class="expense-bar-fill" style="width: 14%"></div>
+              </div>
+              <span class="expense-bar-amount">600</span>
+            </div>
+            <div class="expense-bar-row">
+              <span class="expense-bar-label">Other</span>
+              <div class="expense-bar-track">
+                <div class="expense-bar-fill" style="width: 14%"></div>
+              </div>
+              <span class="expense-bar-amount">600</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== CHAPTER 3: ACTIVITY ====== -->
+      <div class="annotation">
+        <strong>Chapter 3 — Activity</strong><br>
+        Answers: "What happened today?"<br>
+        Natural language observations. No raw numbers.
+      </div>
+
+      <div class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-title">What happened</span>
+        </div>
+        <div class="activity-card">
+          <div class="activity-observation">
+            <div class="activity-icon green">🛒</div>
+            <div class="activity-text">Top selling: <strong>Sugar, Oil, Bread</strong></div>
+          </div>
+          <div class="activity-observation">
+            <div class="activity-icon amber">💰</div>
+            <div class="activity-text">Largest sale: <strong>1,200 ETB</strong> wholesale</div>
+          </div>
+          <div class="activity-observation">
+            <div class="activity-icon blue">📤</div>
+            <div class="activity-text">Biggest expense: <strong>Rent 1,800 ETB</strong></div>
+          </div>
+          <div class="activity-observation">
+            <div class="activity-icon purple">📝</div>
+            <div class="activity-text">Gave credit to <strong>3 customers</strong></div>
+          </div>
+          <div class="activity-observation">
+            <div class="activity-icon green">📱</div>
+            <div class="activity-text"><strong>8 customers</strong> paid via Telebirr</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== CHAPTER 4: ATTENTION ====== -->
+      <div class="annotation">
+        <strong>Chapter 4 — Attention (conditional)</strong><br>
+        Answers: "What needs my action?"<br>
+        Only shown when items exist. Glows when present.
+      </div>
+
+      <div class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-title">Needs attention</span>
+        </div>
+        <div class="attention-card has-items">
+          <div class="attention-item">
+            <div class="attention-dot red"></div>
+            <div class="attention-content">
+              <div class="attention-label">Cash not counted yet</div>
+              <div class="attention-detail">Expected: 6,200 ETB in drawer</div>
+            </div>
+            <button class="attention-action primary">Count Cash</button>
+          </div>
+          <div class="attention-item">
+            <div class="attention-dot amber"></div>
+            <div class="attention-content">
+              <div class="attention-label">Abebe owes 600 ETB</div>
+              <div class="attention-detail">18 days overdue</div>
+            </div>
+            <button class="attention-action secondary">Remind</button>
+          </div>
+          <div class="attention-item">
+            <div class="attention-dot amber"></div>
+            <div class="attention-content">
+              <div class="attention-label">Tilahun owes 400 ETB</div>
+              <div class="attention-detail">12 days overdue</div>
+            </div>
+            <button class="attention-action secondary">Remind</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== CHAPTER 5: OPERATIONS (collapsed) ====== -->
+      <div class="annotation">
+        <strong>Chapter 5 — Operations (collapsed)</strong><br>
+        Answers: "Who did what?"<br>
+        Only owners with staff care. Collapsed by default.
+      </div>
+
+      <div class="collapsed-chapter">
+        <div class="collapsed-header">
+          <div>
+            <div class="collapsed-title">Staff Performance</div>
+            <div class="collapsed-count">3 staff members</div>
+          </div>
+          <span class="collapsed-chevron">›</span>
+        </div>
+        <!-- Expanded content would show here -->
+        <div class="operations-expanded">
+          <div class="staff-row">
+            <div>
+              <div class="staff-name">Abebe</div>
+              <div class="staff-detail">12 sales</div>
+            </div>
+            <div class="staff-amount">3,200 ETB</div>
+          </div>
+          <div class="staff-row">
+            <div>
+              <div class="staff-name">Feven</div>
+              <div class="staff-detail">8 sales</div>
+            </div>
+            <div class="staff-amount">2,100 ETB</div>
+          </div>
+          <div class="staff-row">
+            <div>
+              <div class="staff-name">Owner</div>
+              <div class="staff-detail">15 sales</div>
+            </div>
+            <div class="staff-amount">3,150 ETB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== CHAPTER 6: RECORDS (collapsed) ====== -->
+      <div class="annotation">
+        <strong>Chapter 6 — Records (collapsed)</strong><br>
+        Answers: "Let me investigate"<br>
+        Search, history, export. Deep dive tools. Collapsed by default.
+      </div>
+
+      <div class="collapsed-chapter">
+        <div class="collapsed-header">
+          <div>
+            <div class="collapsed-title">Records</div>
+            <div class="collapsed-count">47 transactions</div>
+          </div>
+          <span class="collapsed-chevron">›</span>
+        </div>
+        <div class="records-expanded">
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" type="text" placeholder="Search transactions...">
+          </div>
+          <div class="tx-row">
+            <div class="tx-info">
+              <div class="tx-title">Sugar sale</div>
+              <div class="tx-meta">Cash · 9:32 AM</div>
+            </div>
+            <div class="tx-amount green">320 ETB</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-info">
+              <div class="tx-title">Oil sale</div>
+              <div class="tx-meta">Telebirr · 9:15 AM</div>
+            </div>
+            <div class="tx-amount green">180 ETB</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-info">
+              <div class="tx-title">Credit: Abebe</div>
+              <div class="tx-meta">Credit · 8:45 AM</div>
+            </div>
+            <div class="tx-amount amber">600 ETB</div>
+          </div>
+          <div class="records-footer">
+            <button class="records-footer-btn">Export</button>
+            <button class="records-footer-btn">Full History</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom spacing -->
+      <div style="height: 80px"></div>
+
+    </div>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+      <div class="nav-item">
+        <span class="nav-icon">📖</span>
+        <span>Today</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">💳</span>
+        <span>Credit</span>
+      </div>
+      <div class="nav-item active">
+        <span class="nav-icon">📊</span>
+        <span>Report</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⋯</span>
+        <span>More</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Design notes below phone -->
+  <div style="margin-top: 32px; padding: 20px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;">
+    <h3 style="font-size: 14px; font-weight: 900; color: #1B4332; margin-bottom: 12px;">Design Principles</h3>
+    <ul style="font-size: 12px; color: #374151; line-height: 1.8; padding-left: 16px;">
+      <li><strong>One story per screen</strong> — The owner opens this page to know "how's my business?" Answer in 2 seconds.</li>
+      <li><strong>Progressive disclosure</strong> — Summary first, expand for details, link to full page for deep dive.</li>
+      <li><strong>Adaptive sections</strong> — Empty sections hide. No empty cards. "All good" when nothing needs attention.</li>
+      <li><strong>Natural language</strong> — "Top selling: Sugar, Oil, Bread" beats "Item: Sugar, Qty: 24, Revenue: 3,200".</li>
+      <li><strong>Software does the thinking</strong> — Don't show 6 numbers and ask "was it good?" Compute profit and say "Yes, +2,400 ETB".</li>
+      <li><strong>Information hierarchy</strong> — Story (30%) → Money (25%) → Activity (20%) → Attention (conditional) → Operations (collapsed) → Records (collapsed).</li>
+      <li><strong>Warm, calm style</strong> — Paper notebook aesthetic. Green primary (#1B4332). Warm tones (#fafaf5, #ece6d6).</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 16px; padding: 20px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;">
+    <h3 style="font-size: 14px; font-weight: 900; color: #1B4332; margin-bottom: 12px;">Module Specifications</h3>
+    <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+      <thead>
+        <tr style="border-bottom: 2px solid #e5e7eb;">
+          <th style="text-align: left; padding: 8px 4px; font-weight: 900; color: #374151;">Module</th>
+          <th style="text-align: left; padding: 8px 4px; font-weight: 900; color: #374151;">Default</th>
+          <th style="text-align: left; padding: 8px 4px; font-weight: 900; color: #374151;">Action</th>
+          <th style="text-align: left; padding: 8px 4px; font-weight: 900; color: #374151;">Empty state</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 8px 4px; font-weight: 700;">Executive Summary</td>
+          <td style="padding: 8px 4px;">Always expanded</td>
+          <td style="padding: 8px 4px;">None (informational)</td>
+          <td style="padding: 8px 4px;">"No transactions today"</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 8px 4px; font-weight: 700;">Money</td>
+          <td style="padding: 8px 4px;">Always expanded</td>
+          <td style="padding: 8px 4px;">Tap expense row → detail</td>
+          <td style="padding: 8px 4px;">Hide if no financial data</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 8px 4px; font-weight: 700;">Activity</td>
+          <td style="padding: 8px 4px;">Always expanded</td>
+          <td style="padding: 8px 4px;">None (observations only)</td>
+          <td style="padding: 8px 4px;">Hide if no observations</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 8px 4px; font-weight: 700;">Attention</td>
+          <td style="padding: 8px 4px;">Expanded if items exist</td>
+          <td style="padding: 8px 4px;">Count Cash / Remind</td>
+          <td style="padding: 8px 4px;">"All good" single line</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f3f4f6;">
+          <td style="padding: 8px 4px; font-weight: 700;">Operations</td>
+          <td style="padding: 8px 4px;">Collapsed</td>
+          <td style="padding: 8px 4px;">Filter by staff</td>
+          <td style="padding: 8px 4px;">Hide if no staff</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 4px; font-weight: 700;">Records</td>
+          <td style="padding: 8px 4px;">Collapsed</td>
+          <td style="padding: 8px 4px;">Search / Export / History</td>
+          <td style="padding: 8px 4px;">"No transactions"</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

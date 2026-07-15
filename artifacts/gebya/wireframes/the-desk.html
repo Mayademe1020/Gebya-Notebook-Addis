@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Owner's Desk</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', system-ui, sans-serif;
+    background: #f5f3ee;
+    color: #1f2937;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+
+  .page-title {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .page-title h1 {
+    font-size: 28px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .page-title p {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 8px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+
+  /* Moment sections */
+  .moment {
+    margin-bottom: 64px;
+  }
+
+  .moment-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .moment-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .moment-icon.morning { background: #fef3c7; }
+  .moment-icon.daytime { background: #dcfce7; }
+  .moment-icon.closing { background: #fee2e2; }
+
+  .moment-title {
+    font-size: 18px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .moment-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .moment-flow {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    position: relative;
+  }
+
+  /* Flow connector line */
+  .moment-flow::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e5e7eb;
+  }
+
+  /* Each step in the flow */
+  .flow-step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    position: relative;
+    padding-bottom: 32px;
+  }
+
+  .flow-step:last-child {
+    padding-bottom: 0;
+  }
+
+  .flow-dot {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 950;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .flow-dot.green { background: #dcfce7; color: #16a34a; }
+  .flow-dot.amber { background: #fef3c7; color: #d97706; }
+  .flow-dot.red { background: #fee2e2; color: #dc2626; }
+  .flow-dot.blue { background: #dbeafe; color: #2563eb; }
+  .flow-dot.gray { background: #f3f4f6; color: #6b7280; }
+
+  .flow-content {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 20px;
+    min-height: 80px;
+  }
+
+  .flow-question {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+
+  .flow-answer {
+    font-size: 16px;
+    font-weight: 900;
+    color: #1f2937;
+    line-height: 1.4;
+  }
+
+  .flow-answer .big {
+    font-size: 32px;
+    display: block;
+    margin: 8px 0;
+    line-height: 1;
+  }
+
+  .flow-answer .big.green { color: #16a34a; }
+  .flow-answer .big.red { color: #dc2626; }
+  .flow-answer .big.amber { color: #d97706; }
+
+  .flow-detail {
+    font-size: 13px;
+    color: #4b5563;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .flow-action {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .flow-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .flow-btn.primary { background: #1B4332; color: #fff; }
+  .flow-btn.secondary { background: #fff; color: #1B4332; border: 1px solid #1B4332; }
+  .flow-btn.ghost { background: transparent; color: #6b7280; border: 1px solid #e5e7eb; }
+
+  /* People rows */
+  .people-rows {
+    margin-top: 12px;
+  }
+
+  .person-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .person-row:last-child { border-bottom: none; }
+
+  .person-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .person-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    color: #6b7280;
+  }
+
+  .person-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .person-meta {
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
+  .person-amount {
+    font-size: 14px;
+    font-weight: 900;
+    color: #d97706;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .person-action {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    color: #1B4332;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+
+  /* Observation rows */
+  .obs-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .obs-row:last-child { border-bottom: none; }
+
+  .obs-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #f3f4f6;
+  }
+
+  .obs-text {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.4;
+  }
+
+  .obs-text strong { font-weight: 900; }
+
+  /* Closing inputs */
+  .closing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .closing-input {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .closing-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+  }
+
+  .closing-value {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
+
+  .closing-field {
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 900;
+    text-align: center;
+    outline: none;
+  }
+
+  .closing-field:focus {
+    border-color: #1B4332;
+  }
+
+  .closing-result {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .closing-result.balanced {
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+  }
+
+  .closing-result.off {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+  }
+
+  .closing-result-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #6b7280;
+  }
+
+  .closing-result-value {
+    font-size: 20px;
+    font-weight: 950;
+    margin-top: 4px;
+  }
+
+  .closing-result-value.green { color: #16a34a; }
+  .closing-result-value.red { color: #dc2626; }
+
+  /* Diary entry */
+  .diary-card {
+    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+    border: 1px solid #fde68a;
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .diary-date {
+    font-size: 11px;
+    font-weight: 800;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .diary-entry {
+    font-size: 14px;
+    color: #1f2937;
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .diary-entry strong {
+    font-weight: 900;
+    font-style: normal;
+  }
+
+  /* Phone frame for inline previews */
+  .mini-phone {
+    width: 280px;
+    background: #fafaf5;
+    border-radius: 28px;
+    border: 4px solid #1a1a1a;
+    overflow: hidden;
+    margin: 16px 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  }
+
+  .mini-phone-screen {
+    padding: 8px 12px 40px;
+  }
+
+  .mini-status-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 12px 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .mini-header {
+    padding: 2px 2px 8px;
+  }
+
+  .mini-header h2 {
+    font-size: 14px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .mini-header p {
+    font-size: 9px;
+    color: #6b7280;
+  }
+
+  .mini-time-range {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    background: rgba(27,67,50,0.08);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 10px;
+  }
+
+  .mini-time-btn {
+    padding: 4px 0;
+    border: none;
+    border-radius: 5px;
+    font-size: 9px;
+    font-weight: 900;
+    background: transparent;
+    color: #6b7280;
+  }
+
+  .mini-time-btn.active {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  .mini-card {
+    background: #fff;
+    border: 1px solid #ece6d6;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  .mini-question {
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin-bottom: 4px;
+  }
+
+  .mini-answer {
+    font-size: 12px;
+    font-weight: 900;
+    color: #1f2937;
+  }
+
+  .mini-answer .num {
+    font-size: 20px;
+    display: block;
+    margin: 2px 0;
+  }
+
+  .mini-answer .num.green { color: #16a34a; }
+  .mini-answer .num.amber { color: #d97706; }
+
+  .mini-detail {
+    font-size: 9px;
+    color: #6b7280;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .mini-btn {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: none;
+    font-size: 9px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .mini-btn.primary { background: #1B4332; color: #fff; }
+  .mini-btn.secondary { background: #fff; color: #1B4332; border: 1px solid #1B4332; }
+
+  .mini-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 4px 0 12px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 8px;
+  }
+
+  .mini-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-size: 7px;
+    font-weight: 700;
+    color: #9ca3af;
+  }
+
+  .mini-nav-item.active { color: #1B4332; }
+  .mini-nav-icon { font-size: 12px; }
+
+  /* Layout helpers */
+  .two-phones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .two-phones { grid-template-columns: 1fr; }
+  }
+
+  .phone-caption {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 900;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="page-title">
+    <h1>The Owner's Desk</h1>
+    <p>Not a dashboard. Not a report. A desk — organized around the moments that matter in a shopkeeper's day.</p>
+  </div>
+
+  <!-- ==================== MORNING ==================== -->
+  <div class="moment">
+    <div class="moment-header">
+      <div class="moment-icon morning">🌅</div>
+      <div>
+        <div class="moment-title">Morning — Opening the Shop</div>
+        <div class="moment-subtitle">The owner arrives. First question: "How are things?"</div>
+      </div>
+    </div>
+
+    <div class="moment-flow">
+
+      <!-- Step 1: Yesterday's result -->
+      <div class="flow-step">
+        <div class="flow-dot green">1</div>
+        <div class="flow-content">
+          <div class="flow-question">How did yesterday go?</div>
+          <div class="flow-answer">
+            Yesterday was a good day.
+            <span class="big green">+3,100 ETB profit</span>
+          </div>
+          <div class="flow-detail">
+            You sold 9,800 ETB. Your best day this week. Sugar and Oil were your top sellers.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: What's waiting for me -->
+      <div class="flow-step">
+        <div class="flow-dot amber">2</div>
+        <div class="flow-content">
+          <div class="flow-question">What's waiting for me?</div>
+          <div class="flow-answer">
+            2 people owe you money.
+            <span class="big amber">1,000 ETB outstanding</span>
+          </div>
+          <div class="people-rows">
+            <div class="person-row">
+              <div class="person-info">
+                <div class="person-avatar">A</div>
+                <div>
+                  <div class="person-name">Abebe</div>
+                  <div class="person-meta">18 days overdue · 600 ETB</div>
+                </div>
+              </div>
+              <div>
+                <span class="person-amount">600</span>
+                <button class="person-action">Remind</button>
+              </div>
+            </div>
+            <div class="person-row">
+              <div class="person-info">
+                <div class="person-avatar">T</div>
+                <div>
+                  <div class="person-name">Tilahun</div>
+                  <div class="person-meta">12 days overdue · 400 ETB</div>
+                </div>
+              </div>
+              <div>
+                <span class="person-amount">400</span>
+                <button class="person-action">Remind</button>
+              </div>
+            </div>
+          </div>
+          <div class="flow-action">
+            <button class="flow-btn secondary">Remind All</button>
+            <button class="flow-btn ghost">View Credit Page →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: What should I do today -->
+      <div class="flow-step">
+        <div class="flow-dot blue">3</div>
+        <div class="flow-content">
+          <div class="flow-question">What should I do today?</div>
+          <div class="flow-answer" style="font-size: 14px;">
+            Three things to keep in mind:
+          </div>
+          <div class="flow-detail" style="margin-top: 8px;">
+            <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+              📞 <strong>Follow up with Abebe</strong> — his debt is 18 days old
+            </div>
+            <div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6;">
+              📦 <strong>Sugar is your best seller</strong> — make sure you have stock
+            </div>
+            <div style="padding: 6px 0;">
+              💰 <strong>Yesterday's cash matched</strong> — you're on track
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Phone preview: Morning -->
+    <div class="two-phones">
+      <div>
+        <div class="phone-caption">What the owner sees</div>
+        <div class="mini-phone">
+          <div class="mini-phone-screen">
+            <div class="mini-status-bar"><span>8:15 AM</span><span>🔋</span></div>
+            <div class="mini-header">
+              <h2>Good morning ☀️</h2>
+              <p>Abeba Grocery · Wed, 16 Jul</p>
+            </div>
+            <div class="mini-time-range">
+              <button class="mini-time-btn active">Today</button>
+              <button class="mini-time-btn">Week</button>
+              <button class="mini-time-btn">Month</button>
+              <button class="mini-time-btn">Custom</button>
+            </div>
+
+            <div class="mini-card" style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-color: #bbf7d0;">
+              <div class="mini-question">How did yesterday go?</div>
+              <div class="mini-answer">
+                Good day.
+                <span class="num green">+3,100 ETB</span>
+              </div>
+              <div class="mini-detail">Best day this week · Sugar was top seller</div>
+            </div>
+
+            <div class="mini-card" style="background: #fffbeb; border-color: #fde68a;">
+              <div class="mini-question">Who owes you?</div>
+              <div class="mini-answer">
+                2 people
+                <span class="num amber">1,000 ETB</span>
+              </div>
+              <div class="mini-detail">Abebe (18 days) · Tilahun (12 days)</div>
+              <button class="mini-btn secondary">Remind</button>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-question">What to do today</div>
+              <div class="mini-detail" style="margin-top: 0;">
+                📞 Follow up with Abebe<br>
+                📦 Check Sugar stock<br>
+                💰 Cash matched yesterday ✓
+              </div>
+            </div>
+
+            <div class="mini-nav">
+              <div class="mini-nav-item"><span class="mini-nav-icon">📖</span>Today</div>
+              <div class="mini-nav-item"><span class="mini-nav-icon">💳</span>Credit</div>
+              <div class="mini-nav-item active"><span class="mini-nav-icon">📊</span>Report</div>
+              <div class="mini-nav-item"><span class="mini-nav-icon">⋯</span>More</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="phone-caption">The thinking behind it</div>
+        <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; font-size: 13px; color: #374151; line-height: 1.8;">
+          <strong style="color: #1B4332;">Why this order:</strong>
+          <ol style="padding-left: 16px; margin-top: 8px;">
+            <li><strong>"How did yesterday go?"</strong> — The owner wants to know if things are on track before starting. One number, one sentence.</li>
+            <li><strong>"Who owes me?"</strong> — Credit is the biggest risk. Show it immediately so the owner can act.</li>
+            <li><strong>"What should I do?"</strong> — Translate data into actions. Not numbers — next steps.</li>
+          </ol>
+          <p style="margin-top: 12px; color: #6b7280; font-size: 12px;">
+            Notice: no "Revenue" card. No "Expenses" card. No "Cash Flow" card. The owner doesn't think in those terms at 8:15 AM.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DURING THE DAY ==================== -->
+  <div class="moment">
+    <div class="moment-header">
+      <div class="moment-icon daytime">🛒</div>
+      <div>
+        <div class="moment-title">During the Day — Working</div>
+        <div class="moment-subtitle">Quick glances between customers. "How's today going?"</div>
+      </div>
+    </div>
+
+    <div class="moment-flow">
+
+      <!-- Step 1: Today's running total -->
+      <div class="flow-step">
+        <div class="flow-dot green">1</div>
+        <div class="flow-content">
+          <div class="flow-question">How's today going?</div>
+          <div class="flow-answer">
+            So far, so good.
+            <span class="big green">+850 ETB profit</span>
+          </div>
+          <div class="flow-detail">
+            4 sales recorded. 2,400 ETB sold. 1,550 ETB spent. You're on pace for a normal day.
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Last thing that happened -->
+      <div class="flow-step">
+        <div class="flow-dot gray">2</div>
+        <div class="flow-content">
+          <div class="flow-question">What just happened?</div>
+          <div class="flow-answer" style="font-size: 14px;">
+            Last sale: <strong>Sugar, 320 ETB</strong>
+          </div>
+          <div class="flow-detail">
+            9:32 AM · Cash · You (owner)
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: If customer walks in -->
+      <div class="flow-step">
+        <div class="flow-dot amber">3</div>
+        <div class="flow-content">
+          <div class="flow-question">Does this customer owe me?</div>
+          <div class="flow-answer" style="font-size: 14px;">
+            <strong>Abebe</strong> walks in
+          </div>
+          <div class="flow-detail" style="background: #fffbeb; padding: 10px; border-radius: 8px; border: 1px solid #fde68a; margin-top: 8px;">
+            ⚠️ <strong>Abebe owes 600 ETB</strong> (18 days overdue)<br>
+            <span style="font-size: 11px; color: #92400e;">Last purchase: 320 ETB sugar on Jul 12</span>
+          </div>
+          <div class="flow-action">
+            <button class="flow-btn secondary">Record Payment</button>
+            <button class="flow-btn ghost">View Profile →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== CLOSING ==================== -->
+  <div class="moment">
+    <div class="moment-header">
+      <div class="moment-icon closing">🌙</div>
+      <div>
+        <div class="moment-title">Closing — End of Day</div>
+        <div class="moment-subtitle">The shop is quiet. Time to count and reflect.</div>
+      </div>
+    </div>
+
+    <div class="moment-flow">
+
+      <!-- Step 1: Final tally -->
+      <div class="flow-step">
+        <div class="flow-dot green">1</div>
+        <div class="flow-content">
+          <div class="flow-question">How much did I make today?</div>
+          <div class="flow-answer">
+            Good day.
+            <span class="big green">+2,400 ETB profit</span>
+          </div>
+          <div class="flow-detail">
+            12 sales · 8,450 ETB sold · 4,200 ETB spent · 3,200 ETB given on credit
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Count cash -->
+      <div class="flow-step">
+        <div class="flow-dot red">2</div>
+        <div class="flow-content">
+          <div class="flow-question">Did the cash match?</div>
+          <div class="flow-answer" style="font-size: 14px;">
+            Count your cash
+          </div>
+          <div class="closing-grid">
+            <div class="closing-input">
+              <div class="closing-label">Expected cash</div>
+              <div class="closing-value">6,200 ETB</div>
+              <div class="closing-field" style="background: #f9fafb; color: #9ca3af;">6,200</div>
+            </div>
+            <div class="closing-input">
+              <div class="closing-label">Actual cash</div>
+              <div class="closing-value">Count the notes</div>
+              <input class="closing-field" type="text" placeholder="0" value="">
+            </div>
+          </div>
+          <div class="closing-result balanced" style="margin-top: 12px;">
+            <div class="closing-result-label">Difference</div>
+            <div class="closing-result-value green">Balanced ✓</div>
+          </div>
+          <div class="flow-action">
+            <button class="flow-btn primary">Close Day</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Credit check -->
+      <div class="flow-step">
+        <div class="flow-dot amber">3</div>
+        <div class="flow-content">
+          <div class="flow-question">Who still owes me?</div>
+          <div class="flow-answer" style="font-size: 14px;">
+            2 people owe you <strong>1,000 ETB</strong>
+          </div>
+          <div class="flow-detail">
+            Consider sending reminders before the weekend.
+          </div>
+          <div class="flow-action">
+            <button class="flow-btn secondary">Remind Tomorrow</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Shop diary -->
+      <div class="flow-step">
+        <div class="flow-dot blue">4</div>
+        <div class="flow-content">
+          <div class="flow-question">What should I remember?</div>
+          <div class="diary-card">
+            <div class="diary-date">Wednesday, 16 July 2026</div>
+            <div class="diary-entry">
+              <strong>Busy day.</strong> Sugar sold the most. Profit was above average. Cash matched perfectly. Abebe still hasn't paid — follow up tomorrow.
+            </div>
+          </div>
+          <div class="flow-action" style="margin-top: 8px;">
+            <button class="flow-btn ghost">Edit Entry</button>
+            <button class="flow-btn ghost">Share Report</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Phone preview: Closing -->
+    <div class="two-phones">
+      <div>
+        <div class="phone-caption">Closing view</div>
+        <div class="mini-phone">
+          <div class="mini-phone-screen">
+            <div class="mini-status-bar"><span>6:30 PM</span><span>🔋</span></div>
+            <div class="mini-header">
+              <h2>Time to close 🌙</h2>
+              <p>Abeba Grocery · Wed, 16 Jul</p>
+            </div>
+
+            <div class="mini-card" style="background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-color: #bbf7d0;">
+              <div class="mini-question">Today's result</div>
+              <div class="mini-answer">
+                Good day.
+                <span class="num green">+2,400 ETB</span>
+              </div>
+              <div class="mini-detail">12 sales · Best item: Sugar</div>
+            </div>
+
+            <div class="mini-card" style="border-color: #fecaca; background: #fff5f5;">
+              <div class="mini-question">⚠ Cash not counted</div>
+              <div class="mini-answer" style="font-size: 11px;">
+                Expected: <strong>6,200 ETB</strong>
+              </div>
+              <button class="mini-btn primary">Count Cash</button>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-question">Still owed</div>
+              <div class="mini-answer">
+                2 people
+                <span class="num amber" style="font-size: 16px;">1,000 ETB</span>
+              </div>
+            </div>
+
+            <div class="mini-card" style="background: #fefce8; border-color: #fde68a;">
+              <div class="mini-question">Today's diary</div>
+              <div class="mini-detail" style="font-style: italic; margin-top: 0;">
+                Busy day. Sugar sold the most. Cash matched. Abebe still hasn't paid.
+              </div>
+            </div>
+
+            <div class="mini-nav">
+              <div class="mini-nav-item"><span class="mini-nav-icon">📖</span>Today</div>
+              <div class="mini-nav-item"><span class="mini-nav-icon">💳</span>Credit</div>
+              <div class="mini-nav-item active"><span class="mini-nav-icon">📊</span>Report</div>
+              <div class="mini-nav-item"><span class="mini-nav-icon">⋯</span>More</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="phone-caption">The thinking behind it</div>
+        <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; font-size: 13px; color: #374151; line-height: 1.8;">
+          <strong style="color: #1B4332;">Closing ritual:</strong>
+          <ol style="padding-left: 16px; margin-top: 8px;">
+            <li><strong>Final tally</strong> — "Did I make money?" Answered immediately.</li>
+            <li><strong>Count cash</strong> — The most important action. Prominent button.</li>
+            <li><strong>Credit check</strong> — "Who's still owed?" Sets up tomorrow's follow-up.</li>
+            <li><strong>Diary entry</strong> — Auto-generated reflection. Scrollable history over time.</li>
+          </ol>
+          <p style="margin-top: 12px; color: #6b7280; font-size: 12px;">
+            The diary is the key differentiator. No POS has this. It turns the app into a shop's memory.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== THE STRUCTURE ==================== -->
+  <div class="moment">
+    <div class="moment-header">
+      <div class="moment-icon" style="background: #ede9fe;">📐</div>
+      <div>
+        <div class="moment-title">The Structure</div>
+        <div class="moment-subtitle">Same page, adapts based on time of day and data</div>
+      </div>
+    </div>
+
+    <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px;">
+      <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 2px solid #e5e7eb;">
+            <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Section</th>
+            <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Question it answers</th>
+            <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Always visible?</th>
+            <th style="text-align: left; padding: 10px 8px; font-weight: 900;">Leads to</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">Yesterday's Result</td>
+            <td style="padding: 10px 8px;">"How did yesterday go?"</td>
+            <td style="padding: 10px 8px;">Morning only</td>
+            <td style="padding: 10px 8px;">Nothing (informational)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">Today's Running Total</td>
+            <td style="padding: 10px 8px;">"How's today going?"</td>
+            <td style="padding: 10px 8px;">During the day</td>
+            <td style="padding: 10px 8px;">See details</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">Who Owes Me</td>
+            <td style="padding: 10px 8px;">"Who still owes me?"</td>
+            <td style="padding: 10px 8px;">Always (if any)</td>
+            <td style="padding: 10px 8px;">[Remind] / [Record Payment]</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">Is Everything OK?</td>
+            <td style="padding: 10px 8px;">"Any problems?"</td>
+            <td style="padding: 10px 8px;">Only if issues exist</td>
+            <td style="padding: 10px 8px;">[Count Cash] / [Review]</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">What Happened</td>
+            <td style="padding: 10px 8px;">"What should I know?"</td>
+            <td style="padding: 10px 8px;">Collapsible</td>
+            <td style="padding: 10px 8px;">None (observations)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 10px 8px; font-weight: 800;">Cash Closing</td>
+            <td style="padding: 10px 8px;">"Did cash match?"</td>
+            <td style="padding: 10px 8px;">End of day / pending</td>
+            <td style="padding: 10px 8px;">[Close Day]</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 8px; font-weight: 800;">Shop Diary</td>
+            <td style="padding: 10px 8px;">"What should I remember?"</td>
+            <td style="padding: 10px 8px;">End of day</td>
+            <td style="padding: 10px 8px;">[Edit] / [Share]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

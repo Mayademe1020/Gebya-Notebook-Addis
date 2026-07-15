@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop Status — Adaptive States</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    background: #f5f3ee;
+    color: #1f2937;
+    padding: 20px;
+  }
+
+  .states-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .states-grid { grid-template-columns: 1fr; }
+  }
+
+  .state-label {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .state-label.green { color: #16a34a; }
+  .state-label.amber { color: #d97706; }
+  .state-label.red { color: #dc2626; }
+
+  /* Phone */
+  .phone {
+    width: 320px;
+    min-height: 580px;
+    background: #fafaf5;
+    border-radius: 32px;
+    border: 6px solid #1a1a1a;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    margin: 0 auto;
+  }
+
+  .phone-screen {
+    padding: 0 14px 60px;
+    overflow-y: auto;
+  }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .header {
+    padding: 2px 2px 10px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .header p {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  /* Time range */
+  .time-range {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    background: rgba(27,67,50,0.08);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 14px;
+  }
+
+  .time-btn {
+    padding: 6px 0;
+    border: none;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    background: transparent;
+    color: #6b7280;
+  }
+
+  .time-btn.active {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  /* Story card */
+  .story-card {
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .story-card.healthy {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #bbf7d0;
+  }
+
+  .story-card.warning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fde68a;
+  }
+
+  .story-card.urgent {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+    border: 1px solid #fecaca;
+  }
+
+  .story-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .story-emoji { font-size: 20px; }
+
+  .story-headline {
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .story-card.healthy .story-headline { color: #1B4332; }
+  .story-card.warning .story-headline { color: #92400e; }
+  .story-card.urgent .story-headline { color: #991b1b; }
+
+  .story-profit {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .story-profit-number {
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .story-card.healthy .story-profit-number { color: #16a34a; }
+  .story-card.warning .story-profit-number { color: #d97706; }
+  .story-card.urgent .story-profit-number { color: #dc2626; }
+
+  .story-profit-unit {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .story-card.healthy .story-profit-unit { color: #16a34a; }
+  .story-card.warning .story-profit-unit { color: #d97706; }
+  .story-card.urgent .story-profit-unit { color: #dc2626; }
+
+  .story-context {
+    font-size: 11px;
+    color: #4b5563;
+    font-weight: 600;
+  }
+
+  .story-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .story-kpi { text-align: center; }
+
+  .story-kpi-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: #6b7280;
+    text-transform: uppercase;
+  }
+
+  .story-kpi-value {
+    font-size: 14px;
+    font-weight: 900;
+    margin-top: 1px;
+  }
+
+  .green { color: #16a34a; }
+  .red { color: #dc2626; }
+  .amber { color: #d97706; }
+
+  /* Attention */
+  .attention-card {
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .attention-card.has-items {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+  }
+
+  .attention-card.all-good {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    text-align: center;
+  }
+
+  .attention-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .attention-item + .attention-item {
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .attention-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .attention-dot.red { background: #dc2626; }
+  .attention-dot.amber { background: #d97706; }
+
+  .attention-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .attention-detail {
+    font-size: 10px;
+    color: #6b7280;
+    margin-top: 1px;
+  }
+
+  .attention-action {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .attention-action.primary {
+    background: #1B4332;
+    color: #fff;
+  }
+
+  .attention-action.secondary {
+    background: #fff;
+    color: #1B4332;
+    border: 1px solid #1B4332;
+  }
+
+  .all-good-emoji { font-size: 16px; }
+  .all-good-text {
+    font-size: 12px;
+    color: #16a34a;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* Section labels */
+  .section-label {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    padding: 0 0 6px;
+  }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 6px 0 16px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 12px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #9ca3af;
+  }
+
+  .nav-item.active { color: #1B4332; }
+  .nav-icon { font-size: 16px; }
+
+  /* Page */
+  .page-title {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .page-title h1 {
+    font-size: 20px;
+    font-weight: 950;
+    color: #1B4332;
+  }
+
+  .page-title p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>Three Adaptive States</h1>
+  <p>The Story Card changes based on business reality</p>
+</div>
+
+<div class="states-grid">
+
+  <!-- STATE 1: HEALTHY -->
+  <div>
+    <div class="state-label green">State 1 — Healthy</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="header">
+          <h1>Shop Check</h1>
+          <p>Abeba Grocery · Tue, 15 Jul</p>
+        </div>
+        <div class="time-range">
+          <button class="time-btn active">Today</button>
+          <button class="time-btn">Week</button>
+          <button class="time-btn">Month</button>
+          <button class="time-btn">Custom</button>
+        </div>
+
+        <div class="story-card healthy">
+          <div class="story-status">
+            <span class="story-emoji">🟢</span>
+            <span class="story-headline">Business is healthy today</span>
+          </div>
+          <div class="story-profit">
+            <span class="story-profit-number">+2,400</span>
+            <span class="story-profit-unit">ETB profit</span>
+          </div>
+          <div class="story-context">▲ 12% vs yesterday · Better than your average</div>
+          <div class="story-kpis">
+            <div class="story-kpi">
+              <div class="story-kpi-label">Sold</div>
+              <div class="story-kpi-value green">8,450</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Spent</div>
+              <div class="story-kpi-value red">4,200</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Profit</div>
+              <div class="story-kpi-value green">2,400</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Needs attention</div>
+        <div class="attention-card all-good">
+          <div class="all-good-emoji">✅</div>
+          <div class="all-good-text">Everything looks good. Nothing needs your attention.</div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">📖</span><span>Today</span></div>
+          <div class="nav-item"><span class="nav-icon">💳</span><span>Credit</span></div>
+          <div class="nav-item active"><span class="nav-icon">📊</span><span>Report</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE 2: WARNING -->
+  <div>
+    <div class="state-label amber">State 2 — Warning</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="header">
+          <h1>Shop Check</h1>
+          <p>Abeba Grocery · Mon, 14 Jul</p>
+        </div>
+        <div class="time-range">
+          <button class="time-btn active">Today</button>
+          <button class="time-btn">Week</button>
+          <button class="time-btn">Month</button>
+          <button class="time-btn">Custom</button>
+        </div>
+
+        <div class="story-card warning">
+          <div class="story-status">
+            <span class="story-emoji">🟡</span>
+            <span class="story-headline">Sales are lower than normal</span>
+          </div>
+          <div class="story-profit">
+            <span class="story-profit-number">+380</span>
+            <span class="story-profit-unit">ETB profit</span>
+          </div>
+          <div class="story-context">▼ 45% vs yesterday · Only 8 sales today</div>
+          <div class="story-kpis">
+            <div class="story-kpi">
+              <div class="story-kpi-label">Sold</div>
+              <div class="story-kpi-value amber">2,800</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Spent</div>
+              <div class="story-kpi-value red">2,420</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Profit</div>
+              <div class="story-kpi-value amber">380</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Needs attention</div>
+        <div class="attention-card has-items">
+          <div class="attention-item">
+            <div class="attention-dot amber"></div>
+            <div>
+              <div class="attention-label">Sales are 45% below your average</div>
+              <div class="attention-detail">Usually you sell ~5,000 ETB by this time</div>
+            </div>
+          </div>
+          <div class="attention-item">
+            <div class="attention-dot amber"></div>
+            <div>
+              <div class="attention-label">2 customers need follow-up</div>
+              <div class="attention-detail">Abebe (600 ETB) · Tilahun (400 ETB)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">📖</span><span>Today</span></div>
+          <div class="nav-item"><span class="nav-icon">💳</span><span>Credit</span></div>
+          <div class="nav-item active"><span class="nav-icon">📊</span><span>Report</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATE 3: URGENT -->
+  <div>
+    <div class="state-label red">State 3 — Urgent</div>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="header">
+          <h1>Shop Check</h1>
+          <p>Abeba Grocery · Sun, 13 Jul</p>
+        </div>
+        <div class="time-range">
+          <button class="time-btn active">Today</button>
+          <button class="time-btn">Week</button>
+          <button class="time-btn">Month</button>
+          <button class="time-btn">Custom</button>
+        </div>
+
+        <div class="story-card urgent">
+          <div class="story-status">
+            <span class="story-emoji">🔴</span>
+            <span class="story-headline">Cash does not match</span>
+          </div>
+          <div class="story-profit">
+            <span class="story-profit-number">−550</span>
+            <span class="story-profit-unit">ETB difference</span>
+          </div>
+          <div class="story-context">Expected 6,450 ETB · Counted 5,900 ETB</div>
+          <div class="story-kpis">
+            <div class="story-kpi">
+              <div class="story-kpi-label">Expected</div>
+              <div class="story-kpi-value">6,450</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Counted</div>
+              <div class="story-kpi-value red">5,900</div>
+            </div>
+            <div class="story-kpi">
+              <div class="story-kpi-label">Difference</div>
+              <div class="story-kpi-value red">−550</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Needs attention</div>
+        <div class="attention-card has-items">
+          <div class="attention-item">
+            <div class="attention-dot red"></div>
+            <div>
+              <div class="attention-label">Cash mismatch: −550 ETB</div>
+              <div class="attention-detail">9% less than expected. Check records.</div>
+            </div>
+          </div>
+          <div class="attention-item">
+            <div class="attention-dot red"></div>
+            <div>
+              <div class="attention-label">5 customers owe money</div>
+              <div class="attention-detail">Total: 3,200 ETB · Oldest: 24 days</div>
+            </div>
+            <button class="attention-action secondary">Remind</button>
+          </div>
+          <div class="attention-item">
+            <div class="attention-dot amber"></div>
+            <div>
+              <div class="attention-label">Expenses are 80% of sales</div>
+              <div class="attention-detail">Unusually high spending today</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">📖</span><span>Today</span></div>
+          <div class="nav-item"><span class="nav-icon">💳</span><span>Credit</span></div>
+          <div class="nav-item active"><span class="nav-icon">📊</span><span>Report</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Health Algorithm -->
+<div style="max-width: 800px; margin: 40px auto 0; padding: 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;">
+  <h3 style="font-size: 16px; font-weight: 900; color: #1B4332; margin-bottom: 16px;">Health Algorithm</h3>
+  <pre style="font-size: 12px; color: #374151; background: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; line-height: 1.6;">
+computeShopStory(metrics, priorMetrics, creditHealth, closingDone, cashVariance) {
+  let score = 4;
+
+  // Factor 1: Profit
+  if (metrics.totalSold - metrics.spentToday <= 0) score--;
+
+  // Factor 2: Cash match (after closing)
+  if (closingDone && Math.abs(cashVariance) > metrics.cashExpected * 0.05) score--;
+
+  // Factor 3: Credit health
+  if (creditHealth.overdueRatio > 0.3) score--;
+
+  // Factor 4: Sales vs average
+  if (priorMetrics && metrics.totalSold < priorMetrics.totalSold * 0.5) score--;
+
+  // Determine status
+  if (score >= 4) return { status: 'healthy', emoji: '🟢', headline: 'Business is healthy today' };
+  if (score >= 3) return { status: 'warning', emoji: '🟡', headline: 'Needs attention' };
+  return { status: 'urgent', emoji: '🔴', headline: 'Urgent issues found' };
+}
+  </pre>
+</div>
+
+<!-- Attention Triggers -->
+<div style="max-width: 800px; margin: 20px auto 0; padding: 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;">
+  <h3 style="font-size: 16px; font-weight: 900; color: #1B4332; margin-bottom: 16px;">Attention Triggers</h3>
+  <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+    <thead>
+      <tr style="border-bottom: 2px solid #e5e7eb;">
+        <th style="text-align: left; padding: 8px; font-weight: 900;">Trigger</th>
+        <th style="text-align: left; padding: 8px; font-weight: 900;">Severity</th>
+        <th style="text-align: left; padding: 8px; font-weight: 900;">Message</th>
+        <th style="text-align: left; padding: 8px; font-weight: 900;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 8px;">Cash not counted</td>
+        <td style="padding: 8px;"><span style="color: #dc2626; font-weight: 900;">Red</span></td>
+        <td style="padding: 8px;">"Cash not counted yet"</td>
+        <td style="padding: 8px;">[Count Cash]</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 8px;">Cash mismatch > 5%</td>
+        <td style="padding: 8px;"><span style="color: #dc2626; font-weight: 900;">Red</span></td>
+        <td style="padding: 8px;">"Cash does not match"</td>
+        <td style="padding: 8px;">[Review]</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 8px;">Overdue customers</td>
+        <td style="padding: 8px;"><span style="color: #d97706; font-weight: 900;">Amber</span></td>
+        <td style="padding: 8px;">"N customers owe money"</td>
+        <td style="padding: 8px;">[Remind]</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 8px;">Sales < 50% of average</td>
+        <td style="padding: 8px;"><span style="color: #d97706; font-weight: 900;">Amber</span></td>
+        <td style="padding: 8px;">"Sales are lower than normal"</td>
+        <td style="padding: 8px;">None (informational)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px;">Expenses > 150% of average</td>
+        <td style="padding: 8px;"><span style="color: #d97706; font-weight: 900;">Amber</span></td>
+        <td style="padding: 8px;">"Expenses are unusually high"</td>
+        <td style="padding: 8px;">None (informational)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
