@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { getCurrentEthiopianDate } from '../utils/ethiopianCalendar';
+import AskNotebookFAB from './AskNotebookFAB';
+import SearchSheet from './SearchSheet';
 import {
   ALL_SCOPE,
   amountOf,
@@ -92,8 +94,10 @@ export default function ReportView({
   todayStaffSalesRows = [],
   ownerAlertSettings = {},
   scope = ALL_SCOPE,
+  catalogEntries = [],
 }) {
   const { hidden, toggle: togglePrivacy } = usePrivacy();
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
   const [timeRange, _setTimeRange] = useState(() => {
     try { return localStorage.getItem('gebya_report_time_range') || 'today'; } catch { return 'today'; }
   });
@@ -576,6 +580,19 @@ export default function ReportView({
         <ErrorBoundary>
           <DiarySection diary={diary} lang={lang} />
         </ErrorBoundary>
+      )}
+
+      <AskNotebookFAB onClick={() => setShowSearchSheet(true)} />
+
+      {showSearchSheet && (
+        <SearchSheet
+          transactions={transactions}
+          ledgerTransactions={ledgerTransactions}
+          customers={customers}
+          catalogEntries={catalogEntries}
+          lang={lang}
+          onClose={() => setShowSearchSheet(false)}
+        />
       )}
     </div>
   );

@@ -15,6 +15,7 @@ export default function HistoryTab({
   onEdit,
   onChaseOverdue,
   onShareReport,
+  catalogEntries,
 }) {
   const { t } = useLang();
   return (
@@ -31,6 +32,7 @@ export default function HistoryTab({
         onEdit={onEdit}
         onChaseOverdue={onChaseOverdue}
         onShareReport={onShareReport}
+        catalogEntries={catalogEntries}
       />
     </Suspense>
   );
