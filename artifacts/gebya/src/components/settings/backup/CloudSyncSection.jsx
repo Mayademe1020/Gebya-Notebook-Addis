@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLang } from '../../../context/LangContext';
 import { fireToast } from '../../Toast';
 import { getSyncEngine } from '../../../utils/syncEngine';
@@ -14,30 +14,28 @@ import { RefreshCw } from 'lucide-react';
  */
 export default function CloudSyncSection({ lastBackupAt, setLastBackupAt }) {
   const { lang } = useLang();
-  const syncState = useSyncStore((s) => ({
-    status: s.status,
-    lastSyncAt: s.lastSyncAt,
-    error: s.error,
-    online: s.online,
-  }));
+  const syncStatus = useSyncStore((s) => s.status);
+  const syncLastSyncAt = useSyncStore((s) => s.lastSyncAt);
+  const syncError = useSyncStore((s) => s.error);
+  const syncOnline = useSyncStore((s) => s.online);
 
   const [cloudSnapshots, setCloudSnapshots] = useState([]);
   const [showCloudRestore, setShowCloudRestore] = useState(false);
   const [cloudBackupLoading, setCloudBackupLoading] = useState(false);
   const [cloudRestoreLoading, setCloudRestoreLoading] = useState(false);
 
-  const syncStatusLabel = () => {
-    if (syncState.status === 'syncing') return lang === 'am' ? 'በመቀነስ ላይ…' : 'Syncing…';
-    if (syncState.status === 'error')   return lang === 'am' ? 'ማቀነስ አልተሳካም' : 'Sync failed';
-    if (!syncState.lastSyncAt)          return lang === 'am' ? 'አሁን ይቀነሱ' : 'Not synced yet';
-    const mins = Math.floor((Date.now() - syncState.lastSyncAt) / 60000);
+  const syncStatusLabel = useMemo(() => {
+    if (syncStatus === 'syncing') return lang === 'am' ? 'በመቀነስ ላይ…' : 'Syncing…';
+    if (syncStatus === 'error')   return lang === 'am' ? 'ማቀነስ አልተሳካም' : 'Sync failed';
+    if (!syncLastSyncAt)          return lang === 'am' ? 'አሁን ይቀነሱ' : 'Not synced yet';
+    const mins = Math.floor((Date.now() - syncLastSyncAt) / 60000);
     if (mins < 1)  return lang === 'am' ? 'ዛሬ ተቀነሰ' : 'Synced just now';
     if (mins < 60) return lang === 'am' ? `ከ ${mins} ደቂቃ በፊት ተቀነሰ` : `Synced ${mins} min${mins === 1 ? '' : 's'} ago`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return lang === 'am' ? `ከ ${hours} ሰዓት በፊት ተቀነሰ` : `Synced ${hours} hour${hours === 1 ? '' : 's'} ago`;
     const days = Math.floor(hours / 24);
     return lang === 'am' ? `ከ ${days} ቀን በፊት ተቀነሰ` : `Synced ${days} day${days === 1 ? '' : 's'} ago`;
-  };
+  }, [syncStatus, syncLastSyncAt, lang]);
 
   const handleCloudBackup = async () => {
     setCloudBackupLoading(true);
@@ -89,11 +87,11 @@ export default function CloudSyncSection({ lastBackupAt, setLastBackupAt }) {
       <div className="px-5 py-3" style={{ background: '#f0f9ff', borderTop: '1px solid rgba(0,0,0,0.04)', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
         <div className="flex items-center gap-2">
           <span style={{ fontSize: '0.95rem' }}>
-            {syncState.status === 'syncing' ? '🔄' : syncState.status === 'error' ? '⚠️' : syncState.lastSyncAt ? '✅' : '☁️'}
+            {syncStatus === 'syncing' ? '🔄' : syncStatus === 'error' ? '⚠️' : syncLastSyncAt ? '✅' : '☁️'}
           </span>
           <div className="flex-1">
-            <p className="text-xs font-bold" style={{ color: syncState.status === 'error' ? '#991b1b' : '#065f46' }}>
-              {syncStatusLabel()}
+            <p className="text-xs font-bold" style={{ color: syncStatus === 'error' ? '#991b1b' : '#065f46' }}>
+              {syncStatusLabel}
             </p>
             <p className="text-[11px]" style={{ color: '#6b7280' }}>
               {lang === 'am'
@@ -103,14 +101,14 @@ export default function CloudSyncSection({ lastBackupAt, setLastBackupAt }) {
           </div>
           <button
             onClick={() => { const e = getSyncEngine(); if (e) e.sync(); }}
-            disabled={syncState.status === 'syncing' || !syncState.online}
+            disabled={syncStatus === 'syncing' || !syncOnline}
             className="px-3 py-1.5 rounded-lg text-xs font-bold min-h-[32px]"
             style={{
-              background: syncState.status === 'syncing' ? '#e5e7eb' : '#1B4332',
-              color: syncState.status === 'syncing' ? '#9ca3af' : '#fff',
+              background: syncStatus === 'syncing' ? '#e5e7eb' : '#1B4332',
+              color: syncStatus === 'syncing' ? '#9ca3af' : '#fff',
             }}
           >
-            {syncState.status === 'syncing' ? (lang === 'am' ? 'ይጠብቁ…' : 'Wait…') : (lang === 'am' ? 'አሁን ቀነስ' : 'Sync now')}
+            {syncStatus === 'syncing' ? (lang === 'am' ? 'ይጠብቁ…' : 'Wait…') : (lang === 'am' ? 'አሁን ቀነስ' : 'Sync now')}
           </button>
         </div>
       </div>

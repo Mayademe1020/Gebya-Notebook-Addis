@@ -28,8 +28,8 @@ export default function BackupDataPanel({ transactions, customerSummaries, suppl
     return () => { cancelled = true; };
   }, []);
 
-  const totalEntries = transactions.length;
-  const totalCustomers = customerSummaries.length;
+  const totalEntries = (transactions || []).length;
+  const totalCustomers = (customerSummaries || []).length;
 
   return (
     <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden divide-y divide-green-100/30">
