@@ -55,17 +55,10 @@ export default function ReportView({
   ledgerTransactions = [],
   enrichedCustomerSummaries = [],
   customers = [],
-  suppliers = [],
   shopProfile,
   onEdit,
-  onChaseOverdue,
-  ownerAlerts = [],
-  staffMembers = [],
   activeStaffMemberId = null,
-  todayStaffSalesRows = [],
-  ownerAlertSettings = {},
   scope = ALL_SCOPE,
-  catalogEntries = [],
 }) {
   const { lang } = useLang();
   const { hidden, toggle: togglePrivacy } = usePrivacy();
@@ -240,8 +233,16 @@ export default function ReportView({
           <h1 style={{ fontSize: 22, fontWeight: 950, color: '#1B4332', lineHeight: 1.05 }}>
             📒 {lang === 'am' ? 'ማስታወሻ ደብተር' : 'Notebook'}
           </h1>
-          <p style={{ fontSize: 12, color: '#6b7280', fontWeight: 650, marginTop: 3 }}>
-            {getCurrentEthiopianDate()} · {shopProfile?.name || (lang === 'am' ? 'ሱቅህ' : 'Your shop')}
+          <p style={{ fontSize: 12, color: '#6b7280', fontWeight: 650, marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>{getCurrentEthiopianDate()} · {shopProfile?.name || (lang === 'am' ? 'ሱቅህ' : 'Your shop')}</span>
+            {isToday && (
+              <span style={{
+                fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 999,
+                background: '#1B4332', color: '#fff', lineHeight: '16px',
+              }}>
+                {lang === 'am' ? 'ዛሬ' : 'TODAY'}
+              </span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
