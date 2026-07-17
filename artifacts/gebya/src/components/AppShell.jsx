@@ -585,6 +585,8 @@ export default function AppShell() {
     expense: { type: 'cash', provider: '', bankProvider: '', walletProvider: '' },
   });
   const [usageStats, setUsageStats] = useState(null);
+  const [planTier, setPlanTier] = useState('free');
+  const [entitlements, setEntitlements] = useState({ max_staff: 3, max_transactions_per_month: 500, advanced_reports: false, multi_shop: false, priority_support: false });
 
   // â”€â”€â”€ App state (useAppStore) â”€â”€â”€
   const loading = useAppStore(s => s.loading);
@@ -764,6 +766,11 @@ export default function AppShell() {
         if ((a.active !== false) !== (b.active !== false)) return a.active === false ? 1 : -1;
         return String(a.display_name || '').localeCompare(String(b.display_name || ''));
       }));
+      try {
+        const { tier, entitlements: ents } = await getCurrentEntitlements();
+        setPlanTier(tier);
+        setEntitlements(ents);
+      } catch { /* non-critical */ }
       let identityForProfile = identityRow || null;
       if (!identityForProfile && nameRow?.value) {
         try {
@@ -2866,7 +2873,6 @@ export default function AppShell() {
             <SettingsPage
               shopId={shopProfile?.shop_id || shopProfile?.id}
               transactions={transactions}
-              todayTransactions={todayTransactions}
               customerSummaries={customerSummaries}
               catalogEntries={catalogEntries}
               supplierSummaries={supplierSummaries}
@@ -2880,26 +2886,19 @@ export default function AppShell() {
               onDeactivateStaffMember={handleDeactivateStaffMember}
               onReactivateStaffMember={handleReactivateStaffMember}
               onSetActiveStaffMember={handleSetActiveStaffMember}
-              onRefreshStaffMembers={refreshStaffMembers}
-              onRotateJoinCode={handleRotateJoinCode}
-              onUpdateShopSettings={handleUpdateShopSettings}
               onApproveDevice={handleApproveDevice}
               onRejectDevice={handleRejectDevice}
-              enabledProviders={enabledProviders}
-              onProvidersChange={setEnabledProviders}
               paymentChannels={shopProfile?.paymentChannels || []}
               onSavePaymentChannels={handleSavePaymentChannels}
               recurringExpenses={recurringExpenses}
               onRecurringChange={setRecurringExpenses}
-              usageStats={usageStats}
-              onShareToday={handleShareReport}
               onSaveCatalogEntry={handleSaveCatalogEntry}
               onToggleCatalogEntryActive={handleToggleCatalogEntryActive}
-              onSaveSupplier={handleSaveSupplier}
-              onSaveSupplierTransaction={handleSaveSupplierTransaction}
-              onUpdateSupplierTransaction={handleUpdateSupplierTransaction}
-              onDeleteSupplierTransaction={handleDeleteSupplierTransaction}
               pwa={pwa}
+              planTier={planTier}
+              entitlements={entitlements}
+              staffCount={(staffMembers || []).filter(m => m.active !== false).length}
+              transactionCount={transactions.length}
             />
           </Suspense>
         )}
