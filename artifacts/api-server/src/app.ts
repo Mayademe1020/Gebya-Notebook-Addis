@@ -86,17 +86,14 @@ app.use(
 );
 
 // ---- RATE LIMITS ----
-let syncRateLimiter: any = (_req: any, _res: any, next: any) => next();
 try {
   const rl = (rateLimit as any)?.default ?? rateLimit;
   if (typeof rl === "function") {
     app.use(rl({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false, message: { error: "Too many requests." } }));
-    syncRateLimiter = rl({ windowMs: 5 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false, message: { error: "Sync rate limit exceeded. Slow down." } });
   }
 } catch (e) {
   console.error("RateLimit failed:", e);
 }
-export { syncRateLimiter };
 
 // ---- BODY PARSING ----
 app.use(express.json({ limit: "2mb" }));

@@ -7,7 +7,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, gt, inArray, asc, sql } from "drizzle-orm";
 import { verifyJwt } from "./auth.js";
-import { syncRateLimiter } from "../app.js";
+import { syncRateLimiter } from "../rateLimits.js";
 import { requirePermission } from "./rbac.js";
 import { sendPushToOwner } from "../services/pushNotificationSender.js";
 
