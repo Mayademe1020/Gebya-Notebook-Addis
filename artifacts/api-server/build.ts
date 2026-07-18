@@ -57,8 +57,8 @@ async function buildAll() {
     entryPoints: [path.resolve(__dirname, "src/index.ts")],
     platform: "node",
     bundle: true,
-    format: "cjs",
-    outfile: path.resolve(distDir, "index.cjs"),
+    format: "esm",
+    outfile: path.resolve(distDir, "index.mjs"),
     define: {
       "process.env.NODE_ENV": '"production"',
     },
@@ -67,12 +67,6 @@ async function buildAll() {
     logLevel: "info",
   });
 
-  // Remove source files to prevent Vercel's Node.js builder from
-  // compiling them and creating conflicting ESM modules at runtime.
-  // The bundle is self-contained.
-  const srcDir = path.resolve(__dirname, "src");
-  await rm(srcDir, { recursive: true, force: true });
-  console.log("source removed");
 }
 
 buildAll().catch((err) => {

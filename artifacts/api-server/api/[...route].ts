@@ -1,3 +1,3 @@
-// Load the pre-bundled Express app from dist/index.cjs
-import app from "../dist/index.cjs";
+// Load the pre-bundled Express app from dist/index.mjs
+import app from "../dist/index.mjs";
 export default app;
