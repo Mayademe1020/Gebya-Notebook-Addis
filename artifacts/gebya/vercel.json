@@ -1,9 +1,5 @@
 {
   "installCommand": "corepack enable && pnpm install --no-frozen-lockfile",
-  "env": {
-    "VITE_API_BASE": "https://gebya-notebook-addis-api-server.vercel.app",
-    "VITE_SYNC_API_URL": "https://gebya-notebook-addis-api-server.vercel.app"
-  },
   "headers": [
     {
       "source": "/assets/(.*)",
