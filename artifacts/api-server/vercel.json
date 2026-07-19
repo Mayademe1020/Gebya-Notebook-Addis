@@ -2,9 +2,6 @@
   "functions": {
     "api/healthz.ts": {
       "maxDuration": 10
-    },
-    "api/[...route].ts": {
-      "maxDuration": 60
     }
   },
   "crons": [
