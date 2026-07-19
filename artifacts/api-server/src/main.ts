@@ -8,6 +8,9 @@ import rateLimit from "express-rate-limit";
 import router from "./routes/index.js";
 
 const app: Express = express();
+// Trust the first proxy hop (Vercel) so req.ip reflects the real client IP
+// behind X-Forwarded-For; required for accurate express-rate-limit behavior.
+app.set("trust proxy", 1);
 const isProduction = process.env.NODE_ENV === "production";
 
 function createRequestId() {
