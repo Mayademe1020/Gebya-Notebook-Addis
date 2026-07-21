@@ -1,4 +1,3 @@
-// @ts-ignore — web-push has no bundled types
 import webPush from "web-push";
 import { db } from "@workspace/db";
 import { pushSubscriptions } from "@workspace/db/schema";
@@ -72,7 +71,6 @@ export async function sendPushToOwner(
       sent++;
     } catch (err: any) {
       failed++;
-      // If subscription is expired/revoked, remove it
       if (err.statusCode === 410) {
         await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
       }

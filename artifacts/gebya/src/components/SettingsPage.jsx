@@ -12,6 +12,9 @@ import DataTab from './settings/tabs/DataTab';
 import AdminMetricsView from './AdminMetricsView';
 import CrossShopCurationQueue from './CrossShopCurationQueue';
 
+const PwaInstallPanel = lazy(() => import('./PwaInstallPanel.jsx'));
+const AdminDashboard = lazy(() => import('./AdminDashboard.jsx'));
+
 const TABS = [
   { id: 'shop', labelEn: 'Shop', labelAm: 'ሱቅ' },
   { id: 'money', labelEn: 'Money', labelAm: 'ገንዘብ' },
@@ -242,9 +245,17 @@ function SettingsPage({
               >
                 {lang === 'am' ? 'ማስተካከያ ወረፋ' : 'Curation'}
               </button>
+              <button
+                onClick={() => setAdminSection(adminSection === 'admin' ? null : 'admin')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${adminSection === 'admin' ? 'text-white' : ''}`}
+                style={adminSection === 'admin' ? { background: '#1B4332' } : { background: '#f3f4f6', color: '#374151' }}
+              >
+                Admin
+              </button>
             </div>
             {adminSection === 'metrics' && <div className="px-4 pb-3"><AdminMetricsView shopId={shopId} /></div>}
             {adminSection === 'curation' && <div className="px-4 pb-3"><CrossShopCurationQueue /></div>}
+            {adminSection === 'admin' && <div className="px-4 pb-3"><Suspense fallback={<div className="text-xs text-gray-400 py-4">Loading...</div>}><AdminDashboard /></Suspense></div>}
           </div>
         )}
 

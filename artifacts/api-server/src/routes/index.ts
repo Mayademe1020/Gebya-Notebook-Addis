@@ -11,6 +11,7 @@ import auditRouter from "./audit.js";
 import pushSubscriptionsRouter from "./pushSubscriptions.js";
 import notificationsRouter from "./notifications.js";
 import analyticsRouter from "./analytics.js";
+import adminRouter from "./admin.js";
 
 const router: IRouter = Router();
 
@@ -33,5 +34,7 @@ router.use("/push", pushSubscriptionsRouter);
 router.use("/notifications", notificationsRouter);
 // Bank analytics — merchant consent + bank-facing reports + NBE aggregation
 router.use("/analytics", analyticsRouter);
+// Platform admin dashboard
+router.use("/admin", adminRouter);
 
 export default router;
