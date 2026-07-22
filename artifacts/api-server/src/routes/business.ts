@@ -18,16 +18,16 @@ function getUserIdFromRequest(req: any): number | null {
 }
 
 async function getBusinessForUser(userId: number, businessId?: number) {
-  const filters: any[] = [eq(businessMembers.userId, userId)];
-  if (businessId) filters.push(eq(businessMembers.businessId, businessId));
-  const rows = await db
-    .select({ businessId: businessMembers.businessId })
-    .from(businessMembers)
-    .where(and(...filters))
-    .limit(1);
+    const filters: any[] = [eq(businessMembers.userId, userId)];
+    if (businessId) filters.push(eq(businessMembers.businessId, businessId));
+    const rows = await db
+      .select({ businessId: businessMembers.businessId, displayName: businessMembers.displayName })
+      .from(businessMembers)
+      .where(and(...filters))
+      .limit(1);
 
-  return rows[0]?.businessId ?? null;
-}
+    return rows[0]?.businessId ?? null;
+  }
 
 async function findValidInvite(tx: any, token: string) {
   const rows = await tx
@@ -342,7 +342,7 @@ router.get("/members", requireRole("owner", "manager"), async (req, res) => {
     .select({
       id: businessMembers.id,
       userId: businessMembers.userId,
-      name: users.phoneNumber,
+      displayName: businessMembers.displayName,
       phone: users.phoneNumber,
       phoneNumber: users.phoneNumber,
       role: businessMembers.role,
@@ -357,6 +357,7 @@ router.get("/members", requireRole("owner", "manager"), async (req, res) => {
 
   const members = rows.map((m) => ({
     ...m,
+    name: m.displayName || m.phoneNumber,
     resolved_permissions: resolvePermissions(m.role, m.permissions),
   }));
 
