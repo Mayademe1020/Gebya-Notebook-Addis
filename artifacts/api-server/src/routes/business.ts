@@ -30,16 +30,17 @@ async function getBusinessForUser(userId: number, businessId?: number) {
   }
 
 async function findValidInvite(tx: any, token: string) {
-  const rows = await tx
-    .select({
-      id: invites.id,
-      businessId: invites.businessId,
-      role: invites.role,
-      invitedByUserId: invites.invitedByUserId,
-      acceptedAt: invites.acceptedAt,
-      revokedAt: invites.revokedAt,
-      expiresAt: invites.expiresAt,
-    })
+    const rows = await tx
+      .select({
+        id: invites.id,
+        businessId: invites.businessId,
+        role: invites.role,
+        invitedByUserId: invites.invitedByUserId,
+        staffName: invites.staffName,
+        acceptedAt: invites.acceptedAt,
+        revokedAt: invites.revokedAt,
+        expiresAt: invites.expiresAt,
+      })
     .from(invites)
     .where(
       and(
@@ -186,6 +187,7 @@ router.post("/invites/:inviteId/accept", async (req, res) => {
     await tx.insert(businessMembers).values({
       businessId: inv.businessId,
       userId,
+      displayName: inv.staffName || null,
       role: inv.role,
       invitedByUserId: inv.invitedByUserId,
       joinedAt: new Date(),
@@ -299,6 +301,7 @@ router.post("/join/:token", async (req, res) => {
     await tx.insert(businessMembers).values({
       businessId: invite.businessId,
       userId,
+      displayName: invite.staffName || null,
       role: invite.role,
       invitedByUserId: invite.invitedByUserId,
       joinedAt: new Date(),
