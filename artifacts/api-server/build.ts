@@ -46,6 +46,12 @@ async function buildAll() {
   });
 
   console.log("build done");
+
+  // Remove source files to prevent Vercel from compiling them.
+  // The bundle is self-contained — all deps are inlined.
+  const srcDir = path.resolve(__dirname, "src");
+  await rm(srcDir, { recursive: true, force: true });
+  console.log("source removed");
 }
 
 buildAll().catch((err) => {
