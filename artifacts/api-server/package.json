@@ -13,7 +13,7 @@
     "build": "tsx ./build.ts",
     "test": "vitest run",
     "test:harness": "node test-harness.js",
-    "typecheck": "tsc -p tsconfig.build.json --noEmit"
+    "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.build.json --noEmit"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
