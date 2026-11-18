@@ -33,9 +33,16 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
     );
   }
 
+  // Gate D (R1 leftover): staff seats are NOT enforced anywhere yet — nothing
+  // blocks adding a 4th member — so a "0/3" meter advertises a limit the app
+  // doesn't apply. Show the transaction meter only, until seat enforcement
+  // ships; then flip this flag and the meter comes back with real meaning.
+  const STAFF_LIMIT_ENFORCED = false;
+
+  const showStaffMeter = STAFF_LIMIT_ENFORCED && entitlements.max_staff !== Infinity;
   const staffPct = entitlements.max_staff === Infinity ? 0 : Math.round((staffCount / entitlements.max_staff) * 100);
   const txPct = entitlements.max_transactions_per_month === Infinity ? 0 : Math.round((transactionCount / entitlements.max_transactions_per_month) * 100);
-  const nearLimit = (staffPct >= 80 || txPct >= 80);
+  const nearLimit = (showStaffMeter && staffPct >= 80) || txPct >= 80;
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -63,7 +70,7 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
           </div>
         </div>
 
-        {entitlements.max_staff !== Infinity && (
+        {showStaffMeter && (
           <div className="mb-2">
             <div className="flex justify-between text-xs font-semibold mb-1">
               <span style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ሰራተኞች' : 'Staff'}</span>

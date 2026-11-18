@@ -102,12 +102,11 @@ export function parseTelegramIntent(text: string, _lang: Lang = "en"): TelegramI
   const lower = raw.toLowerCase();
   const first = lower.split(/\s+/)[0] || "";
 
-  // 1. One-time code: exactly 4 chars from the unambiguous alphabet
-  if (/^[A-Z0-9]{4}$/i.test(raw)) {
-    return { intent: "code", code: raw.toUpperCase() };
-  }
-
-  // 2. Slash commands + natural-language command words
+  // 1. Slash commands + natural-language command words.
+  //    These run BEFORE the 4-character code check on purpose: "help" and
+  //    "paid" are themselves 4 characters from the code alphabet, so a code
+  //    matcher in front of them swallowed the two most likely customer
+  //    messages and answered with an empty reply.
   if (first === "/balance" || first === "balance" || first === "ሒሳብ" || first === "ሒሳብዎ"
       || lower.includes("/balance") || lower.includes("how much") || lower.includes("ቀሪ")) {
     return { intent: "balance" };
@@ -117,7 +116,7 @@ export function parseTelegramIntent(text: string, _lang: Lang = "en"): TelegramI
     return { intent: "help" };
   }
 
-  // 3. Promise — customer says when they'll pay
+  // 2. Promise — customer says when they'll pay
   const holdsPromiseWord =
     lower.includes("ከፍላለሁ") || lower.includes("ከፍል") || lower.includes("ከፍያለሁ") ||
     lower.includes("መክፈል") || lower.includes("ቀን") || lower.includes("ከሳም") ||
@@ -131,10 +130,18 @@ export function parseTelegramIntent(text: string, _lang: Lang = "en"): TelegramI
     }
   }
 
-  // 4. Paid — customer reports a payment
+  // 3. Paid — customer reports a payment
   if (first === "/paid" || lower.includes("ከፍያለሁ") || lower.includes("ከፍያለሁ") ||
       lower.includes("paid")) {
     return { intent: "paid", amount: extractAmount(lower) ?? undefined };
+  }
+
+  // 4. One-time code: exactly 4 chars from the unambiguous alphabet
+  //    Last of the positive matches: a real code is a bare 4-character token,
+  //    and any word a customer might mean as a command has already been
+  //    claimed above. "ሒሳብ" and the slash commands never reach here.
+  if (/^[A-Z0-9]{4}$/i.test(raw)) {
+    return { intent: "code", code: raw.toUpperCase() };
   }
 
   return { intent: "unknown", text: raw };

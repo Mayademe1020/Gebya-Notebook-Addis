@@ -35,6 +35,7 @@ import { buildCustomerLedgerTelegramMessage, buildTelegramMessageUrl, createCust
 import { buildSupplierSummaries, getSupplierBalance, isValidSupplierTransactionType, SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
 import { enrichCustomerSummaries, buildCreditMetrics } from '../utils/customerMetrics';
 import { usePwaInstall } from '../hooks/usePwaInstall.js';
+import { useSetupCompletionStamp } from '../hooks/useSetupCompletionStamp.js';
 import { resendLatestTelegramUpdate, syncTelegramCustomerState } from '../utils/telegramBotClient';
 import { countPendingTelegramSync, drainTelegramSyncQueue, drainCloudProofQueue, enqueueTelegramLedgerUpdate } from '../utils/syncQueue';
 import { createCloudProofFields, enqueueCloudProofUpsert } from '../utils/cloudProof';
@@ -150,6 +151,16 @@ export default function AppShell() {
   const setCustomQuickAmounts = useShopStore(s => s.setCustomQuickAmounts);
   const lastSavedSnapshot = useShopStore(s => s.lastSavedSnapshot);
   const setLastSavedSnapshot = useShopStore(s => s.setLastSavedSnapshot);
+
+  // Gate D: stamp `setup_completed_at` the first time this shop reaches 5/5.
+  // Runs here (AppShell is always mounted) so already-completed shops are
+  // backfilled on boot instead of only when someone opens Settings.
+  useSetupCompletionStamp({
+    shopProfile,
+    paymentChannels: shopProfile?.paymentChannels,
+    catalogEntries,
+    recurring: recurringExpenses,
+  });
 
   const buildActorSnapshot = useCallback(() => (
     resolveActorSnapshot({ shopProfile, staffMembers, activeStaffMemberId })
