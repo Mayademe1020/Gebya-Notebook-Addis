@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import MoneyFlowBar from './MoneyFlowBar';
+import { label } from '../labels/index';
 
 export default function TodayBusiness({
   metrics,
@@ -59,10 +60,8 @@ export default function TodayBusiness({
           </p>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', marginTop: 2 }}>
             {personName
-              ? `${personName}${lang === 'am' ? ' · የዛሬ ሽያጭ' : " · today's sales"}`
-              : (lang === 'am'
-                ? `ዛሬ ጠቅላላ ሽያጭ${staffCount > 0 ? ` (${staffCount + 1} ሰው)` : ''}`
-                : `Total sales${staffCount > 0 ? ` (you + ${staffCount} staff)` : ''}`)}
+              ? `${personName}${label('today.today-s-sales', lang)}`
+              : (label('today.total-sales', lang, () => staffCount > 0 ? ` (you + ${staffCount} staff)` : '', () => staffCount > 0 ? ` (${staffCount + 1} ሰው)` : ''))}
           </p>
         </div>
         {expanded ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--color-text-soft)' }} /> : <ChevronDown className="w-4 h-4" style={{ color: 'var(--color-text-soft)' }} />}
@@ -83,10 +82,10 @@ export default function TodayBusiness({
 
       {expanded && (
         <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--color-bg-hover)', paddingTop: 10 }}>
-          <Row label={lang === 'am' ? '💵 ጥሬ ገንዘብ' : '💵 Cash'} value={cashExpected} hidden={hidden} />
-          <Row label={lang === 'am' ? '📱 ዲጂታል' : '📱 Digital'} value={digital} hidden={hidden} />
-          <Row label={lang === 'am' ? '📤 ወጪ' : '📤 Expenses'} value={expenses} hidden={hidden} color='var(--color-danger)' />
-          <Row label={lang === 'am' ? '💰 የዕዳ መሰብሰብ' : '💰 Collections'} value={collections} hidden={hidden} />
+          <Row label={label('today.cash-2', lang)} value={cashExpected} hidden={hidden} />
+          <Row label={label('today.digital-2', lang)} value={digital} hidden={hidden} />
+          <Row label={label('today.expenses', lang)} value={expenses} hidden={hidden} color='var(--color-danger)' />
+          <Row label={label('today.collections', lang)} value={collections} hidden={hidden} />
           {m.partialCount > 0 && (
             <>
               <div style={{ height: 1, background: 'var(--color-bg-disabled)', margin: '6px 0' }} />
@@ -94,20 +93,20 @@ export default function TodayBusiness({
                 fontSize: 10, fontWeight: 900, color: 'var(--color-text-soft)',
                 textTransform: 'uppercase', letterSpacing: '0.06em', padding: '4px 0 2px',
               }}>
-                ½ {lang === 'am' ? 'ከፊል ክፍያዎች' : 'Partial payments'} ({m.partialCount})
+                ½ {label('today.partial-payments', lang)} ({m.partialCount})
               </p>
-              <Row label={lang === 'am' ? '💵 በጥሬ የተቀበለ' : '💵 Received · cash'} value={m.partialReceivedCash || 0} hidden={hidden} color='var(--color-success)' />
-              <Row label={lang === 'am' ? '📱 በባንክ/ዋሌት የተቀበለ' : '📱 Received · bank/wallet'} value={m.partialReceivedTransfer || 0} hidden={hidden} color='var(--color-accent-amber)' />
-              <Row label={lang === 'am' ? '↩ ገና ያልተከፈለ (ዱቤ)' : '↩ Still owed (Dubie)'} value={m.partialRemaining || 0} hidden={hidden} color='var(--color-accent-amber)' />
+              <Row label={label('today.received-cash', lang)} value={m.partialReceivedCash || 0} hidden={hidden} color='var(--color-success)' />
+              <Row label={label('today.received-bank-wallet', lang)} value={m.partialReceivedTransfer || 0} hidden={hidden} color='var(--color-accent-amber)' />
+              <Row label={label('today.still-owed-dubie', lang)} value={m.partialRemaining || 0} hidden={hidden} color='var(--color-accent-amber)' />
             </>
           )}
           <div style={{ height: 1, background: 'var(--color-bg-disabled)', margin: '6px 0' }} />
-          <Row label={lang === 'am' ? '💵 ሊኖርህ የሚገባ ገንዘብ' : '💵 Cash you should have'} value={cashYouShouldHave} hidden={hidden} bold />
+          <Row label={label('today.cash-you-should-have', lang)} value={cashYouShouldHave} hidden={hidden} bold />
           {showClosing && closingState.done && (
             <>
-              <Row label={lang === 'am' ? '↓ በእጅህ ያለ ገንዘብ' : '↓ Cash in hand'} value={closingState.cashInHand || 0} hidden={hidden} />
+              <Row label={label('today.cash-in-hand', lang)} value={closingState.cashInHand || 0} hidden={hidden} />
               <Row
-                label={lang === 'am' ? '📊 ልዩነት' : '📊 Difference'}
+                label={label('today.difference', lang)}
                 value={diff}
                 hidden={hidden}
                 color={diff === 0 ? 'var(--color-success)' : diff > 0 ? 'var(--color-accent-amber)' : 'var(--color-danger)'}
@@ -119,8 +118,8 @@ export default function TodayBusiness({
             <div style={{ marginTop: 8 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', display: 'block', marginBottom: 4 }}>
                 {selfCheck
-                  ? (lang === 'am' ? 'የቆጠርኩት ጥሬ ገንዘብ' : 'Cash I counted')
-                  : (lang === 'am' ? 'በእጅህ ያለ ገንዘብ' : 'Cash in hand')}
+                  ? (label('today.cash-i-counted', lang))
+                  : (label('today.cash-in-hand-2', lang))}
               </label>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
@@ -147,8 +146,8 @@ export default function TodayBusiness({
                   }}
                 >
                   {selfCheck
-                    ? (lang === 'am' ? 'አረጋግጥ' : 'Check')
-                    : (lang === 'am' ? 'ዝጋ' : 'Close')}
+                    ? (label('today.check', lang))
+                    : (label('today.close', lang))}
                 </button>
               </div>
             </div>

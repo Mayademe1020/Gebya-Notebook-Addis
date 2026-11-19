@@ -1,4 +1,5 @@
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index';
 
 // MoneyFlowBar — "Where is my money?" at a glance.
 //
@@ -24,18 +25,16 @@ export default function MoneyFlowBar({ cash = 0, digital = 0, owed = 0, lang = '
   const total = cash + digital + owed;
 
   const labels = {
-    cash: lang === 'am' ? 'ጥሬ' : 'Cash',
-    digital: lang === 'am' ? 'ዲጂታል' : 'Digital',
-    owed: lang === 'am' ? 'ዱቤ' : 'Owed',
+    cash: label('today.cash', lang),
+    digital: label('today.digital', lang),
+    owed: label('today.owed', lang),
   };
 
   if (total <= 0) return null;
 
   return (
     <div style={{ marginTop: 2 }} role="img" aria-label={
-      lang === 'am'
-        ? `ጥሬ ${fmt(cash)}፣ ዲጂታል ${fmt(digital)}፣ ዱቤ ${fmt(owed)} ETB`
-        : `Cash ${fmt(cash)}, Digital ${fmt(digital)}, Owed ${fmt(owed)} ETB`
+      label('today.cash-digital-owed-etb', lang, fmt(cash), fmt(digital), fmt(owed))
     }>
       {/* The proportion strip */}
       <div style={{
