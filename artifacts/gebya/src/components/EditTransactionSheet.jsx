@@ -10,6 +10,7 @@ import { normalizeEthiopianPhone } from '../utils/phoneNumber';
 import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import CameraCapture from './CameraCapture';
+import { label } from '../labels/index';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -388,7 +389,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
                      opacity: photos.length > 0 ? 0.55 : 1,
                     position: 'relative',
                   }}
-                  aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
+                  aria-label={label('sales.take-or-choose-photo', lang)}
                 >
                   {photoLoading
                     ? <span className="text-sm">...</span>
@@ -430,10 +431,10 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
-                    {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
+                    {label('sales.proof-photos', lang)}
                   </p>
                   <p className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                    {photos.length} {lang === 'am' ? 'ፎቶዎች' : 'photos'}
+                    {photos.length} {label('sales.photos', lang)}
                   </p>
                 </div>
                 <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
@@ -444,7 +445,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
                         onClick={() => { setReplacePhotoId(entry.id); setShowCamera(true); }}
                         className="cursor-pointer press-scale block"
                         style={{ padding: 0, border: 'none', background: 'transparent' }}
-                        aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
+                        aria-label={label('sales.replace-photo', lang, () => index + 1)}
                       >
                         <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
                       </button>
@@ -462,7 +463,7 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
                           border: '1px solid var(--color-border)',
                           background: 'var(--color-surface)',
                         }}
-                        aria-label={lang === 'am' ? '\u134E\u1276 \u12A0\u1235\u12C8\u130D\u12F5' : `Remove photo ${index + 1}`}
+                        aria-label={label('sales.remove-photo', lang, () => index + 1)}
                       >
                         <X className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
                       </button>
@@ -518,11 +519,11 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
           {!isCredit && origDiscount > 0 && (
             <div className="flex items-center justify-between px-3 py-2.5" style={{ background: 'var(--color-warning-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-warning-border)' }}>
               <span className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--color-warning-text)' }}>
-                {lang === 'am' ? 'ቅናሽ ተደርጓል' : 'DISCOUNT APPLIED'}
+                {label('sales.discount-applied', lang)}
               </span>
               <span className="flex items-center gap-2 text-xs">
                 <span className="font-semibold" style={{ color: 'var(--color-text-muted)' }}>
-                  {fmt(origGross)} {t.birr} {lang === 'am' ? '−' : '−'}
+                  {fmt(origGross)} {t.birr} {label('sales.copy', lang)}
                 </span>
                 <span className="font-black" style={{ color: 'var(--color-warning-text)' }}>
                   −{fmt(Number(discount) || origDiscount)} {t.birr}
@@ -620,18 +621,18 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
             <div className="p-3 space-y-2" style={{ background: 'rgba(196,136,58,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-warning-border)' }}>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-accent-amber)' }}>
-                  ½ {lang === 'am' ? 'ከፊል ክፍያ' : 'Partial payment'}
+                  ½ {label('sales.partial-payment', lang)}
                 </p>
                 {partialRemaining > 0 && (
                   <p className="text-[10px] font-bold" style={{ color: 'var(--color-accent-amber)' }}>
-                    {lang === 'am' ? 'ቀሪ ዱቤ' : 'Remaining Dubie'}: {fmt(partialRemaining)} {t.birr || 'birr'}
+                    {label('sales.remaining-dubie', lang)}: {fmt(partialRemaining)} {t.birr || 'birr'}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-gray-600 text-xs font-bold mb-1 font-sans">
-                  {lang === 'am' ? 'የተቀበሉት መጠን' : 'Amount received'} <span className="text-red-500">*</span>
+                  {label('sales.amount-received', lang)} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -650,19 +651,19 @@ function EditTransactionSheet({ transaction, enabledProviders, onAddProvider, on
                 </div>
                 {partialReceivedAmount >= sellingPrice && sellingPrice > 0 && (
                   <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--color-danger)' }}>
-                    {lang === 'am' ? 'ሙሉ ክፍያ ነው — ከፊል አይደለም' : 'Received is the full amount — this is not a partial.'}
+                    {label('sales.received-is-the-full-amount-this-is-not-a', lang)}
                   </p>
                 )}
                 {partialReceivedAmount > 0 && partialReceivedAmount < sellingPrice && (
                   <p className="text-xs mt-1.5 font-semibold" style={{ color: 'var(--color-success-text)' }}>
-                    → {fmt(partialReceivedAmount)} {lang === 'am' ? 'ብር' : 'ETB'} {lang === 'am' ? 'በ' : 'via'} {receivedType === 'cash' ? (lang === 'am' ? 'ጥሬ' : 'cash') : (receivedProvider || receivedType)}
+                    → {fmt(partialReceivedAmount)} {label('sales.etb', lang)} {label('sales.via', lang)} {receivedType === 'cash' ? (label('sales.cash', lang)) : (receivedProvider || receivedType)}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-gray-600 text-xs font-bold mb-1 font-sans">
-                  {lang === 'am' ? 'የተቀበሉት ክፍያ ዘዴ' : 'Received via'}
+                  {label('sales.received-via', lang)}
                 </label>
                 <PaymentTypeChips
                   paymentType={receivedType}

@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toEthiopian, toGregorian } from 'ethiopian-date';
+import { label } from '../labels/index';
 
 const navBarBottom = 76;
 
@@ -202,7 +203,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
             {/* Header */}
             <div style={{ padding: '0 16px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
-                {lang === 'am' ? 'የቀን ምረጫ' : 'Pick a date'}
+                {label('sales.pick-a-date', lang)}
               </h3>
               <button type="button" onClick={onClose} aria-label="Close"
                 style={{
@@ -245,7 +246,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
                     fontSize: '0.78rem', fontWeight: 800,
                     cursor: 'pointer',
                   }}>
-                  {lang === 'am' ? 'ዛሬ' : 'Today'}
+                  {label('sales.today', lang)}
                 </button>
                 <button type="button" onClick={() => setDateNDaysFromToday(1)}
                   style={{
@@ -255,7 +256,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
                     fontSize: '0.78rem', fontWeight: 800,
                     cursor: 'pointer',
                   }}>
-                  {lang === 'am' ? 'ነገ' : 'Tomorrow'}
+                  {label('sales.tomorrow', lang)}
                 </button>
                 {[7, 15, 30].map(n => (
                   <button key={n} type="button" onClick={() => setDateNDaysFromToday(n)}
@@ -278,7 +279,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
               padding: '0 16px 10px',
             }}>
               <button type="button" onClick={goPrevMonth}
-                aria-label={lang === 'am' ? 'ያለፈ ወር' : 'Previous month'}
+                aria-label={label('sales.previous-month', lang)}
                 style={{
                   width: 30, height: 30, borderRadius: 6,
                   background: 'var(--color-bg-hover)', border: 'none',
@@ -294,7 +295,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
                 {months[viewMonth - 1]} {viewYear}
               </span>
               <button type="button" onClick={goNextMonth}
-                aria-label={lang === 'am' ? 'ቀጣይ ወር' : 'Next month'}
+                aria-label={label('sales.next-month', lang)}
                 style={{
                   width: 30, height: 30, borderRadius: 6,
                   background: 'var(--color-bg-hover)', border: 'none',
@@ -369,7 +370,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
                   border: '2px solid var(--color-bg-disabled)', borderRadius: 10, fontSize: '0.9rem', fontWeight: 700,
                   cursor: 'pointer', minHeight: 48,
                 }}>
-                {lang === 'am' ? 'ተው' : 'Cancel'}
+                {label('sales.cancel', lang)}
               </button>
               <button type="button" onClick={handleModalSet}
                 style={{
@@ -378,7 +379,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
                   cursor: 'pointer', minHeight: 48,
                   boxShadow: '0 4px 12px rgba(27,67,50,0.3)',
                 }}>
-                {lang === 'am' ? 'አረጋግጥ' : 'Confirm'}
+                {label('sales.confirm', lang)}
               </button>
             </div>
           </div>
@@ -441,7 +442,7 @@ function InlineDatePicker({ value, onChange, lang = 'am', open, onClose }) {
             cursor: 'pointer', flexShrink: 0, color: 'var(--color-bg-white)',
             fontSize: '0.65rem', fontWeight: 800,
           }}
-          title={lang === 'am' ? 'ዛሬ' : 'Today'}>
+          title={label('sales.today', lang)}>
           📅
         </button>
       </div>

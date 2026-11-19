@@ -16,6 +16,7 @@ import CameraCapture from './CameraCapture';
 import InlineDatePicker from './InlineDatePicker';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import AddProviderButton from './AddProviderButton';
+import { label } from '../labels/index';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -117,16 +118,16 @@ function SupplierTransactionSheet({
   const accentColor = isPayment ? 'var(--color-success)' : 'var(--color-danger)'; // Commit D: red for purchase (supplier side)
   const headerLabel = editing
     ? (isPayment
-        ? (lang === 'am' ? '✏️ ክፍያ አስተካክል' : '✏️ Edit payment')
-        : (lang === 'am' ? '✏️ ግዢ አስተካክል' : '✏️ Edit purchase'))
+        ? (label('suppliers.edit-payment', lang))
+        : (label('suppliers.edit-purchase', lang)))
     : (isPayment
-        ? (lang === 'am' ? '− ክፍያ' : '− Payment')
-        : (lang === 'am' ? '+ ግዢ' : '+ Buy'));
+        ? (label('suppliers.payment-2', lang))
+        : (label('suppliers.buy', lang)));
   const saveButtonText = editing
-    ? (lang === 'am' ? 'አስተካክል' : 'Update')
+    ? (label('suppliers.update', lang))
     : isPayment
-      ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save payment')
-      : (lang === 'am' ? 'ግዢ አስቀምጥ' : 'Save purchase');
+      ? (label('suppliers.save-payment', lang))
+      : (label('suppliers.save-purchase', lang));
 
   const handleCameraPhoto = (dataUrl) => {
     if (replacePhotoId) {
@@ -191,7 +192,7 @@ function SupplierTransactionSheet({
       >
         <button
           onClick={onDone}
-          aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
+          aria-label={label('suppliers.back', lang)}
           className="press-scale flex items-center justify-center"
           style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
         >
@@ -226,19 +227,19 @@ function SupplierTransactionSheet({
         >
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'አሁን ለመክፈል' : 'Currently owed'}
+              {label('suppliers.currently-owed', lang)}
             </p>
             <p className="text-base font-bold truncate" style={{ color: 'var(--color-text)' }}>
-              {fmt(currentBalance)} {lang === 'am' ? 'ብር' : 'birr'}
+              {fmt(currentBalance)} {label('suppliers.birr', lang)}
             </p>
           </div>
           <span className="flex-shrink-0" style={{ color: 'var(--color-text-soft)' }}>→</span>
           <div className="min-w-0 text-right">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ከዚህ በኋላ' : 'After'}
+              {label('suppliers.after', lang)}
             </p>
             <p className="text-base font-bold truncate" style={{ color: isPayment ? 'var(--color-success-text)' : 'var(--color-danger-text)' }}>
-              {fmt(updatedBalance)} {lang === 'am' ? 'ብር' : 'birr'}
+              {fmt(updatedBalance)} {label('suppliers.birr', lang)}
             </p>
           </div>
         </div>
@@ -246,7 +247,7 @@ function SupplierTransactionSheet({
         {/* Amount hero */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'መጠን' : 'Amount'} <span style={{ color: 'var(--color-danger)' }}>*</span>
+            {label('suppliers.amount', lang)} <span style={{ color: 'var(--color-danger)' }}>*</span>
           </label>
           <div className="relative">
             <input
@@ -267,7 +268,7 @@ function SupplierTransactionSheet({
               className="absolute right-2 top-1/2 -translate-y-1/2 text-base sm:text-lg font-semibold"
               style={{ color: 'var(--color-text-soft)' }}
             >
-              {lang === 'am' ? 'ብር' : 'birr'}
+              {label('suppliers.birr', lang)}
             </span>
           </div>
 
@@ -276,7 +277,7 @@ function SupplierTransactionSheet({
         {isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'የክፍያ ዘዴ' : 'Payment Method'}
+              {label('suppliers.payment-method', lang)}
             </label>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {paymentOptions.map(opt => {
@@ -311,24 +312,24 @@ function SupplierTransactionSheet({
 
         {!hasOutstanding && isPayment && (
             <p className="text-xs font-medium mt-2" style={{ color: 'var(--color-warning)' }}>
-              {lang === 'am' ? 'ለመክፈል ምንም የለም' : 'Nothing outstanding to pay'}
+              {label('suppliers.nothing-outstanding-to-pay', lang)}
             </p>
           )}
           {overPayment && (
             <p className="text-xs font-medium mt-2 text-red-600">
-              {lang === 'am' ? 'ከዱቤ በላይ ነው' : 'Payment exceeds what is owed'}
+              {label('suppliers.payment-exceeds-what-is-owed', lang)}
             </p>
           )}
 
           {/* Note (optional) — available for both payment and purchase */}
           <div className="mt-3">
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'መልእክት (አማራጭ)' : 'Note (optional)'}
+              {label('suppliers.note-optional-2', lang)}
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder={lang === 'am' ? 'ለምሳሌ የትንዳገብ ወቅታዊ ሁኔታ' : 'e.g. current stock status'}
+              placeholder={label('suppliers.e-g-current-stock-status', lang)}
               rows={2}
               className="w-full p-3 border-2 focus:outline-none text-base resize-none"
               style={{ borderRadius: 'var(--radius-md)', borderColor: 'var(--color-border)' }}
@@ -340,14 +341,14 @@ function SupplierTransactionSheet({
         {!isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ምን ገዙ (አማራጭ)' : 'What did you buy (optional)'}
+              {label('suppliers.what-did-you-buy-optional', lang)}
             </label>
             <div className="flex gap-2 items-stretch">
               <input
                 type="text"
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
-                placeholder={lang === 'am' ? 'ለምሳሌ 5 ቦርሳ ቡና' : 'e.g. 5 bags coffee'}
+                placeholder={label('suppliers.e-g-5-bags-coffee', lang)}
                 className="flex-1 p-3 border-2 focus:outline-none text-base"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: 'var(--color-border)' }}
               />
@@ -367,7 +368,7 @@ function SupplierTransactionSheet({
                   position: 'relative',
                   padding: 0,
                 }}
-                aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
+                aria-label={label('suppliers.take-or-choose-photo', lang)}
               >
                 {photoLoading
                   ? <span className="text-sm">...</span>
@@ -400,10 +401,10 @@ function SupplierTransactionSheet({
               <div className="mt-2 p-2" style={{ background: 'var(--color-surface-subtle)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
-                    {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
+                    {label('suppliers.proof-photos', lang)}
                   </p>
                   <p className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                     {photos.length} {lang === 'am' ? 'ፎቶዎች' : 'photos'}
+                     {photos.length} {label('suppliers.photos', lang)}
                   </p>
                 </div>
                 <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
@@ -414,7 +415,7 @@ function SupplierTransactionSheet({
                         onClick={() => openPhotoCapture(entry.id)}
                         className="press-scale block"
                         style={{ padding: 0, border: 'none', background: 'transparent' }}
-                        aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
+                        aria-label={label('suppliers.replace-photo', lang, () => index + 1)}
                       >
                         <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
                       </button>
@@ -432,7 +433,7 @@ function SupplierTransactionSheet({
                           border: '1px solid var(--color-border)',
                           background: 'var(--color-surface)',
                         }}
-                        aria-label={lang === 'am' ? '\u134E\u1276 \u12A0\u1235\u12C8\u130D\u12F5' : `Remove photo ${index + 1}`}
+                        aria-label={label('suppliers.remove-photo', lang, () => index + 1)}
                       >
                         <X className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
                       </button>
@@ -451,7 +452,7 @@ function SupplierTransactionSheet({
             {/* Due date — compact chip row */}
             <div className="mt-3">
               <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'የሚከፈልበት ቀን' : 'Due date (optional)'}
+                {label('suppliers.due-date-optional', lang)}
               </label>
               <div className="flex gap-2 mb-2">
                 {dueDateOptions.map(opt => {
@@ -483,7 +484,7 @@ function SupplierTransactionSheet({
                     cursor: 'pointer', flexShrink: 0,
                     display: 'flex', alignItems: 'center', gap: 4,
                   }}>
-                  📅 <span>{lang === 'am' ? 'ምረጥ' : 'Pick'}</span>
+                  📅 <span>{label('suppliers.pick', lang)}</span>
                 </button>
               </div>
               <InlineDatePicker
@@ -512,7 +513,7 @@ function SupplierTransactionSheet({
           }}
         >
           <Save className="w-5 h-5" />
-          {saving ? (lang === 'am' ? 'እያስቀመጥኩ…' : 'Saving…') : saveButtonText}
+          {saving ? (label('suppliers.saving', lang)) : saveButtonText}
         </button>
       </div>
 

@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { compressPhoto, MAX_DIMENSION, JPEG_QUALITY } from '../utils/photoCapture';
+import { label } from '../labels/index';
 
 function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
   const videoRef = useRef(null);
@@ -130,12 +131,12 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', color: 'var(--color-bg-white)' }}>
         <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>
-          {lang === 'am' ? 'ፎቶ ያንሱ' : 'Take a photo'}
+          {label('sales.take-a-photo', lang)}
         </span>
         <button
           type="button"
           onClick={onClose}
-          aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
+          aria-label={label('sales.close', lang)}
           style={{
             width: 40, height: 40, borderRadius: '50%',
             background: 'rgba(255,255,255,0.15)', border: 'none', color: 'var(--color-bg-white)',
@@ -158,7 +159,7 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
             />
             {!ready && (
               <div style={{ position: 'absolute', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>
-                {lang === 'am' ? 'ካሜራ እየተከፈተ…' : 'Opening camera…'}
+                {label('sales.opening-camera', lang)}
               </div>
             )}
           </>
@@ -167,13 +168,11 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
             <Camera className="w-12 h-12 mx-auto mb-3" style={{ opacity: 0.5 }} />
             <p style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 6 }}>
               {error === 'denied'
-                ? (lang === 'am' ? 'የካሜራ ፍቃድ አልተሰጠም' : 'Camera permission denied')
-                : (lang === 'am' ? 'ካሜራ መክፈት አልተቻለም' : 'Camera unavailable')}
+                ? (label('sales.camera-permission-denied', lang))
+                : (label('sales.camera-unavailable', lang))}
             </p>
             <p style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: 16, lineHeight: 1.5 }}>
-              {lang === 'am'
-                ? 'ከማከማቻ ፎቶ ይምረጡ ወይም በቅንብሮች ውስጥ የካሜራ ፍቃድ ይፍቀዱ።'
-                : 'Pick a photo from your gallery, or allow camera access in settings.'}
+              {label('sales.pick-a-photo-from-your-gallery-or-allow', lang)}
             </p>
             <label
               className="press-scale"
@@ -185,7 +184,7 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
               }}
             >
               <ImageIcon className="w-4 h-4" />
-              {lang === 'am' ? 'ከማከማቻ ይምረጡ' : 'Choose from gallery'}
+              {label('sales.choose-from-gallery', lang)}
               <input type="file" accept="image/*" onChange={handleFallbackFile} className="hidden" />
             </label>
           </div>
@@ -204,7 +203,7 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
-            aria-label={lang === 'am' ? 'ጋለሪ' : 'Gallery'}
+            aria-label={label('sales.gallery', lang)}
           >
             <ImageIcon className="w-5 h-5" style={{ color: 'var(--color-bg-white)' }} />
             <input type="file" accept="image/*" onChange={handleFallbackFile} className="hidden" />
@@ -215,7 +214,7 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
             type="button"
             onClick={handleShutter}
             disabled={!ready || busy}
-            aria-label={lang === 'am' ? 'ፎቶ አንሳ' : 'Capture'}
+            aria-label={label('sales.capture', lang)}
             style={{
               width: 74, height: 74, borderRadius: '50%',
               background: 'var(--color-surface)',
@@ -233,7 +232,7 @@ function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
           <button
             type="button"
             onClick={() => setFacing(f => (f === 'environment' ? 'user' : 'environment'))}
-            aria-label={lang === 'am' ? 'ካሜራ ቀይር' : 'Flip camera'}
+            aria-label={label('sales.flip-camera', lang)}
             style={{
               width: 48, height: 48, borderRadius: '50%',
               background: 'rgba(255,255,255,0.15)', border: 'none',

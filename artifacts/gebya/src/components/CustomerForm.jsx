@@ -23,6 +23,7 @@ import {
   isValidSubscriber,
   normalizeEthiopianPhone,
 } from '../utils/phoneNumber';
+import { label } from '../labels/index';
 
 function initialsOf(name) {
   if (!name || typeof name !== 'string') return '?';
@@ -102,13 +103,11 @@ function CustomerForm({ onSave, onDone, existing }) {
             <div>
               <h2 className="text-lg font-black text-gray-900">
                 {isEditing
-                  ? (lang === 'am' ? 'ደንበኛ አስተካክል' : 'Edit customer')
-                  : (lang === 'am' ? 'ደንበኛ አክል' : 'Add customer')}
+                  ? (label('customers.edit-customer-2', lang))
+                  : (label('customers.add-customer', lang))}
               </h2>
               <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am'
-                  ? 'ስም ብቻ ግዴታ ነው። ሌላው ሁሉ አማራጭ።'
-                  : 'Only name is required. The rest is optional.'}
+                {label('customers.only-name-is-required-the-rest-is-optional', lang)}
               </p>
             </div>
             <button
@@ -167,7 +166,7 @@ function CustomerForm({ onSave, onDone, existing }) {
             {photo ? (
               <>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-success-text)' }}>
-                  ✓ {lang === 'am' ? 'ፎቶ ተጨምሯል' : 'Photo added'}
+                  ✓ {label('customers.photo-added', lang)}
                   <span style={{ fontWeight: 500, color: 'var(--color-text-soft)', marginLeft: 6 }}>
                     {Math.round(photoSizeBytes(photo) / 1024)} KB
                   </span>
@@ -185,7 +184,7 @@ function CustomerForm({ onSave, onDone, existing }) {
                     }}
                   >
                     <Camera className="w-3 h-3" />
-                    {lang === 'am' ? 'ቀይር' : 'Replace'}
+                    {label('customers.replace', lang)}
                   </button>
                   <button
                     type="button"
@@ -200,17 +199,17 @@ function CustomerForm({ onSave, onDone, existing }) {
                     }}
                   >
                     <X className="w-3 h-3" />
-                    {lang === 'am' ? 'አስወግድ' : 'Remove'}
+                    {label('customers.remove', lang)}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text)' }}>
-                  {lang === 'am' ? 'ፎቶ (አማራጭ)' : 'Photo (optional)'}
+                  {label('customers.photo-optional', lang)}
                 </p>
                 <p style={{ fontSize: '0.68rem', color: 'var(--color-text-soft)', marginTop: 1 }}>
-                  {lang === 'am' ? 'በቆጣሪው ላይ ለማወቅ ይረዳዎታል' : 'recognize them faster at the counter'}
+                  {label('customers.recognize-them-faster-at-the-counter', lang)}
                 </p>
                 <div style={{ marginTop: 4 }}>
                   <button
@@ -225,14 +224,14 @@ function CustomerForm({ onSave, onDone, existing }) {
                     }}
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    {lang === 'am' ? 'ፎቶ ይምረጡ' : 'Add Photo'}
+                    {label('customers.add-photo', lang)}
                   </button>
                 </div>
               </>
             )}
             {photoLoading && (
               <p style={{ fontSize: '0.65rem', color: 'var(--color-accent-amber)', marginTop: 2 }}>
-                {lang === 'am' ? 'ፎቶ እያዘጋጀ…' : 'Compressing…'}
+                {label('customers.compressing', lang)}
               </p>
             )}
             {photoError && (
@@ -249,13 +248,13 @@ function CustomerForm({ onSave, onDone, existing }) {
           {/* Name (required) */}
           <div>
             <label className="block font-semibold mb-1 text-sm" style={{ color: 'var(--color-text)' }}>
-              {lang === 'am' ? 'ስም' : 'Name'} <span className="text-red-500">*</span>
+              {label('customers.name', lang)} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder={lang === 'am' ? 'ለምሳሌ ትግስት' : 'e.g. Tigist'}
+              placeholder={label('customers.e-g-tigist', lang)}
               autoFocus={!isEditing}
               className="w-full p-3 border-2 focus:outline-none text-base"
               style={{
@@ -269,9 +268,9 @@ function CustomerForm({ onSave, onDone, existing }) {
           {/* Phone — Commit C.3: prominent, with +251 prefix, validated */}
           <div>
             <label className="block font-semibold mb-1 text-sm" style={{ color: 'var(--color-text)' }}>
-              📞 {lang === 'am' ? 'ስልክ' : 'Phone'}
+              📞 {label('customers.phone', lang)}
               <span className="font-normal text-xs ml-1" style={{ color: 'var(--color-text-soft)' }}>
-                ({lang === 'am' ? 'ለማስታወሻ' : 'for reminders'})
+                ({label('customers.for-reminders', lang)})
               </span>
             </label>
             <div style={{ display: 'flex', gap: 0 }}>
@@ -300,7 +299,7 @@ function CustomerForm({ onSave, onDone, existing }) {
                 value={phoneDigits}
                 onChange={handlePhoneChange}
                 onBlur={() => setPhoneTouched(true)}
-                placeholder={lang === 'am' ? '9XXXXXXXX' : '9XXXXXXXX'}
+                placeholder={label('customers.9xxxxxxxx', lang)}
                 maxLength={9}
                 className="flex-1 p-3 border-2 focus:outline-none text-base"
                 style={{
@@ -318,16 +317,12 @@ function CustomerForm({ onSave, onDone, existing }) {
             </div>
             {phoneTouched && !phoneValid && phoneDigits.length > 0 && (
               <p className="text-xs font-medium mt-1" style={{ color: 'var(--color-danger)' }}>
-                {lang === 'am'
-                  ? 'ስልክ 9 ወይም 7 ይጀምር — 9 አኃዝ መሆን አለበት'
-                  : 'Phone must start with 9 or 7 — 9 digits total'}
+                {label('customers.phone-must-start-with-9-or-7-9-digits-total', lang)}
               </p>
             )}
             {!phoneTouched && phoneDigits.length === 0 && (
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-soft)' }}>
-                {lang === 'am'
-                  ? 'በዘጠኝ ወይም ሰባት የሚጀምር 9 አኃዝ'
-                  : '9 digits, starts with 9 or 7'}
+                {label('customers.9-digits-starts-with-9-or-7', lang)}
               </p>
             )}
           </div>
@@ -335,9 +330,9 @@ function CustomerForm({ onSave, onDone, existing }) {
           {/* Telegram (optional) */}
           <div>
             <label className="block font-semibold mb-1 text-sm" style={{ color: 'var(--color-text)' }}>
-              💬 {lang === 'am' ? 'ቴሌግራም' : 'Telegram'}
+              💬 {label('customers.telegram', lang)}
               <span className="font-normal text-xs ml-1" style={{ color: 'var(--color-text-soft)' }}>
-                ({lang === 'am' ? 'አማራጭ' : 'optional'})
+                ({label('customers.optional', lang)})
               </span>
             </label>
             <input
@@ -362,9 +357,9 @@ function CustomerForm({ onSave, onDone, existing }) {
           {/* Note (optional) */}
           <div>
             <label className="block font-semibold mb-1 text-sm" style={{ color: 'var(--color-text)' }}>
-              {lang === 'am' ? 'ማስታወሻ' : 'Note'}
+              {label('customers.note', lang)}
               <span className="font-normal text-xs ml-1" style={{ color: 'var(--color-text-soft)' }}>
-                ({lang === 'am' ? 'አማራጭ' : 'optional'})
+                ({label('customers.optional', lang)})
               </span>
             </label>
             <textarea
@@ -395,7 +390,7 @@ function CustomerForm({ onSave, onDone, existing }) {
             {saving
               ? t.saving
               : isEditing
-                ? (lang === 'am' ? 'አስተካክል' : 'Update')
+                ? (label('customers.update', lang))
                 : t.saveCustomer}
           </button>
         </div>
