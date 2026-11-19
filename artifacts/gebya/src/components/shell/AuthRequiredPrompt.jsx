@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { requestOtp, verifyOtp, loginWithPassword, setPassword } from '../../utils/authClient';
 import { setAuthToken, getAuthToken } from '../../utils/syncEngine';
 import { fireToast } from '../Toast';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function AuthRequiredPrompt({ lang, onClose, onStaffJoin }) {
   const [phone, setPhone] = useState('');

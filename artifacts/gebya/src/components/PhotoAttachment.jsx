@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { normalizePhotos } from '../utils/photoProof';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function PhotoAttachment({ photo, photos, lang = 'en', label, size = 46 }) {
   const [open, setOpen] = useState(false);

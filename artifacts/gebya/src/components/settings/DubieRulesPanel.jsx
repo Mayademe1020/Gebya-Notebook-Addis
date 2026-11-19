@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../../context/LangContext';
 import db from '../../db';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function DubieRulesPanel({ onChange, onNavigate }) {
   const { lang, t } = useLang();

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { fmt } from '../utils/numformat';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 // PeriodInsights — "How was this period?" for Week / Month / Custom views.
 //

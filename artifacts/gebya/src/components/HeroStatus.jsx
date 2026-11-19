@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { computeHeroStatus } from '../utils/shopStory';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function HeroStatus({
   metrics,

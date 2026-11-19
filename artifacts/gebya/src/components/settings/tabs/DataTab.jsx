@@ -9,7 +9,7 @@ import ReminderSettings from '../ReminderSettings';
 import NotificationPreferences from '../NotificationPreferences';
 import PasswordSettings from '../PasswordSettings';
 import { isErrorReportingEnabled, setErrorReportingPreference } from '../../../sentry';
-import { label } from '../../../labels/index';
+import { label } from '../../../labels/index.js';
 
 // Build info injected at bundle time by Vite
 const BUILD_VERSION = import.meta.env?.VITE_APP_VERSION || 'dev';

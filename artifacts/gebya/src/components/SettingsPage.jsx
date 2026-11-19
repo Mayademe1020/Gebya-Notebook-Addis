@@ -14,7 +14,7 @@ import { InstallGuideModal } from './PwaInstallPanel';
 import AdminPanel from './settings/AdminPanel';
 import SettingsPanelFallback from './settings/SettingsPanelFallback';
 import ErrorBoundary from './ErrorBoundary';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const TABS = [
   { id: 'shop', labelEn: 'Shop', labelAm: 'ሱቅ' },

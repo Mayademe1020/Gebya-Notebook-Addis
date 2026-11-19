@@ -23,7 +23,7 @@ import {
   isValidSubscriber,
   normalizeEthiopianPhone,
 } from '../utils/phoneNumber';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function initialsOf(name) {
   if (!name || typeof name !== 'string') return '?';

@@ -10,7 +10,7 @@ import { DailySuggestions, LearningInsights, SaleWorkspace } from '../utils/lazy
 import RunningTotalPill from './RunningTotalPill';
 import { computeStaffTodayTotals, computeTodayTotalsByStaff } from '../utils/staffTodayTotals';
 import { fmt } from '../utils/numformat';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function TodayTab({
   transactions,

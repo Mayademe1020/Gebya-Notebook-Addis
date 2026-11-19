@@ -3,7 +3,7 @@ import { Store, Phone, MessageCircle, Check } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { normalizeTelegram } from '../../utils/customerTelegram';
 import { isValidSubscriber, extractSubscriberDigits } from '../../utils/phoneNumber';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function ShopProfilePanel({ shopProfile, onProfileSave }) {
   const { lang, t } = useLang();

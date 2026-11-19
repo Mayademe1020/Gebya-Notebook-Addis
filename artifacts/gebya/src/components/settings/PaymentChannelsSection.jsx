@@ -7,7 +7,7 @@ import {
 } from '../../utils/paymentChannels';
 import { extractSubscriberDigits } from '../../utils/phoneNumber';
 import ConfirmDialog from '../ConfirmDialog';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function PaymentChannelsSection({ channels, shopPhone, enabledCount, configuredCount, onChange, lang }) {
   const [query, setQuery] = useState('');

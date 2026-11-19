@@ -7,7 +7,7 @@ import { useSyncRefresh } from '../hooks/useSyncRefresh';
 import { fmt } from '../utils/numformat';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { apiFetch } from '../utils/shared-ui.jsx';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const ACTION_LABELS = {
   CREATE: { en: 'Recorded', am: 'ተመዝግቧል' },

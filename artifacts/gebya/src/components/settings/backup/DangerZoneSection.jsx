@@ -4,7 +4,7 @@ import { fireToast } from '../../Toast';
 import { Trash2 } from 'lucide-react';
 import { clearAllData, restoreFromJSON } from './useBackupData';
 import ConfirmDialog from '../../ConfirmDialog';
-import { label } from '../../../labels/index';
+import { label } from '../../../labels/index.js';
 
 export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
   const { lang } = useLang();

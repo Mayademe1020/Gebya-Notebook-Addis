@@ -39,7 +39,7 @@ import AddProviderButton from './AddProviderButton';
 import PartialPaymentSheet from './PartialPaymentSheet';
 import { db } from '../db';
 import { trackEvent } from '../utils/eventTracking';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');

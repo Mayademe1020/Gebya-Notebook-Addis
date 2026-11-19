@@ -69,7 +69,7 @@ import { lazyWithRetry, isBrowserOnline, runAfterFirstPaint, buildSavedOnDeviceM
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useStaffOps } from '../hooks/useStaffOps';
 import { useShopOps } from '../hooks/useShopOps';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const DEFAULT_PROVIDERS = {
   banks: [],

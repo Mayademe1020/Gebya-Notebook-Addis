@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import MoneyFlowBar from './MoneyFlowBar';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function TodayBusiness({
   metrics,

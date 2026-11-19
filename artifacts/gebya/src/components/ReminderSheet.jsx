@@ -28,7 +28,7 @@ import {
   copyMessageToClipboard,
   daysAgoLabel,
 } from '../utils/reminders';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defaultChannel }) {
   const { lang, t } = useLang();

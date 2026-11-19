@@ -4,7 +4,7 @@ import { requestOtp, verifyOtp, linkDevice, getCurrentUser } from '../utils/auth
 import { getAuthToken, setAuthToken } from '../utils/syncEngine';
 import { getOrCreateCloudProofDeviceId } from '../utils/cloudProof';
 import { fireToast } from './Toast';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 

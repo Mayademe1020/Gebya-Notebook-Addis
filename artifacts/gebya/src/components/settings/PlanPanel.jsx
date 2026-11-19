@@ -3,7 +3,7 @@ import { useLang } from '../../context/LangContext';
 import { setPlanTier } from '../../utils/entitlements';
 import { fireToast } from '../Toast';
 import { X, Check, Sparkles } from 'lucide-react';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 const PLUS_FEATURES = [
   { key: 'staff', en: 'Unlimited staff members', am: 'ያልተገደበ ሰራተኞች' },

@@ -19,7 +19,7 @@ import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
 import { useLang } from '../context/LangContext';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────
 

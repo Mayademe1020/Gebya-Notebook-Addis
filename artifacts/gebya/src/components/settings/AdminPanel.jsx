@@ -2,7 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import AdminMetricsView from '../AdminMetricsView';
 import CrossShopCurationQueue from '../CrossShopCurationQueue';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 const AdminDashboard = lazy(() => import('../AdminDashboard.jsx'));
 const AdminShopDetail = lazy(() => import('../AdminShopDetail.jsx'));

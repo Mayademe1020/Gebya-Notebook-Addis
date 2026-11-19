@@ -1,5 +1,5 @@
 import { fmt } from '../utils/numformat';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 // MoneyFlowBar — "Where is my money?" at a glance.
 //

@@ -18,7 +18,7 @@ import { useLang } from '../context/LangContext';
 import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import AddProviderButton from './AddProviderButton';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');

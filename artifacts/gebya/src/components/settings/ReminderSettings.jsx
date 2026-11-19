@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fireToast } from '../Toast';
 import { remindersApi } from '../../api/reminders';
 import { getAuthToken } from '../../utils/syncEngine';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 // The reminder engine understands EXACTLY these three values — verified against
 // artifacts/api-server/src/routes/reminders.ts (frequencySchema =

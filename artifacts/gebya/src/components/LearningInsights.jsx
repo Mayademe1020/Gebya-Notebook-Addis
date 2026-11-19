@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { generateInsights } from '../utils/learningEngine';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function LearningInsights() {
   const { lang } = useLang();

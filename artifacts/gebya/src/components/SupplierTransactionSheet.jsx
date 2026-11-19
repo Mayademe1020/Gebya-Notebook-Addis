@@ -16,7 +16,7 @@ import CameraCapture from './CameraCapture';
 import InlineDatePicker from './InlineDatePicker';
 import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import AddProviderButton from './AddProviderButton';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');

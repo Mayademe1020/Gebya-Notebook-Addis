@@ -6,7 +6,7 @@ import { identityApi } from '../api/identity';
 import { setAuthToken } from '../utils/syncEngine';
 import { usePermissionsStore } from '../stores/permissionsStore';
 import { resolvePermissions } from '../utils/permissions';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 /**
  * Gate C: stamp the owner role + permissions into the permissions store the

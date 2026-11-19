@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLang } from '../context/LangContext';
 import { DEFAULT_CHANNEL_DEFINITIONS } from '../utils/paymentChannels';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const CHANNEL_SUGGESTIONS = DEFAULT_CHANNEL_DEFINITIONS.map(d => ({
   kind: d.kind,

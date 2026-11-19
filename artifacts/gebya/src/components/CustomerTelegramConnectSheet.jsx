@@ -19,7 +19,7 @@ import {
   createOneTimeCode,
 } from '../utils/telegramBotClient';
 import { isValidTelegramCode } from '../utils/telegramCode';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;

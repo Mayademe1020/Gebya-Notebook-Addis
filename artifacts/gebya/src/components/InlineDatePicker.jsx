@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toEthiopian, toGregorian } from 'ethiopian-date';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const navBarBottom = 76;
 

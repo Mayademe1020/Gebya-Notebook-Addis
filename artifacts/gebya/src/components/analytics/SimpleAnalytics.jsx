@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import db from '../../db';
 import { useLang } from '../../context/LangContext';
 import { ArrowLeft, TrendingUp, Users, Activity, Calendar } from 'lucide-react';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function SimpleAnalytics({ onClose }) {
   const { lang } = useLang();

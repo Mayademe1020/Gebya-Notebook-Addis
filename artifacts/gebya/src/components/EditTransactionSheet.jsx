@@ -10,7 +10,7 @@ import { normalizeEthiopianPhone } from '../utils/phoneNumber';
 import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import CameraCapture from './CameraCapture';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');

@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { compressPhoto, MAX_DIMENSION, JPEG_QUALITY } from '../utils/photoCapture';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function CameraCapture({ open, onCapture, onClose, lang = 'en' }) {
   const videoRef = useRef(null);

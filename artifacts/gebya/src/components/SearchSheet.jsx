@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, Clock } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { fmt } from '../utils/numformat';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const EXAMPLE_PROMPTS = [
   { en: "Where is Abebe's credit?", am: 'የአበበ ዱቤ የት አለ?' },

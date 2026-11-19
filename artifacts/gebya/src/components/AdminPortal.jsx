@@ -14,7 +14,7 @@ import { useAuthStore } from '../stores/authStore';
 import MembersPanel from './MembersPanel.jsx';
 import ActivityPanel from './ActivityPanel.jsx';
 import AuthGate from './AuthGate.jsx';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const AdminDashboard = lazy(() => import('./AdminDashboard.jsx'));
 const AdminShopDetail = lazy(() => import('./AdminShopDetail.jsx'));

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { X, Search, ArrowRightLeft } from 'lucide-react';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function TransferSheet({
   sourceCustomer,

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../context/LangContext';
 import { apiFetch } from '../utils/shared-ui.jsx';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function fmt(n) { return n == null ? '0' : Number(n).toLocaleString('en-US'); }
 function fmtBirr(n) { return `${fmt(n)} ETB`; }

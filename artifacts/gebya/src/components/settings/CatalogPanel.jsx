@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import { fmt, parseInput } from '../../utils/numformat';
 import { fireToast } from '../Toast';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function CatalogPanel({ catalogEntries, onSaveCatalogEntry, onToggleCatalogEntryActive }) {
   const { lang, t } = useLang();

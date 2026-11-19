@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, BellOff, Moon, Sun } from 'lucide-react';
 import { fireToast } from '../Toast';
 import { getAuthToken } from '../../utils/syncEngine';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 const NOTIFICATION_TYPES = [
   { key: 'sale', label: { en: 'Sales', am: 'ሽያጭ' }, icon: '💰' },

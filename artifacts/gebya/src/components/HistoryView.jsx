@@ -5,7 +5,7 @@ import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt } from '../utils/numformat';
 import PhotoAttachment from './PhotoAttachment';
 import { TransactionRow } from './TransactionRow';
-import { label as tr } from '../labels/index';
+import { label as tr } from '../labels/index.js';
 
 function groupByDay(transactions) {
   const groups = {};

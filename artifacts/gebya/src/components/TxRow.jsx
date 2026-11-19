@@ -3,7 +3,7 @@ import { Pencil, Trash2, MoreVertical, ChevronUp, ChevronDown } from 'lucide-rea
 import PhotoAttachment from './PhotoAttachment';
 import { usePermissionsStore } from '../stores/permissionsStore';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
   const [menuOpen, setMenuOpen] = useState(false);

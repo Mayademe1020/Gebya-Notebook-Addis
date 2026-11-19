@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { exportToCSV } from './backup/useBackupData';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function ExportPanel({ transactions }) {
   const { lang } = useLang();

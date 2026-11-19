@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { getOverdueCustomerFlags } from '../utils/trustScore';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function fmtBirr(n) {
   if (n == null) return '0';

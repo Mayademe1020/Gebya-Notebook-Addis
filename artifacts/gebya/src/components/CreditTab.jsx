@@ -9,7 +9,7 @@ import { buildCreditReport, exportCreditReportCsv, exportCreditReportPdf } from 
 import { fireToast } from './Toast';
 import DownloadMenuSheet from './DownloadMenuSheet';
 import OverdueCustomerFlags from './OverdueCustomerFlags';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function CreditTab({
   selectedCustomer,

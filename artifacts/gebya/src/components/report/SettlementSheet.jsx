@@ -9,7 +9,7 @@ import CameraCapture from '../CameraCapture';
 import useCalculatedExpected from '../../utils/useCalculatedExpected';
 import { fmt } from '../../utils/numformat';
 import ReconStatusBadge from '../staff/ReconStatusBadge';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 const C = {
   green: 'var(--color-primary)', greenLight: 'var(--color-success-bg)', greenBorder: 'var(--color-success-border)',

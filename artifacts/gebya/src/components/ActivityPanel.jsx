@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useLang } from '../context/LangContext';
 import { listAdminLogs } from '../api/admin.js';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const TYPE_LABEL = {
   note: 'Note',

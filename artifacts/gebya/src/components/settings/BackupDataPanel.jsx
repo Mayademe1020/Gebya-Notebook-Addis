@@ -5,7 +5,7 @@ import DangerZoneSection from './backup/DangerZoneSection';
 import { exportToCSV } from './backup/useBackupData';
 import { createCloudSnapshot } from '../../utils/useAutoBackup';
 import { fireToast } from '../Toast';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 export default function BackupDataPanel({ transactions, customerSummaries }) {
   const { lang, t } = useLang();

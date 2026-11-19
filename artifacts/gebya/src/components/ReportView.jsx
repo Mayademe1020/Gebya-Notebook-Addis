@@ -34,7 +34,7 @@ import PeriodInsights from './PeriodInsights';
 import HandoverStatus from './HandoverStatus';
 import SearchSheet from './SearchSheet';
 import ErrorBoundary from './report/ErrorBoundary';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const SettlementSheet = lazy(() => import('./report/SettlementSheet'));
 

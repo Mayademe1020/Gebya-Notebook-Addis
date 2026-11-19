@@ -5,7 +5,7 @@ import { setAuthToken, forceFullSync } from '../utils/syncEngine';
 import { getOrCreateCloudProofDeviceId } from '../utils/cloudProof';
 import { setIdentity } from '../db';
 import { fireToast } from './Toast';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 const JOIN_TOKEN = (() => {

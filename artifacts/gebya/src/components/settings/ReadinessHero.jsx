@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import { buildSetupSummary } from '../../utils/setupCompletion';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 /**
  * Copy + navigation for each readiness check id. The *checks themselves*

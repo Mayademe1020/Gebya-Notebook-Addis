@@ -3,7 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { fireToast } from '../Toast';
 import { getAuthToken } from '../../utils/syncEngine';
 import { setPassword, removePassword } from '../../utils/authClient';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 function PasswordSettings({ lang }) {
   const hasPassword = useAuthStore(s => s.hasPassword);

@@ -6,7 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useTranslation } from '../../hooks/useTranslation';
 import ReconStatusBadge from './ReconStatusBadge';
 import { fireToast } from '../Toast';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 function CollectionFormFields({ variant, myTodaySales, store, alreadySubmitted, myLastSettlement, t, lang, activeStaffMemberId, lastSettlementPerStaff, setOpenCollectionSheet }) {
   const handleUpdateSubmission = () => {

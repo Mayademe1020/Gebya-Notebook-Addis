@@ -23,7 +23,7 @@ import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import PaymentTypeChips from './PaymentTypeChips';
 import AddProviderButton from './AddProviderButton';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function PartialPaymentSheet({
   open,

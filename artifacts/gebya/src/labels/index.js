@@ -24,7 +24,6 @@ import admin from './admin.js';
 import sync from './sync.js';
 import pwa from './pwa.js';
 import common from './common.js';
-import { useLabels } from './useLabels.js';
 
 const SURFACES = {
   "auth": auth,
@@ -58,7 +57,6 @@ function deepFreeze(obj) {
 export const LABELS = deepFreeze(SURFACES);
 
 // Re-exported so new screens can bind labels to the active language once.
-export { useLabels };
 
 /**
  * Resolve one label.

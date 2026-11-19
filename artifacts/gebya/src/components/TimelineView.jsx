@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const FILTERS = ['all', 'sale', 'expense', 'collection', 'credit'];
 

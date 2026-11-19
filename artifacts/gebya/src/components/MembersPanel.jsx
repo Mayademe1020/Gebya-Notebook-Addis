@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { listAdminMembers, addAdminMember, removeAdminMember } from '../api/admin.js';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function fmtDate(ts) {
   if (!ts) return '';

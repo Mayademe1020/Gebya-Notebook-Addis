@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import OfflineStatusStrip from './OfflineStatusStrip';
 import SyncDiagnosticSheet from './SyncDiagnosticSheet';
 import BusinessSelector from './BusinessSelector';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 export default function AppHeader({
   shopProfile,

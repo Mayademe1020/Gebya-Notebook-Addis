@@ -4,7 +4,7 @@ import { useLang } from '../context/LangContext';
 import { fmt } from '../utils/numformat';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { getCreditAllocationStatus, getPaymentSettlementCount } from '../utils/customerLedgerMutations';
-import { label as tr } from '../labels/index';
+import { label as tr } from '../labels/index.js';
 
 export function transactionAmountColor(tx) {
   const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;

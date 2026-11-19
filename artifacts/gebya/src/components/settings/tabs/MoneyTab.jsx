@@ -3,7 +3,7 @@ import PaymentChannelsSection from '../PaymentChannelsSection';
 import DubieRulesPanel from '../DubieRulesPanel';
 import TabCard from '../TabCard';
 import useAccordion from '../useAccordion';
-import { label } from '../../../labels/index';
+import { label } from '../../../labels/index.js';
 
 export default function MoneyTab({
   paymentChannels,

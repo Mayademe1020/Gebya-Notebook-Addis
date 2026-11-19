@@ -17,7 +17,7 @@ import { fmt } from '../utils/numformat';
 import { formatEthiopian, formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp, onClose, onEdit, onDelete, customerBalance }) {
   const { lang } = useLang();

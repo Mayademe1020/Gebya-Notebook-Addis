@@ -6,7 +6,7 @@ import { fmt } from '../utils/numformat';
 import { resetSmsQuota, addShopNote, nudgeOwner, resendReminders } from '../api/admin.js';
 import { formatDays, formatDaysOverdue } from '../utils/durationFormat';
 import { ChevronLeft, Activity, AlertTriangle } from 'lucide-react';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const SupportPanel = lazy(() => import('./SupportPanel.jsx'));
 

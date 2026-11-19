@@ -18,7 +18,7 @@ import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import { getCurrentEthiopianDate } from '../utils/ethiopianCalendar';
 import { heroFontSize } from '../utils/todaySummary';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function ProfitCard({ transactions, yesterdayNet, compact = false }) {
   const { lang } = useLang();

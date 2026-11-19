@@ -9,7 +9,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { remindersApi } from '../api/reminders';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { formatDaysAgo } from '../utils/durationFormat';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 const STATUS_CONFIG = {
   sent:    { en: 'Sent',    am: 'ተልኳል',    bg: 'var(--color-success-bg)', border: 'var(--color-success-border)', color: 'var(--color-success-text)' },

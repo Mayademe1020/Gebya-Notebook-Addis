@@ -18,7 +18,7 @@ import {
   isValidSubscriber,
   normalizeEthiopianPhone,
 } from '../utils/phoneNumber';
-import { label } from '../labels/index';
+import { label } from '../labels/index.js';
 
 function SupplierForm({ existing = null, onSave, onDone }) {
   const { t, lang } = useLang();

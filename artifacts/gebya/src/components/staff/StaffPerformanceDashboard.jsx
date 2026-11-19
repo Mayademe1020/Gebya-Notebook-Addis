@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useMemo } from 'react';
 import { fmt } from '../../utils/numformat';
-import { label } from '../../labels/index';
+import { label } from '../../labels/index.js';
 
 const StatCard = React.memo(function StatCard({ label, value, color }) {
   return (

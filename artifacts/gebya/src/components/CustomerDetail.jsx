@@ -34,7 +34,7 @@ import CustomerReminderHistory from './CustomerReminderHistory';
 import { TransactionRow, transactionLabel, transactionStatusBadge } from '@/components/TransactionRow';
 import { TelegramIcon, initialsOf, telegramState, DAY_MS } from "./customerDetailHelpers";
 import { useAppStore } from '../stores/appStore';
-import { label as tr } from '../labels/index';
+import { label as tr } from '../labels/index.js';
 
 
 // ─── component ────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LABELS, label } from '../src/labels/index.js';
+import { useLabels } from '../src/labels/useLabels.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const SRC = fileURLToPath(new URL('../src', import.meta.url));
@@ -100,6 +101,13 @@ describe('R2.1 labels module', () => {
     for (const [surface, mod] of Object.entries(LABELS)) {
       expect(Object.isFrozen(mod), `${surface} not frozen`).toBe(true);
     }
+  });
+
+  it('exposes a hook that binds label() to the active language', () => {
+    // New screens may resolve strings once with useLabels(); existing screens
+    // keep calling label(key, lang) with the lang they already have.
+    expect(typeof useLabels).toBe('function');
+    expect(typeof label).toBe('function');
   });
 
   it('reproduces every baseline string byte for byte', () => {
