@@ -28,6 +28,7 @@ import {
   copyMessageToClipboard,
   daysAgoLabel,
 } from '../utils/reminders';
+import { label } from '../labels/index';
 
 function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defaultChannel }) {
   const { lang, t } = useLang();
@@ -77,7 +78,7 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
           {
             balance: Number(customer?.balance || 0),
             dueDate: customer?.due_date ? Number(customer.due_date) : undefined,
-            language: lang === 'am' ? 'am' : 'en',
+            language: label('credit.en', lang),
             chatId: customer?.telegram_chat_id || undefined,
             customerName: customer?.display_name || undefined,
             phoneNumber: customer?.phone || undefined,
@@ -127,17 +128,17 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
             <Bell className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--color-accent-amber)' }} />
             <div className="min-w-0">
               <h2 className="text-base font-bold truncate" style={{ color: 'var(--color-text)' }}>
-                {lang === 'am' ? 'ማስታወሻ ላክ' : 'Send reminder'}
+                {label('credit.send-reminder', lang)}
               </h2>
               <p className="text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
                 {customer?.display_name}
-                {lastReminded && <span> · {lang === 'am' ? 'መጨረሻ' : 'last'}: {lastReminded}</span>}
+                {lastReminded && <span> · {label('credit.last', lang)}: {lastReminded}</span>}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
+            aria-label={label('credit.close', lang)}
             className="press-scale flex items-center justify-center"
             style={{ minWidth: '36px', minHeight: '36px' }}
           >
@@ -157,7 +158,7 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
             }}
           >
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-warning)' }}>
-              {lang === 'am' ? 'ቀሪ ዱቤ' : 'Outstanding'}
+              {label('credit.outstanding', lang)}
             </p>
             <p className="text-lg font-bold" style={{ color: 'var(--color-warning)' }}>
               {fmt(Number(customer?.balance || 0))} {t.birr || 'birr'}
@@ -167,7 +168,7 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
           {/* Template tone picker */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'አንደ ምን ያስታውሱ' : 'Tone'}
+              {label('credit.tone', lang)}
             </label>
             <div className="flex gap-1.5">
               {Object.entries(REMINDER_TEMPLATES).map(([key, tpl]) => {
@@ -197,7 +198,7 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'መልዕክት' : 'Message'}
+                {label('credit.message', lang)}
               </label>
               <button
                 type="button"
@@ -206,8 +207,8 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
                 style={{ color: copied ? 'var(--color-success)' : 'var(--color-text-muted)', minHeight: '28px', padding: '0 4px' }}
               >
                 {copied
-                  ? <><CheckCircle2 className="w-3.5 h-3.5" /> {lang === 'am' ? 'ተቀዳ' : 'Copied'}</>
-                  : <><Copy className="w-3.5 h-3.5" /> {lang === 'am' ? 'ቅዳ' : 'Copy'}</>
+                  ? <><CheckCircle2 className="w-3.5 h-3.5" /> {label('credit.copied-2', lang)}</>
+                  : <><Copy className="w-3.5 h-3.5" /> {label('credit.copy', lang)}</>
                 }
               </button>
             </div>
@@ -223,16 +224,14 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
               }}
             />
             <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-soft)' }}>
-              {lang === 'am'
-                ? 'መልዕክቱን ማርትዕ ይችላሉ።'
-                : 'You can edit the message before sending.'}
+              {label('credit.you-can-edit-the-message-before-sending', lang)}
             </p>
           </div>
 
           {/* Channel picker */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'በምን ይላኩ' : 'Send via'}
+              {label('credit.send-via', lang)}
             </label>
             {hasAnyChannel ? (
               <div className="flex gap-1.5 flex-wrap">
@@ -292,16 +291,12 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--color-warning)',
               }}>
-                {lang === 'am'
-                  ? 'ስልክ ወይም ቴሌግራም አልተመዘገበም። የደንበኛውን ገጽ ላይ መረጃ ይጨምሩ።'
-                  : 'No phone or Telegram on file. Add contact info on the customer page.'}
+                {label('credit.no-phone-or-telegram-on-file-add-contact', lang)}
               </div>
             )}
             {effectiveChannel === 'telegram' && customer?.telegram_chat_id && (
               <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-text-soft)' }}>
-                {lang === 'am'
-                  ? 'መልዕክት በራስ ይላካል።'
-                  : 'Message is sent via your Telegram bot directly — no manual paste needed.'}
+                {label('credit.message-is-sent-via-your-telegram-bot', lang)}
               </p>
             )}
           </div>
@@ -322,8 +317,8 @@ function ReminderSheet({ customer, shopName, shopProfile, onClose, onSent, defau
           >
             <Send className="w-5 h-5" />
             {sending
-              ? (lang === 'am' ? 'እየተላከ…' : 'Sending…')
-              : (lang === 'am' ? 'ላክ' : 'Send reminder')}
+              ? (label('credit.sending', lang))
+              : (label('credit.send-reminder-2', lang))}
           </button>
         </div>
       </div>

@@ -19,6 +19,7 @@ import {
   createOneTimeCode,
 } from '../utils/telegramBotClient';
 import { isValidTelegramCode } from '../utils/telegramCode';
+import { label } from '../labels/index';
 
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -105,7 +106,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
                 telegram_link_requested_at: session.requested_at || customer?.telegram_link_requested_at,
                 telegram_link_token: token,
               }).then(() => {
-                fireToast(lang === 'am' ? 'ቴሌግራም ተገናኝቷል' : 'Telegram connected', 1800);
+                fireToast(label('credit.telegram-connected', lang), 1800);
                 onResendUpdate?.();
               }).catch(err => {
                 console.error('Auto-link save failed:', err);
@@ -144,7 +145,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      fireToast(lang === 'am' ? 'መቅዳት አልተሳካም' : 'Could not copy', 2000);
+      fireToast(label('credit.could-not-copy', lang), 2000);
     }
   };
 
@@ -163,7 +164,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
       // Reset polling so it picks up the new code token
       pollStartedRef.current = false;
     } catch {
-      fireToast(lang === 'am' ? 'ኮድ ማመንጨት አልተሳካም' : 'Could not generate code', 2500);
+      fireToast(label('credit.could-not-generate-code', lang), 2500);
     }
   };
 
@@ -185,7 +186,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
         {/* Close */}
         <button
           onClick={onDone}
-          aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
+          aria-label={label('credit.close', lang)}
           className="absolute top-3 right-3 w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center"
         >
           <X className="w-4 h-4 text-gray-500" />
@@ -193,7 +194,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
 
         {/* Customer name */}
         <h2 className="text-lg font-bold text-gray-900 mb-1 truncate">
-          {customer?.display_name || (lang === 'am' ? 'ደንበኛ' : 'Customer')}
+          {customer?.display_name || (label('credit.customer', lang))}
         </h2>
         <p className="text-xs text-gray-500 mb-5 truncate">
           {shopProfile?.name || 'Gebya'}
@@ -201,7 +202,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
 
         {!deepLink && !loading && (
           <p className="text-sm text-gray-500 py-8">
-            {lang === 'am' ? 'መረጃ የለም' : 'No link token for this customer'}
+            {label('credit.no-link-token-for-this-customer', lang)}
           </p>
         )}
 
@@ -218,7 +219,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
               </span>
             </div>
             <p className="text-[10px] text-gray-400 mt-1 text-center">
-              {lang === 'am' ? 'ኮዱ በ15 ደቂቃ ውስጥ ያበቃል' : 'Code expires in 15 minutes'}
+              {label('credit.code-expires-in-15-minutes', lang)}
             </p>
             <button
               type="button"
@@ -226,7 +227,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
               className="w-full py-2 rounded-lg text-xs font-bold text-white press-scale mt-2"
               style={{ background: 'var(--color-primary)' }}
             >
-              {lang === 'am' ? 'ሌላ ኮድ' : 'Generate new code'}
+              {label('credit.generate-new-code', lang)}
             </button>
           </>
         )}
@@ -236,7 +237,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
             className="w-full py-2 rounded-lg text-xs font-bold mt-2 press-scale"
             style={{ color: 'var(--color-primary)', background: 'transparent', border: '1px solid var(--color-border)' }}
           >
-            {lang === 'am' ? 'ወደ QR ተመለስ' : 'Use QR instead'}
+            {label('credit.use-qr-instead', lang)}
           </button>
         )}
 
@@ -257,10 +258,10 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
               }}
             >
               {hasLinkedBorrower && autoLinking
-                ? (lang === 'am' ? 'በራስ ይታያል...' : 'Linking...')
+                ? (label('credit.linking', lang))
                 : hasLinkedBorrower
-                  ? (lang === 'am' ? '✓ ተገናኝቷል' : '✓ Linked')
-                  : (lang === 'am' ? 'ቴሌግራም ይክፈቱ' : 'Open in Telegram')}
+                  ? (label('credit.linked', lang))
+                  : (label('credit.open-in-telegram', lang))}
             </a>
 
             <button
@@ -270,8 +271,8 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
             >
               <Copy className="w-3.5 h-3.5" />
               {copied
-                ? (lang === 'am' ? 'ተቀድቷል!' : 'Copied!')
-                : (lang === 'am' ? 'አገናኝ ቅዳ' : 'Copy link')}
+                ? (label('credit.copied', lang))
+                : (label('credit.copy-link', lang))}
             </button>
 
             <button
@@ -280,7 +281,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
               className="w-full py-2 rounded-lg text-xs font-bold mt-2 press-scale"
               style={{ color: 'var(--color-primary)', background: 'transparent', border: '1.5px dashed var(--color-accent-amber)' }}
             >
-              {lang === 'am' ? '🎲 በኮድ አገናኝ' : '🔢 Use a code instead'}
+              {label('credit.use-a-code-instead', lang)}
             </button>
           </>
         )}
@@ -288,9 +289,7 @@ function CustomerTelegramConnectSheet({ customer, shopProfile, onSave, onDone, o
         {/* Auto-linking hint */}
         {deepLink && !hasLinkedBorrower && (
           <p className="text-[10px] text-gray-400 mt-3">
-            {lang === 'am'
-              ? 'ደንበኛው በStart በኋላ በራስ ይታያል'
-              : 'Customer taps Start → linked automatically'}
+            {label('credit.customer-taps-start-linked-automatically', lang)}
           </p>
         )}
       </div>

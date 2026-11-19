@@ -4,6 +4,7 @@ import { useLang } from '../context/LangContext';
 import { fmt } from '../utils/numformat';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { getCreditAllocationStatus, getPaymentSettlementCount } from '../utils/customerLedgerMutations';
+import { label as tr } from '../labels/index';
 
 export function transactionAmountColor(tx) {
   const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
@@ -24,9 +25,9 @@ export function transactionLabel(tx, lang, t) {
   const isPayment = tx.type === CUSTOMER_TRANSACTION_TYPES.PAYMENT;
   const isCredit = tx.type === CUSTOMER_TRANSACTION_TYPES.CREDIT_ADD;
   if (tx.item_note) return tx.item_note;
-  if (isPayment) return t.paymentRecordedLabel || (lang === 'am' ? 'ክፍያ' : 'Payment');
-  if (isCredit) return t.creditAddedLabel || (lang === 'am' ? 'ዱቤ' : 'Credit');
-  return t.txReversal || (lang === 'am' ? 'ሰርዝ' : 'Reversal');
+  if (isPayment) return t.paymentRecordedLabel || (tr('history.payment', lang));
+  if (isCredit) return t.creditAddedLabel || (tr('history.credit', lang));
+  return t.txReversal || (tr('history.reversal', lang));
 }
 
 export function transactionStatusBadge(tx, lang, t) {
@@ -43,7 +44,7 @@ export function transactionStatusBadge(tx, lang, t) {
         background: '#e7f0e9', color: '#2e6a47',
         padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
       }}>
-        ✓ {lang === 'am' ? 'ተከፍሏል' : 'Paid'}
+        ✓ {tr('history.paid', lang)}
       </span>
     );
   }
@@ -67,9 +68,7 @@ export function transactionStatusBadge(tx, lang, t) {
         background: '#e6f0f7', color: '#2a6690',
         padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
       }}>
-        ✓ {lang === 'am'
-          ? `${settlement.settledCount} ተከፍሏል`
-          : `Settled ${settlement.settledCount}`}
+        ✓ {tr('history.settled', lang, settlement.settledCount)}
       </span>
     );
   }
