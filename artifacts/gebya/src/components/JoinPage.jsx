@@ -5,6 +5,7 @@ import { setAuthToken, forceFullSync } from '../utils/syncEngine';
 import { getOrCreateCloudProofDeviceId } from '../utils/cloudProof';
 import { setIdentity } from '../db';
 import { fireToast } from './Toast';
+import { label } from '../labels/index';
 
 const API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 const JOIN_TOKEN = (() => {
@@ -250,11 +251,11 @@ export default function JoinPage() {
             <AlertCircle className="w-8 h-8 text-red-700" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            {lang === 'am' ? 'ይቅርታ' : 'Sorry'}
+            {label('auth.sorry', lang)}
           </h2>
           <p className="text-sm text-gray-500 mb-4">{error}</p>
           <a href="/" className="inline-block px-6 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: 'var(--color-primary)' }}>
-            {lang === 'am' ? 'ወደ ጌባያ ይሂዱ' : 'Go to Gebya'}
+            {label('auth.go-to-gebya', lang)}
           </a>
         </div>
       </div>
@@ -273,7 +274,7 @@ export default function JoinPage() {
           <p className="text-sm text-gray-500 mt-1">{tx.joinSubtitle}</p>
           {role && (
             <span className="inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'var(--color-warning-bg)', color: 'var(--color-warning)' }}>
-              {role === 'cashier' ? (lang === 'am' ? 'ካሸር' : 'Cashier') : (lang === 'am' ? 'ተመልካች' : 'Viewer')}
+              {role === 'cashier' ? (label('auth.cashier', lang)) : (label('auth.viewer', lang))}
             </span>
           )}
         </div>

@@ -4,6 +4,7 @@ import { requestOtp, verifyOtp, linkDevice, getCurrentUser } from '../utils/auth
 import { getAuthToken, setAuthToken } from '../utils/syncEngine';
 import { getOrCreateCloudProofDeviceId } from '../utils/cloudProof';
 import { fireToast } from './Toast';
+import { label } from '../labels/index';
 
 const API_BASE = import.meta.env.VITE_SYNC_API_URL || '/api';
 
@@ -124,7 +125,7 @@ export default function AuthGate({ onAuthenticated, onSkip, shopPhone = '', lang
       if (!res.ok) throw new Error(data.error || t.invalidInvite);
       if (data.requires_auth) {
         // Staff needs to login first
-        setError(lang === 'am' ? 'በመጀመሪያ ይግቡ ከዚያ ኮዱን ይጠቀሙ' : 'Please sign in first, then enter the code');
+        setError(label('auth.please-sign-in-first-then-enter-the-code', lang));
         return;
       }
       if (data.joined || data.already_member) {
