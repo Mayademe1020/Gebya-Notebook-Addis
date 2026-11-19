@@ -9,6 +9,7 @@ import CameraCapture from '../CameraCapture';
 import useCalculatedExpected from '../../utils/useCalculatedExpected';
 import { fmt } from '../../utils/numformat';
 import ReconStatusBadge from '../staff/ReconStatusBadge';
+import { label } from '../../labels/index';
 
 const C = {
   green: 'var(--color-primary)', greenLight: 'var(--color-success-bg)', greenBorder: 'var(--color-success-border)',
@@ -581,7 +582,7 @@ export default function SettlementSheet({ staff, existingSettlement, lang = 'en'
             margin: '4px 0 0',
           }}>
             {totalVariance === 0
-              ? (lang === 'am' ? 'ተመጣጣኚ' : 'Balanced')
+              ? (label('reports.balanced', lang))
               : `${totalVariance >= 0 ? '+' : ''}${fmt(totalVariance)} ETB`
             }
           </p>

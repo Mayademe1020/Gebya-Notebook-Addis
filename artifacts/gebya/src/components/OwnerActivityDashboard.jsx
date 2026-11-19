@@ -7,6 +7,7 @@ import { useSyncRefresh } from '../hooks/useSyncRefresh';
 import { fmt } from '../utils/numformat';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { apiFetch } from '../utils/shared-ui.jsx';
+import { label } from '../labels/index';
 
 const ACTION_LABELS = {
   CREATE: { en: 'Recorded', am: 'ተመዝግቧል' },
@@ -24,17 +25,17 @@ function formatTime(ts, lang) {
   const isYesterday = d.toDateString() === yesterday.toDateString();
   const time = formatEthiopianTime(ts);
   if (isToday) return time;
-  if (isYesterday) return (lang === 'am' ? 'ትላንትና ' : 'Yesterday ') + time;
-  return d.toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', { month: 'short', day: 'numeric' }) + ' ' + time;
+  if (isYesterday) return (label('admin.yesterday', lang)) + time;
+  return d.toLocaleDateString(label('admin.en-us', lang), { month: 'short', day: 'numeric' }) + ' ' + time;
 }
 
 function relativeDayLabel(ts, lang) {
   if (!ts) return '';
   const d = new Date(ts);
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) return lang === 'am' ? 'ዛሬ' : 'Today';
+  if (d.toDateString() === now.toDateString()) return label('admin.today', lang);
   const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return lang === 'am' ? 'ትላንትና' : 'Yesterday';
+  if (d.toDateString() === yesterday.toDateString()) return label('admin.yesterday-2', lang);
   return '';
 }
 
@@ -60,12 +61,12 @@ function entityDescription(entityType, row) {
 function summaryLabel(action, entityType, lang) {
   const base = ACTION_LABELS[action] || ACTION_LABELS.CREATE;
   const verb = base[lang] || base.en;
-  if (entityType === 'transactions') return verb + ' ' + (lang === 'am' ? 'ሽያጭ/ወጪ' : 'sale/expense');
-  if (entityType === 'customers') return verb + ' ' + (lang === 'am' ? 'ደንበኛ' : 'customer');
-  if (entityType === 'customer_transactions') return verb + ' ' + (lang === 'am' ? 'የደንበኛ ሂሳብ' : 'customer ledger');
-  if (entityType === 'suppliers') return verb + ' ' + (lang === 'am' ? 'አቅራቢ' : 'supplier');
-  if (entityType === 'supplier_transactions') return verb + ' ' + (lang === 'am' ? 'የአቅራቢ ሂሳብ' : 'supplier ledger');
-  if (entityType === 'staff_members') return verb + ' ' + (lang === 'am' ? 'ሰራተኛ' : 'staff');
+  if (entityType === 'transactions') return verb + ' ' + (label('admin.sale-expense', lang));
+  if (entityType === 'customers') return verb + ' ' + (label('admin.customer', lang));
+  if (entityType === 'customer_transactions') return verb + ' ' + (label('admin.customer-ledger', lang));
+  if (entityType === 'suppliers') return verb + ' ' + (label('admin.supplier', lang));
+  if (entityType === 'supplier_transactions') return verb + ' ' + (label('admin.supplier-ledger', lang));
+  if (entityType === 'staff_members') return verb + ' ' + (label('admin.staff-2', lang));
   return verb;
 }
 
@@ -86,7 +87,7 @@ function ConflictsCard({ lang }) {
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
           <span className="text-xs font-black text-amber-800">
-            {lang === 'am' ? 'የሁከት ሪኮርዶች' : 'Conflicts'}
+            {label('admin.conflicts', lang)}
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
             {lastConflicts.length}
@@ -98,7 +99,7 @@ function ConflictsCard({ lang }) {
           className="press-scale flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-lg px-2 py-1"
         >
           <RefreshCw className="w-3 h-3" />
-          {lang === 'am' ? 'አጽዳ' : 'Dismiss'}
+          {label('admin.dismiss-2', lang)}
         </button>
       </div>
       <div className="px-4 py-3 space-y-2">
@@ -113,7 +114,7 @@ function ConflictsCard({ lang }) {
           </div>
         ))}
         <div className="text-[10px] text-amber-700 mt-1">
-          {lang === 'am' ? 'የላቀ ስሪት ተቀብሏል።' : 'Latest version kept. Staff changes were merged automatically.'}
+          {label('admin.latest-version-kept-staff-changes-were', lang)}
         </div>
       </div>
     </div>
@@ -233,13 +234,13 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {lang === 'am' ? 'የዛሬ ሪኮርዶች' : 'Today\'s activity'}
+            {label('admin.today-s-activity', lang)}
           </span>
           <Calendar className="w-4 h-4 text-gray-400" />
         </div>
         {todayTotalsByStaff.length === 0 ? (
           <div className="px-4 py-3 text-sm text-gray-400">
-            {lang === 'am' ? 'ምንም እንቅስቃሴ አልተመዘገበም' : 'No activity recorded yet today'}
+            {label('admin.no-activity-recorded-yet-today', lang)}
           </div>
         ) : (
           <div className="px-4 py-3 space-y-2">
@@ -253,7 +254,7 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
                 </div>
                 <div className="text-right">
                   <div className="text-xs font-bold text-gray-700">
-                    {row.transactions} {lang === 'am' ? 'ሪኮርዶች' : 'records'} · {fmt(row.amount)} {lang === 'am' ? 'ብር' : 'birr'}
+                    {row.transactions} {label('admin.records', lang)} · {fmt(row.amount)} {label('admin.birr', lang)}
                   </div>
                 </div>
               </div>
@@ -266,15 +267,15 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {lang === 'am' ? 'የአፈፃፀሚ ሪኮርዶች' : 'Performance Metrics'}
+            {label('admin.performance-metrics', lang)}
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-info-bg)', color: 'var(--color-info)' }}>
-            {lang === 'am' ? 'ጠቅላላ' : 'Total'} {fmt(totalSalesAmount)} {lang === 'am' ? 'ብር' : 'ETB'}
+            {label('admin.total', lang)} {fmt(totalSalesAmount)} {label('admin.etb', lang)}
           </span>
         </div>
         {performanceByStaff.length === 0 ? (
           <div className="px-4 py-3 text-xs text-gray-400">
-            {lang === 'am' ? 'ምንም እንቅስቃሴ አልተመዘገበም' : 'No performance data yet'}
+            {label('admin.no-performance-data-yet', lang)}
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -287,13 +288,13 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
                   <div>
                     <div className="text-xs font-bold text-gray-900">{row.name}</div>
                     <div className="text-[10px] text-gray-500">
-                      {row.sales} {lang === 'am' ? 'ሽያጭ' : 'sales'} · {row.payments} {lang === 'am' ? 'ክፍያ' : 'payments'} · {row.credits} {lang === 'am' ? 'ብር ክፍያ' : 'credits'}
+                      {row.sales} {label('admin.sales-3', lang)} · {row.payments} {label('admin.payments', lang)} · {row.credits} {label('admin.credits', lang)}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs font-black" style={{ color: 'var(--color-primary)' }}>{fmt(row.amount)}</div>
-                  <div className="text-[10px] text-gray-500">{lang === 'am' ? 'ብር' : 'ETB'}</div>
+                  <div className="text-[10px] text-gray-500">{label('admin.etb', lang)}</div>
                 </div>
               </div>
             ))}
@@ -315,7 +316,7 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-600" />
             <span className="text-sm font-black text-red-700">
-              {lang === 'am' ? 'የታገዱ ሙከራዎች' : 'Blocked Actions'}
+              {label('admin.blocked-actions', lang)}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
               {filteredViolations.length}
@@ -327,7 +328,7 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
           <div className="px-4 py-3 space-y-2">
             {filteredViolations.length === 0 ? (
               <div className="text-xs text-gray-400">
-                {lang === 'am' ? 'ምንም የታገደ ሙከራ የለም' : 'No blocked actions'}
+                {label('admin.no-blocked-actions', lang)}
               </div>
             ) : (
               filteredViolations.map(row => (
@@ -338,13 +339,13 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
                         {row.actorStaffMemberId ? staffOptions.find(o => o.id === row.actorStaffMemberId)?.name?.charAt(0) || 'S' : 'D'}
                       </div>
                       <span className="text-sm font-bold text-gray-900">
-                        {row.actorStaffMemberId ? staffOptions.find(o => o.id === row.actorStaffMemberId)?.name || (lang === 'am' ? 'ሰራተኛ' : 'Staff') : (lang === 'am' ? 'ዘዴ' : 'Device')}
+                        {row.actorStaffMemberId ? staffOptions.find(o => o.id === row.actorStaffMemberId)?.name || (label('admin.staff-3', lang)) : (label('admin.device', lang))}
                       </span>
                     </div>
                     <span className="text-xs text-gray-500">{formatTime(row.createdAt, lang)}</span>
                   </div>
                   <div className="text-xs text-red-700 mt-1 font-semibold">
-                    {lang === 'am' ? 'ጣሰ ሙከራ:' : 'Attempted:'} {row.blockedPermission || row.entityType || ''}
+                    {label('admin.attempted', lang)} {row.blockedPermission || row.entityType || ''}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {row.details || ''}
@@ -361,23 +362,23 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
         <div className="flex items-center gap-2 mb-2">
           <Filter className="w-4 h-4 text-gray-400" />
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {lang === 'am' ? 'ማጣሪያዎች' : 'Filters'}
+            {label('admin.filters', lang)}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)} className="px-2 py-2 border rounded-xl text-xs bg-white" style={{ borderColor: 'var(--color-border)' }}>
-            <option value="all">{lang === 'am' ? 'ሁሉም ሰራተኞች' : 'All staff'}</option>
+            <option value="all">{label('admin.all-staff', lang)}</option>
             {staffOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
           <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="px-2 py-2 border rounded-xl text-xs bg-white" style={{ borderColor: 'var(--color-border)' }}>
-            <option value="today">{lang === 'am' ? 'ዛሬ' : 'Today'}</option>
-            <option value="all">{lang === 'am' ? 'ሁሉም' : 'All'}</option>
+            <option value="today">{label('admin.today', lang)}</option>
+            <option value="all">{label('admin.all', lang)}</option>
           </select>
           <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="px-2 py-2 border rounded-xl text-xs bg-white" style={{ borderColor: 'var(--color-border)' }}>
-            <option value="all">{lang === 'am' ? 'ሁሉም' : 'All'}</option>
-            <option value="CREATE">{lang === 'am' ? 'መውጫ' : 'Created'}</option>
-            <option value="UPDATE">{lang === 'am' ? 'ማሻሻል' : 'Updated'}</option>
-            <option value="DELETE">{lang === 'am' ? 'መሰረዝ' : 'Deleted'}</option>
+            <option value="all">{label('admin.all', lang)}</option>
+            <option value="CREATE">{label('admin.created', lang)}</option>
+            <option value="UPDATE">{label('admin.updated-2', lang)}</option>
+            <option value="DELETE">{label('admin.deleted', lang)}</option>
           </select>
         </div>
       </div>
@@ -386,12 +387,12 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
       <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {lang === 'am' ? 'የቅርብ እንቅስቃሴዎች' : 'Recent activity'}
+            {label('admin.recent-activity', lang)}
           </span>
         </div>
         {filteredActivity.length === 0 ? (
           <div className="px-4 py-3 text-sm text-gray-400">
-            {lang === 'am' ? 'ምንም እንቅስቃሴ አልተገኘም' : 'No matching activity'}
+            {label('admin.no-matching-activity', lang)}
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -402,8 +403,8 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
               const desc = entityDescription(row.entityType, row);
               const verb = ACTION_LABELS[row.action]?.[lang] || ACTION_LABELS[row.action]?.en || row.action;
               const actorName = row.actorStaffMemberId
-                ? staffOptions.find(o => o.id === row.actorStaffMemberId)?.name || (lang === 'am' ? 'ሰራተኛ' : 'Staff')
-                : (lang === 'am' ? 'ባለቤት' : 'Owner');
+                ? staffOptions.find(o => o.id === row.actorStaffMemberId)?.name || (label('admin.staff-3', lang))
+                : (label('admin.owner', lang));
 
               return (
                 <div key={row.id} className="px-4 py-2.5">
@@ -422,7 +423,7 @@ export default function OwnerActivityDashboard({ shopProfile, staffMembers }) {
                   </div>
                   {typeof amount === 'number' && (
                     <div className="mt-0.5 pl-8 text-xs font-bold text-gray-600">
-                      {fmt(amount)} {lang === 'am' ? 'ብር' : 'birr'}
+                      {fmt(amount)} {label('admin.birr', lang)}
                     </div>
                   )}
                 </div>

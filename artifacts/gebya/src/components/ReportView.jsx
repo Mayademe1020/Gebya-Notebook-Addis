@@ -34,6 +34,7 @@ import PeriodInsights from './PeriodInsights';
 import HandoverStatus from './HandoverStatus';
 import SearchSheet from './SearchSheet';
 import ErrorBoundary from './report/ErrorBoundary';
+import { label } from '../labels/index';
 
 const SettlementSheet = lazy(() => import('./report/SettlementSheet'));
 
@@ -140,7 +141,7 @@ export default function ReportView({
 
   const activePersonName = useMemo(() => {
     if (!isPersonScoped) return '';
-    if (activePerson === OWNER_SCOPE) return lang === 'am' ? 'ባለቤት' : 'Owner';
+    if (activePerson === OWNER_SCOPE) return label('reports.owner', lang);
     const member = (staffMembers || []).find(m => String(m.id) === String(activePerson));
     return member?.display_name || member?.name || '';
   }, [activePerson, isPersonScoped, staffMembers, lang]);
@@ -309,7 +310,7 @@ export default function ReportView({
       days.push({
         start: ds,
         total: 0,
-        label: d.toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', { weekday: 'short' }),
+        label: d.toLocaleDateString(label('reports.en-us', lang), { weekday: 'short' }),
         sub: formatEthiopianShort(ds),
         isToday: ds === todayStart,
       });
@@ -410,10 +411,8 @@ export default function ReportView({
     })();
     const variance = cashYouShouldHave - (Number(cashInHand) || 0);
     const msg = variance === 0
-      ? (lang === 'am' ? 'ዝጋ ተመዝገቧል ✓' : 'Closing recorded ✓')
-      : (lang === 'am'
-        ? `ልዩነት: ${fmt(variance)} ${variance > 0 ? 'ከፍተው' : 'ታመከ'} ✓`
-        : `Difference: ${fmt(variance)} ${variance > 0 ? 'over' : 'short'} ✓`);
+      ? (label('reports.closing-recorded', lang))
+      : (label('reports.difference', lang, () => fmt(variance), () => variance > 0 ? 'over' : 'short', () => variance > 0 ? 'ከፍተው' : 'ታመከ'));
     fireToast(msg, 3500);
     }, [closingKey, lang, cashYouShouldHave]);
 
@@ -464,18 +463,18 @@ export default function ReportView({
   }, [metrics, handleClose, staffMembers, todayStart]);
 
   const timeRangeLabel = isToday
-    ? (lang === 'am' ? 'ዛሬ' : 'Today')
+    ? (label('reports.today', lang))
     : timeRange === 'week'
-      ? (lang === 'am' ? 'ሳምንት' : 'This Week')
+      ? (label('reports.this-week', lang))
       : timeRange === 'month'
-        ? (lang === 'am' ? 'ወር' : 'This Month')
-        : (lang === 'am' ? 'ብጁ ክልል' : 'Custom Range');
+        ? (label('reports.this-month', lang))
+        : (label('reports.custom-range', lang));
 
   // Share summary — plain text for Telegram/WhatsApp via the existing
   // ShareModal flow. Privacy mode masks every amount.
   const buildShareText = useCallback(() => {
     const H = (v) => (hidden ? '••••' : fmt(v || 0));
-    const shopName = shopProfile?.name || (lang === 'am' ? 'ሱቅ' : 'My shop');
+    const shopName = shopProfile?.name || (label('reports.my-shop', lang));
     const lines = lang === 'am'
       ? [
           `📒 ${shopName} · ${timeRangeLabel}`,
@@ -495,9 +494,7 @@ export default function ReportView({
         ];
     const top = salesSummary?.topItems?.[0];
     if (top) {
-      lines.push(lang === 'am'
-        ? `🏅 ብዙ የተሸጠ: ${top.name} · ${H(top.revenue)} ETB`
-        : `🏅 Top seller: ${top.name} · ${H(top.revenue)} ETB`);
+      lines.push(label('reports.top-seller-etb', lang, top.name, H(top.revenue)));
     }
     // Viral signature: every shared report advertises the app.
     lines.push('', '—— Gebya ገበያ');
@@ -516,16 +513,16 @@ export default function ReportView({
       }}>
         <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: 22, fontWeight: 950, color: 'var(--color-primary)', lineHeight: 1.05 }}>
-            📒 {lang === 'am' ? 'ማስታወሻ ደብተር' : 'Notebook'}
+            📒 {label('reports.notebook', lang)}
           </h1>
           <p style={{ fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 650, marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>{getCurrentEthiopianDate()} · {shopProfile?.name || (lang === 'am' ? 'ሱቅህ' : 'Your shop')}</span>
+            <span>{getCurrentEthiopianDate()} · {shopProfile?.name || (label('reports.your-shop', lang))}</span>
             {isToday && (
               <span style={{
                 fontSize: 9, fontWeight: 900, padding: '1px 6px', borderRadius: 999,
                 background: 'var(--color-primary)', color: 'var(--color-bg-white)', lineHeight: '16px',
               }}>
-                {lang === 'am' ? 'ዛሬ' : 'TODAY'}
+                {label('reports.today-2', lang)}
               </span>
             )}
           </p>
@@ -552,7 +549,7 @@ export default function ReportView({
         <button
           type="button"
           onClick={() => setShowSearchSheet(true)}
-          aria-label={lang === 'am' ? 'ፈልግ' : 'Search notebook'}
+          aria-label={label('reports.search-notebook', lang)}
           style={{
             display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
             border: '1px solid var(--color-bg-disabled)', borderRadius: 10, padding: '6px 10px',
@@ -562,13 +559,13 @@ export default function ReportView({
           }}
         >
           <Search className="w-4 h-4" style={{ color: 'var(--color-text-soft)', flexShrink: 0 }} />
-          <span>{lang === 'am' ? 'ፈልግ... (/)' : 'Search notebook... (/)'}</span>
+          <span>{label('reports.search-notebook-2', lang)}</span>
         </button>
         {onShareReport && (
           <button
             type="button"
             onClick={() => onShareReport(buildShareText())}
-            aria-label={lang === 'am' ? 'አጋራ' : 'Share report summary'}
+            aria-label={label('reports.share-report-summary', lang)}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               minHeight: 38, padding: '6px 14px', flexShrink: 0,
@@ -578,7 +575,7 @@ export default function ReportView({
             }}
           >
             <Share2 className="w-4 h-4" />
-            <span>{lang === 'am' ? 'አጋራ' : 'Share'}</span>
+            <span>{label('reports.share', lang)}</span>
           </button>
         )}
       </div>
@@ -604,10 +601,10 @@ export default function ReportView({
           background: 'rgba(27,67,50,0.08)', borderRadius: 12, padding: 4,
         }}>
           {[
-            ['today', `🌅 ${lang === 'am' ? 'ዛሬ' : 'Today'}`],
-            ['week', `📅 ${lang === 'am' ? 'ሳምንት' : 'Week'}`],
-            ['month', `🗓 ${lang === 'am' ? 'ወር' : 'Month'}`],
-            ['custom', `✏️ ${lang === 'am' ? 'ብጁ' : 'Custom'}`],
+            ['today', `🌅 ${label('reports.today', lang)}`],
+            ['week', `📅 ${label('reports.week', lang)}`],
+            ['month', `🗓 ${label('reports.month', lang)}`],
+            ['custom', `✏️ ${label('reports.custom', lang)}`],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -633,8 +630,8 @@ export default function ReportView({
           paddingBottom: 6, marginBottom: 4, WebkitOverflowScrolling: 'touch',
         }}>
           {[
-            ['all', `👥 ${lang === 'am' ? 'ሁሉም' : 'Everyone'}`],
-            [OWNER_SCOPE, `🧑 ${lang === 'am' ? 'ባለቤት' : 'Owner'}`],
+            ['all', `👥 ${label('reports.everyone', lang)}`],
+            [OWNER_SCOPE, `🧑 ${label('reports.owner', lang)}`],
             ...switchablePeople.map(p => [p.id, `👤 ${p.name}`]),
           ].map(([id, label]) => {
             const selected = activePerson === id;
@@ -665,7 +662,7 @@ export default function ReportView({
           fontSize: 10, fontWeight: 900, color: 'var(--color-text-soft)',
           letterSpacing: '0.06em', margin: '0 4px 6px',
         }}>
-          👤 {lang === 'am' ? 'የእኔ ቀን' : 'MY DAY'}
+          👤 {label('reports.my-day', lang)}
         </p>
       )}
 
@@ -673,14 +670,14 @@ export default function ReportView({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ከ' : 'From'}
+              {label('reports.from', lang)}
             </span>
             <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
               style={{ minHeight: 38, border: '1px solid var(--color-bg-disabled)', borderRadius: 9, padding: '6px 8px', fontSize: 13 }} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ወደ' : 'To'}
+              {label('reports.to', lang)}
             </span>
             <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
               style={{ minHeight: 38, border: '1px solid var(--color-bg-disabled)', borderRadius: 9, padding: '6px 8px', fontSize: 13 }} />
@@ -698,35 +695,29 @@ export default function ReportView({
           <div style={{ fontSize: 48, marginBottom: 12 }}>{unlinkedDevice ? '🔗' : quietPeriod ? '🌙' : '📒'}</div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: 'var(--color-primary)', marginBottom: 8 }}>
             {unlinkedDevice
-              ? (lang === 'am' ? 'መሣሪያዎ ገና አልተገናኘም' : 'Device not linked yet')
+              ? (label('reports.device-not-linked-yet', lang))
               : quietPeriod
-                ? (lang === 'am' ? 'በዚህ ጊዜ ውስጥ ምንም እንቅስቃሴ የለም' : 'Nothing recorded in this period')
-                : (lang === 'am' ? 'ወደ ሱቅ ታሪክ እንኳን በደህና መጡ' : 'Welcome to your shop')}
+                ? (label('reports.nothing-recorded-in-this-period', lang))
+                : (label('reports.welcome-to-your-shop', lang))}
           </h2>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.6, marginBottom: 16, maxWidth: 320, margin: '0 auto 16px' }}>
             {unlinkedDevice
-              ? (lang === 'am'
-                ? 'መሣሪያዎን ከሰራተኛ መገለጫዎ ጋር እንዲገናኝ ባለቤቱን ይጠይቁ።'
-                : 'Ask the owner to link this device to your staff profile.')
+              ? (label('reports.ask-the-owner-to-link-this-device-to-your', lang))
               : quietPeriod
-                ? (lang === 'am'
-                  ? 'በመረጡት ቀናት ውስጥ መዝገብ የለም። ሌላ ጊዜ ይምረጡ ወይም አዲስ እንቅስቃሴ ይመዝግብ።'
-                  : 'No entries in the selected dates. Pick another period or record something new.')
-                : (lang === 'am'
-                  ? 'ዛሬውን ሽያጭ ይመዝግቡ — ሱቅዎ ሁኔታ በፈጣን ይዘርጋል።'
-                  : 'Record your first sale today — your shop summary appears here instantly.')}
+                ? (label('reports.no-entries-in-the-selected-dates-pick', lang))
+                : (label('reports.record-your-first-sale-today-your-shop', lang))}
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             {!unlinkedDevice && !quietPeriod && (
               <button onClick={() => window.dispatchEvent(new CustomEvent('gebya:open-form', { detail: { type: 'sale' } }))}
                 style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: 'var(--color-primary)', color: 'var(--color-bg-white)', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
-                🛒 {lang === 'am' ? 'የመጀመሪያ ሽያጭ መዝግብ' : 'Record First Sale'}
+                🛒 {label('reports.record-first-sale', lang)}
               </button>
             )}
             {quietPeriod && (
               <button onClick={() => window.dispatchEvent(new CustomEvent('gebya:open-form', { detail: { type: 'sale' } }))}
                 style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--color-primary)', background: 'var(--color-primary)', color: 'var(--color-bg-white)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                🛒 {lang === 'am' ? 'ሽያጭ' : 'Sale'}
+                🛒 {label('reports.sale', lang)}
               </button>
             )}
           </div>
@@ -743,8 +734,8 @@ export default function ReportView({
             {/* ════════════════════════════════════════════ */}
             <SectionHeading label={
               activePersonName
-                ? `${activePersonName} · ${lang === 'am' ? 'የእኔ ቀን' : 'MY DAY'}`
-                : (lang === 'am' ? 'የእኔ ቀን' : 'MY DAY')
+                ? `${activePersonName} · ${label('reports.my-day', lang)}`
+                : (label('reports.my-day', lang))
             } />
 
             {/* Surrender card — hands today's collection to the owner via
@@ -758,12 +749,10 @@ export default function ReportView({
                 marginBottom: 10,
               }}>
                 <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--color-primary)', marginBottom: 3 }}>
-                  🤝 {lang === 'am' ? 'ገንዘብ ለማስረከብ ዝግጁ ነዎት?' : 'Ready to hand over?'}
+                  🤝 {label('reports.ready-to-hand-over', lang)}
                 </p>
                 <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 10 }}>
-                  {lang === 'am'
-                    ? `የሚጠበቅ: 💵 ${hidden ? '••••' : fmt(metrics.cashExpected)} · 📱 ${hidden ? '••••' : fmt(metrics.transferRecorded)} ETB`
-                    : `Expected: 💵 ${hidden ? '••••' : fmt(metrics.cashExpected)} cash · 📱 ${hidden ? '••••' : fmt(metrics.transferRecorded)} digital`}
+                  {label('reports.expected-cash-digital', lang, hidden ? '••••' : fmt(metrics.cashExpected), hidden ? '••••' : fmt(metrics.transferRecorded))}
                 </p>
                 <button
                   type="button"
@@ -775,7 +764,7 @@ export default function ReportView({
                     fontSize: 13, fontWeight: 800, cursor: 'pointer',
                   }}
                 >
-                  🤝 {lang === 'am' ? 'አሳልፍ' : 'Surrender'}
+                  🤝 {label('reports.surrender', lang)}
                 </button>
               </div>
             )}
@@ -795,7 +784,7 @@ export default function ReportView({
               </ErrorBoundary>
             </div>
 
-            <SectionHeading label={lang === 'am' ? 'እንቅስቃሴዎች' : 'ENTRIES'} />
+            <SectionHeading label={label('reports.entries', lang)} />
             <ErrorBoundary>
               <TimelineView reportRows={reportRows} lang={lang} handleExport={handleExport} onEdit={onEdit} />
             </ErrorBoundary>
@@ -805,7 +794,7 @@ export default function ReportView({
           {isToday ? (
             <>
               {/* 1. Hero Status */}
-              <SectionHeading label={lang === 'am' ? 'የሱቅ ሁኔታ' : 'SHOP STATUS'} />
+              <SectionHeading label={label('reports.shop-status', lang)} />
               <ErrorBoundary>
                 <HeroStatus
                   metrics={metrics}
@@ -820,7 +809,7 @@ export default function ReportView({
               </ErrorBoundary>
 
               {/* 2. Today's Business */}
-              <SectionHeading label={lang === 'am' ? 'የዛሬ ንግድ' : "TODAY'S BUSINESS"} />
+              <SectionHeading label={label('reports.today-s-business', lang)} />
               <div id="today-business">
                 <ErrorBoundary>
                   <TodayBusiness metrics={metrics} closingState={closingState} lang={lang} onClose={handleClose} cashYouShouldHave={cashYouShouldHave} />
@@ -828,7 +817,7 @@ export default function ReportView({
               </div>
 
               {/* 3. Do This Next */}
-              <SectionHeading label={lang === 'am' ? 'በመቀጠል ይህን አድርግ' : 'DO THIS NEXT'} />
+              <SectionHeading label={label('reports.do-this-next', lang)} />
               <ErrorBoundary>
                 <DoThisNext
                   closingDone={closingState.done}
@@ -849,7 +838,7 @@ export default function ReportView({
               {/* Staff handover status — who has surrendered today */}
               {canSwitchPeople && switchablePeople.length > 0 && (
                 <>
-                  <SectionHeading label={lang === 'am' ? '🤝 የሰራተኛ ማስረከቢያ' : 'STAFF HANDOVER'} />
+                  <SectionHeading label={label('reports.staff-handover', lang)} />
                   <ErrorBoundary>
                     <HandoverStatus
                       staffMembers={staffMembers}
@@ -863,7 +852,7 @@ export default function ReportView({
               )}
 
               {/* 4. What I Noticed */}
-              <SectionHeading label={lang === 'am' ? 'ያስተዋልኩት' : 'WHAT I NOTICED'} />
+              <SectionHeading label={label('reports.what-i-noticed', lang)} />
               <ErrorBoundary>
                 <WhatINoticed
                   metrics={metrics} priorMetrics={priorMetrics}
@@ -874,7 +863,7 @@ export default function ReportView({
               </ErrorBoundary>
 
               {/* 5. Today's Story */}
-              <SectionHeading label={lang === 'am' ? 'የዛሬ ታሪክ' : "TODAY'S STORY"} />
+              <SectionHeading label={label('reports.today-s-story', lang)} />
               <ErrorBoundary>
                 <TodayStory
                   metrics={metrics}
@@ -892,7 +881,7 @@ export default function ReportView({
             /* ════════════════════════════════════════════ */
             <>
               {/* Hero Status for past days (retro close) */}
-              <SectionHeading label={lang === 'am' ? 'ማጠቃለያ' : 'SUMMARY'} />
+              <SectionHeading label={label('reports.summary', lang)} />
               <ErrorBoundary>
                 <HeroStatus
                   metrics={metrics}
@@ -919,7 +908,7 @@ export default function ReportView({
               </ErrorBoundary>
 
               {/* Business Summary */}
-              <SectionHeading label={lang === 'am' ? 'የንግድ ማጠቃለያ' : 'BUSINESS SUMMARY'} />
+              <SectionHeading label={label('reports.business-summary', lang)} />
               <ErrorBoundary>
                 <TodayBusiness metrics={metrics} closingState={closingState} lang={lang} onClose={handleClose} />
               </ErrorBoundary>
@@ -929,8 +918,8 @@ export default function ReportView({
           {/* 7. Today's Entries — always shown */}
           <SectionHeading label={
             isToday
-              ? (lang === 'am' ? 'የዛሬ እንቅስቃሴ' : "TODAY'S ENTRIES")
-              : (lang === 'am' ? 'እንቅስቃሴዎች' : 'ENTRIES')
+              ? (label('reports.today-s-entries', lang))
+              : (label('reports.entries', lang))
           } />
           <ErrorBoundary>
             <TimelineView reportRows={reportRows} lang={lang} handleExport={handleExport} onEdit={onEdit} />
@@ -948,7 +937,7 @@ export default function ReportView({
             <div className="w-9 h-1 rounded-full bg-gray-300 mx-auto mb-3" />
             <Suspense fallback={
               <p style={{ textAlign: 'center', padding: 24, fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'በመጫን ላይ...' : 'Loading...'}
+                {label('reports.loading', lang)}
               </p>
             }>
               <SettlementSheet
@@ -958,7 +947,7 @@ export default function ReportView({
                                                 onSaved={(staffId) => {
                   setSheetTarget(null);
                   setHandoverRefresh(k => k + 1);
-                  fireToast(lang === 'am' ? 'ማስረከቢያ ተመዝግቧል ✓' : 'Handover recorded ✓', 2400);
+                  fireToast(label('reports.handover-recorded', lang), 2400);
                   store.handleSettlementSaved?.(staffId);
                 }}
                 onCancel={() => setSheetTarget(null)}

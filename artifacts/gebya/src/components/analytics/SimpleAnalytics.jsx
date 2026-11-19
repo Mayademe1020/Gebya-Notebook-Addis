@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import db from '../../db';
 import { useLang } from '../../context/LangContext';
 import { ArrowLeft, TrendingUp, Users, Activity, Calendar } from 'lucide-react';
+import { label } from '../../labels/index';
 
 export default function SimpleAnalytics({ onClose }) {
   const { lang } = useLang();
@@ -108,7 +109,7 @@ export default function SimpleAnalytics({ onClose }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50">
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="text-center py-8">
-            {lang === 'am' ? 'በመጫን ላይ...' : 'Loading...'}
+            {label('reports.loading', lang)}
           </div>
         </div>
       </div>
@@ -120,7 +121,7 @@ export default function SimpleAnalytics({ onClose }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50">
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="text-center py-8 text-gray-600">
-            {lang === 'am' ? 'ምንም መረጃ የለም' : 'No analytics data available'}
+            {label('reports.no-analytics-data-available', lang)}
           </div>
         </div>
       </div>
@@ -141,7 +142,7 @@ export default function SimpleAnalytics({ onClose }) {
           </button>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Activity size={24} className="text-green-600" />
-            {lang === 'am' ? 'የአጠቃቀም ትንተና' : 'Usage Analytics'}
+            {label('reports.usage-analytics', lang)}
           </h2>
         </div>
 
@@ -150,20 +151,20 @@ export default function SimpleAnalytics({ onClose }) {
           <div>
             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
               <Calendar size={20} className="text-blue-600" />
-              {lang === 'am' ? 'ክፍለ ጊዜዎች' : 'Sessions'}
+              {label('reports.sessions', lang)}
             </h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-blue-50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-blue-700">{stats.sessions1d}</div>
-                <div className="text-sm text-blue-600">{lang === 'am' ? 'ዛሬ' : 'Today'}</div>
+                <div className="text-sm text-blue-600">{label('reports.today', lang)}</div>
               </div>
               <div className="bg-blue-50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-blue-700">{stats.sessions7d}</div>
-                <div className="text-sm text-blue-600">{lang === 'am' ? 'ባለፉት 7 ቀናት' : 'Last 7 Days'}</div>
+                <div className="text-sm text-blue-600">{label('reports.last-7-days', lang)}</div>
               </div>
               <div className="bg-blue-50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-blue-700">{stats.sessions30d}</div>
-                <div className="text-sm text-blue-600">{lang === 'am' ? 'ባለፉት 30 ቀናት' : 'Last 30 Days'}</div>
+                <div className="text-sm text-blue-600">{label('reports.last-30-days', lang)}</div>
               </div>
             </div>
           </div>
@@ -172,16 +173,16 @@ export default function SimpleAnalytics({ onClose }) {
           <div>
             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
               <TrendingUp size={20} className="text-green-600" />
-              {lang === 'am' ? 'ግብይቶች' : 'Transactions'}
+              {label('reports.transactions', lang)}
             </h3>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="bg-green-50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-green-700">{stats.transactions1d}</div>
-                <div className="text-sm text-green-600">{lang === 'am' ? 'ዛሬ' : 'Today'}</div>
+                <div className="text-sm text-green-600">{label('reports.today', lang)}</div>
               </div>
               <div className="bg-green-50 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-green-700">{stats.transactions7d}</div>
-                <div className="text-sm text-green-600">{lang === 'am' ? 'ባለፉት 7 ቀናት' : 'Last 7 Days'}</div>
+                <div className="text-sm text-green-600">{label('reports.last-7-days', lang)}</div>
               </div>
             </div>
             
@@ -190,14 +191,14 @@ export default function SimpleAnalytics({ onClose }) {
               <div className="bg-purple-50 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-medium text-purple-700">
-                    {lang === 'am' ? 'የድምጽ አጠቃቀም' : 'Voice Usage'}
+                    {label('reports.voice-usage', lang)}
                   </div>
                   <div className="text-lg font-bold text-purple-700">
                     {stats.voiceAdoptionRate}%
                   </div>
                 </div>
                 <div className="text-xs text-purple-600 mt-1">
-                  {stats.voiceUsage} {lang === 'am' ? 'ከ' : 'of'} {stats.totalTransactions} {lang === 'am' ? 'ግብይቶች' : 'transactions'}
+                  {stats.voiceUsage} {label('reports.of', lang)} {stats.totalTransactions} {label('reports.transactions-2', lang)}
                 </div>
               </div>
             )}
@@ -207,7 +208,7 @@ export default function SimpleAnalytics({ onClose }) {
           <div>
             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
               <Users size={20} className="text-orange-600" />
-              {lang === 'am' ? 'ሁሉም ክስተቶች' : 'All Events'}
+              {label('reports.all-events', lang)}
             </h3>
             <div className="bg-gray-50 rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
               {Object.entries(stats.eventCounts)

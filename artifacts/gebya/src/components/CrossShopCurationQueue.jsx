@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { db } from '../db';
+import { label } from '../labels/index';
 
 export default function CrossShopCurationQueue() {
   const { lang } = useLang();
@@ -50,11 +51,11 @@ export default function CrossShopCurationQueue() {
   return (
     <div className="space-y-3">
       <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? '\u1265\u1228\u1275\u1295\u1235 \u1233\u1228\u1276 \u12E8\u121A\u130D\u1295\u1233' : 'Unmatched Items Queue'}
+        {label('admin.unmatched-items-queue', lang)}
       </p>
       {unmatched.length === 0 ? (
         <p className="text-xs" style={{ color: 'var(--color-text-soft)' }}>
-          {lang === 'am' ? '\u1233\u1228\u1276 \u1240\u1295\u12F5 \u12A0\u1295\u12F3' : 'No unmatched items'}
+          {label('admin.no-unmatched-items', lang)}
         </p>
       ) : (
         <div className="space-y-2">
@@ -78,14 +79,14 @@ export default function CrossShopCurationQueue() {
                   className="text-[10px] px-2 py-1 font-bold border"
                   style={{ borderColor: 'var(--color-text-soft)', borderRadius: 4, background: 'var(--color-bg-active)' }}
                 >
-                  {lang === 'am' ? '\u1233\u1228\u1276' : 'Approve'}
+                  {label('admin.approve', lang)}
                 </button>
                 <button
                   onClick={() => handleDismiss(item.id)}
                   className="text-[10px] px-2 py-1 font-bold border"
                   style={{ borderColor: 'var(--color-danger-border)', borderRadius: 4, background: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}
                 >
-                  {lang === 'am' ? '\u12AB\u1295\u12F3' : 'Dismiss'}
+                  {label('admin.dismiss', lang)}
                 </button>
               </div>
             </div>

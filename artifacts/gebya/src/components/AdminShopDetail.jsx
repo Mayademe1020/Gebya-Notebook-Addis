@@ -6,6 +6,7 @@ import { fmt } from '../utils/numformat';
 import { resetSmsQuota, addShopNote, nudgeOwner, resendReminders } from '../api/admin.js';
 import { formatDays, formatDaysOverdue } from '../utils/durationFormat';
 import { ChevronLeft, Activity, AlertTriangle } from 'lucide-react';
+import { label } from '../labels/index';
 
 const SupportPanel = lazy(() => import('./SupportPanel.jsx'));
 
@@ -172,7 +173,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
     }
   };
 
-  if (loading) return <div className="p-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'ሱፍ በመ ይሄዳል...' : 'Loading shop details...'}</div>;
+  if (loading) return <div className="p-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>{label('admin.loading-shop-details', l)}</div>;
   if (error) return <div className="p-6 text-sm text-red-500">Error: {error}</div>;
   if (!shop) return null;
 
@@ -187,12 +188,12 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {/* Back button */}
       <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>
         <ChevronLeft className="w-4 h-4" />
-        {l === 'am' ? 'ወደ ድርጅት ውብህ' : 'Back to Dashboard'}
+        {label('admin.back-to-dashboard', l)}
       </button>
 
       {/* Tab bar */}
       <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--color-bg-hover)' }}>
-        {[{ id: 'details', label: l === 'am' ? 'ዝርዝር' : 'Details' }, { id: 'activity', label: l === 'am' ? 'እንቅስቃሴ' : 'Activity' }, { id: 'comms', label: l === 'am' ? 'መገናኛ' : 'Comms' }, { id: 'actions', label: l === 'am' ? 'ሥሮች' : 'Actions' }, { id: 'tickets', label: l === 'am' ? 'ድጋፍ' : 'Tickets' }].map(t => (
+        {[{ id: 'details', label: label('admin.details', l) }, { id: 'activity', label: label('admin.activity', l) }, { id: 'comms', label: label('admin.comms', l) }, { id: 'actions', label: label('admin.actions', l) }, { id: 'tickets', label: label('admin.tickets', l) }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="flex-1 py-2 rounded-lg text-xs font-bold transition-all" style={tab === t.id ? { background: 'var(--color-primary)', color: '#fff' } : { color: 'var(--color-text-muted)' }}>{t.label}</button>
         ))}
       </div>
@@ -205,13 +206,13 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-black text-gray-900 flex items-center gap-2">
-            {s.name || (l === 'am' ? 'ሱቅ' : 'Shop')}
+            {s.name || (label('admin.shop', l))}
             {st && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold" style={statusStyle}>{st.status || (l === 'am' ? 'አዲስ' : 'new')}</span>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold" style={statusStyle}>{st.status || (label('admin.new', l))}</span>
             )}
           </div>
           <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {s.phoneMasked} · {s.ownerTelegramLinked ? (l === 'am' ? 'ቴሌግራም ተዣረ' : 'Telegram linked') : (l === 'am' ? 'ቴሌግራም አይደለም' : 'No Telegram')}
+            {s.phoneMasked} · {s.ownerTelegramLinked ? (label('admin.telegram-linked', l)) : (label('admin.no-telegram', l))}
           </div>
         </div>
       </div>
@@ -220,12 +221,12 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {st && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: l === 'am' ? 'ሽያጭ' : 'Sales', value: fmt(st.totalSales) + ' ETB' },
-            { label: l === 'am' ? 'በሬደር' : 'Expenses', value: fmt(st.totalExpenses) + ' ETB' },
-            { label: l === 'am' ? 'የበለራ ብዬት' : 'Credit Outstanding', value: fmt(st.outstandingCredit) + ' ETB' },
-            { label: l === 'am' ? 'ሁኔታ የሆነ' : 'Transactions', value: fmt(st.totalTransactions) },
-            { label: l === 'am' ? 'ደንበሮች' : 'Customers', value: fmt(st.totalCustomers) },
-            { label: l === 'am' ? 'ሰራተኞች' : 'Staff', value: `${fmt(st.activeStaff)}/${fmt(st.totalStaff)}` },
+            { label: label('admin.sales', l), value: fmt(st.totalSales) + ' ETB' },
+            { label: label('admin.expenses', l), value: fmt(st.totalExpenses) + ' ETB' },
+            { label: label('admin.credit-outstanding', l), value: fmt(st.outstandingCredit) + ' ETB' },
+            { label: label('admin.transactions', l), value: fmt(st.totalTransactions) },
+            { label: label('admin.customers', l), value: fmt(st.totalCustomers) },
+            { label: label('admin.staff', l), value: `${fmt(st.activeStaff)}/${fmt(st.totalStaff)}` },
           ].map(item => (
             <div key={item.label} className="bg-white rounded-xl border text-center p-3" style={{ borderColor: 'var(--color-border)' }}>
               <div className="text-lg font-black" style={{ color: 'var(--color-primary)' }}>{item.value}</div>
@@ -239,7 +240,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {st && st.overdueCustomers > 0 && (
         <div className="bg-white rounded-xl border p-3" style={{ borderColor: 'var(--color-danger-border)', background: 'var(--color-danger-bg)' }}>
           <div className="text-xs font-bold text-red-800">
-            {l === 'am' ? `${st.overdueCustomers} የቆየ ደንበር ይሁዳል ${fmt(st.totalOverdueExposure)} ብር` : `${st.overdueCustomers} customers overdue — ${fmt(st.totalOverdueExposure)} ETB exposure`}
+            {label('admin.customers-overdue-etb-exposure', l, st.overdueCustomers, fmt(st.totalOverdueExposure))}
           </div>
         </div>
       )}
@@ -251,7 +252,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
             <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              {l === 'am' ? 'የክፍያ ባህሪ' : 'PAYMENT BEHAVIOR'}
+              {label('admin.payment-behavior', l)}
             </span>
           </div>
           <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -272,18 +273,18 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
                     </div>
                     <div className="text-[10px] font-semibold" style={{ color: 'var(--color-text-muted)' }}>
                       {c.avg_pay_days !== null && c.avg_pay_days !== undefined
-                        ? (l === 'am' ? `አማካይ ክፍያ: ${formatDays(c.avg_pay_days, 'am')}` : `Avg pay: ${formatDays(c.avg_pay_days, 'en')}`)
-                        : (l === 'am' ? 'ገና አልተከፈለም' : 'Nothing settled yet')}
+                        ? (label('admin.avg-pay', l, () => formatDays(c.avg_pay_days, 'en'), () => formatDays(c.avg_pay_days, 'am')))
+                        : (label('admin.nothing-settled-yet', l))}
                       {' · '}{fmt(c.outstanding_birr)} ETB
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-xs font-black" style={{ color: rateColor }}>
-                      {rate == null ? '—' : `${rate}% ${l === 'am' ? 'በወቅቱ' : 'on time'}`}
+                      {rate == null ? '—' : `${rate}% ${label('admin.on-time', l)}`}
                     </div>
                     {c.overdue_days > 0 && (
                       <div className="text-[10px] font-bold" style={{ color: 'var(--color-danger-text)' }}>
-                        {formatDaysOverdue(c.overdue_days, l === 'am' ? 'am' : 'en')}
+                        {formatDaysOverdue(c.overdue_days, label('admin.en', l))}
                       </div>
                     )}
                   </div>
@@ -299,7 +300,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
             <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              {l === 'am' ? 'ቡድን ዳታ' : 'TEAM MEMBERS'}
+              {label('admin.team-members', l)}
             </span>
           </div>
           <div className="divide-y" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -318,7 +319,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
             <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              {l === 'am' ? 'ቦክር ዝሃመ' : 'BANK AGREEMENTS'}
+              {label('admin.bank-agreements', l)}
             </span>
           </div>
           <div className="px-4 py-3 space-y-2">
@@ -327,8 +328,8 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
                 <div>
                   <div className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>{share.bankName}</div>
                   <div className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                    {l === 'am' ? 'ስales: ' : 'Sales: '}{share.shareSalesData ? (l === 'am' ? 'አዎን' : 'Yes') : (l === 'am' ? 'አይደለም' : 'No')}
-                    {' · '} {l === 'am' ? 'ቪያስ: ' : 'Credit: '}{share.shareCreditData ? (l === 'am' ? 'አዎን' : 'Yes') : (l === 'am' ? 'አይደለም' : 'No')}
+                    {label('admin.sales-2', l)}{share.shareSalesData ? (label('admin.yes', l)) : (label('admin.no', l))}
+                    {' · '} {label('admin.credit', l)}{share.shareCreditData ? (label('admin.yes', l)) : (label('admin.no', l))}
                   </div>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{
@@ -345,19 +346,19 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
         <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {l === 'am' ? 'መልዥ መላስ' : 'SEND TARGETED MESSAGE'}
+            {label('admin.send-targeted-message', l)}
           </span>
         </div>
         <div className="px-4 py-3 space-y-3">
           <input
             type="text" value={msgTitle} onChange={e => setMsgTitle(e.target.value)}
-            placeholder={l === 'am' ? 'ርዕስ' : 'Title'}
+            placeholder={label('admin.title', l)}
             className="w-full px-3 py-2.5 rounded-xl text-xs border-2 focus:outline-none"
             style={{ borderColor: 'var(--color-border)' }}
           />
           <textarea
             value={msgBody} onChange={e => setMsgBody(e.target.value)}
-            placeholder={l === 'am' ? 'መልእክት መረጃ' : 'Message body'}
+            placeholder={label('admin.message-body', l)}
             rows={3}
             className="w-full px-3 py-2.5 rounded-xl text-xs border-2 resize-none focus:outline-none"
             style={{ borderColor: 'var(--color-border)' }}
@@ -368,8 +369,8 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
               color: msgResult.ok ? 'var(--color-success-text)' : 'var(--color-danger-text)',
             }}>
               {msgResult.ok
-                ? (l === 'am' ? `ተላክ {msgResult.sent}/${msgResult.total} ሱቍን` : `Sent to ${msgResult.sent}/${msgResult.total} shop`)
-                : (l === 'am' ? `አልተሳከም: ${msgResult.error}` : `Failed: ${msgResult.error}`)}
+                ? (label('admin.sent-to-shop', l, () => msgResult.sent, () => msgResult.total))
+                : (label('admin.failed', l, msgResult.error))}
             </div>
           )}
           <button
@@ -381,7 +382,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
               color: msgSending || !msgTitle || !msgBody ? 'var(--color-text-soft)' : 'var(--color-bg-white)',
             }}
           >
-            {msgSending ? '...' : (l === 'am' ? 'ላውድድር መላክ' : 'Send to This Shop')}
+            {msgSending ? '...' : (label('admin.send-to-this-shop', l))}
             </button>
           </div>
         </div>
@@ -390,22 +391,22 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {tab === 'activity' && (<>
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{l === 'am' ? 'የእንቅስቃሴ መዝለያ' : 'ACTIVITY LOG'}</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label('admin.activity-log', l)}</span>
           </div>
           <div className="px-4 py-3">
             {activityError && <div className="text-xs font-bold px-3 py-2 rounded-lg" style={{ background: '#fee2e2', color: '#b91c1c' }}>{activityError}</div>}
             {activityLoading ? (
-              <div className="text-xs py-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'በመጫን ላይ...' : 'Loading...'}</div>
+              <div className="text-xs py-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{label('admin.loading', l)}</div>
             ) : (
               <div className="space-y-2">
                 {violations.length > 0 && (
                   <div className="rounded-xl border p-3 mb-2" style={{ borderColor: 'var(--color-danger-border)', background: 'var(--color-danger-bg)' }}>
-                    <div className="flex items-center gap-1 text-xs font-bold text-red-800 mb-1"><AlertTriangle size={14} /> {l === 'am' ? `የተከለከሉ ሙከራዎች: ${violations.length}` : `${violations.length} blocked attempts`}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'የፍተና ሙከራዎች ተገኝተዋል ነገር ግን ተከልክለዋል' : 'Permission probes detected but blocked by local policy.'}</div>
+                    <div className="flex items-center gap-1 text-xs font-bold text-red-800 mb-1"><AlertTriangle size={14} /> {label('admin.blocked-attempts', l, violations.length)}</div>
+                    <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{label('admin.permission-probes-detected-but-blocked-by', l)}</div>
                   </div>
                 )}
                 {activity.length === 0 && violations.length === 0 && (
-                  <div className="text-xs py-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'ምንም እንቅስቃሴ የለም' : 'No activity recorded'}</div>
+                  <div className="text-xs py-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{label('admin.no-activity-recorded', l)}</div>
                 )}
                 {activity.map((a) => (
                   <div key={a.id} className="flex items-start gap-2 text-[11px] border-b pb-2" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -426,7 +427,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {tab === 'tickets' && (<>
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{l === 'am' ? 'የዚህ ሱቅ ድጋፍ' : 'THIS SHOP’S SUPPORT'}</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label('admin.this-shop-s-support', l)}</span>
           </div>
           <div className="p-3">
             <Suspense fallback={<div className="text-xs text-gray-400 py-4">Loading...</div>}>
@@ -439,14 +440,14 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {tab === 'comms' && shop?.comms && (<>
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{l === 'am' ? 'የመገናኛ ጤና' : 'COMMUNICATION HEALTH'}</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label('admin.communication-health', l)}</span>
           </div>
           <div className="px-4 py-3 space-y-1">
-            <CommsRow label={l === 'am' ? 'SMS (Ethio Telecom)' : 'SMS (Ethio Telecom)'} value={shop.comms.smsEnabled ? `${l === 'am' ? 'ይሰራል' : 'Enabled'} · ${shop.comms.smsUsed}/${shop.comms.smsLimit} ${l === 'am' ? 'የተጠቀመ' : 'used'}` : (l === 'am' ? 'ዝጋውነት' : 'Disabled')} tone={shop.comms.smsEnabled ? 'green' : 'amber'} />
-            <CommsRow label={l === 'am' ? 'የባለቤት ቴሌግራም' : 'Owner Telegram'} value={shop.comms.ownerTelegramLinked ? (l === 'am' ? 'ተያይዟል' : 'Linked') : (l === 'am' ? 'አይያይዝም' : 'Not linked')} tone={shop.comms.ownerTelegramLinked ? 'green' : 'amber'} />
-            <CommsRow label={l === 'am' ? 'የሰራተኛ ቴሌግራም' : 'Customer Telegram'} value={`${shop.comms.customerTelegramLinked}/${shop.comms.customerTelegramTotal} (${shop.comms.customerTelegramAdoption}%)`} tone={shop.comms.customerTelegramAdoption >= 30 ? 'green' : 'amber'} />
-            <CommsRow label={l === 'am' ? 'የማስታወቂያ አልተሳካም' : 'Reminder delivery failures'} value={String(shop.comms.deliveryFailures)} tone={shop.comms.deliveryFailures > 0 ? 'red' : 'green'} />
-            <div className="pt-2 text-[10px]" style={{ color: 'var(--color-text-soft)' }}>{l === 'am' ? 'SMS እና ቴሌግራም ማስታወሻዎች ለዚህ ሱቅ ይላካሉ።' : 'SMS & Telegram reminders are sent to this shop’s customers.'}</div>
+            <CommsRow label={label('admin.sms-ethio-telecom', l)} value={shop.comms.smsEnabled ? `${label('admin.enabled', l)} · ${shop.comms.smsUsed}/${shop.comms.smsLimit} ${label('admin.used', l)}` : (label('admin.disabled', l))} tone={shop.comms.smsEnabled ? 'green' : 'amber'} />
+            <CommsRow label={label('admin.owner-telegram', l)} value={shop.comms.ownerTelegramLinked ? (label('admin.linked', l)) : (label('admin.not-linked', l))} tone={shop.comms.ownerTelegramLinked ? 'green' : 'amber'} />
+            <CommsRow label={label('admin.customer-telegram', l)} value={`${shop.comms.customerTelegramLinked}/${shop.comms.customerTelegramTotal} (${shop.comms.customerTelegramAdoption}%)`} tone={shop.comms.customerTelegramAdoption >= 30 ? 'green' : 'amber'} />
+            <CommsRow label={label('admin.reminder-delivery-failures', l)} value={String(shop.comms.deliveryFailures)} tone={shop.comms.deliveryFailures > 0 ? 'red' : 'green'} />
+            <div className="pt-2 text-[10px]" style={{ color: 'var(--color-text-soft)' }}>{label('admin.sms-telegram-reminders-are-sent-to-this-shop', l)}</div>
           </div>
         </div>
       </>)}
@@ -454,30 +455,30 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
       {tab === 'actions' && shop && (<>
         <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border-light)', background: 'var(--color-surface-subtle)' }}>
-            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{l === 'am' ? 'የአስተዳዳሪ ሥራዎች' : 'ADMIN ACTIONS'}</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label('admin.admin-actions', l)}</span>
           </div>
           <div className="px-4 py-3 space-y-4">
             {/* Reset SMS quota */}
             <div>
-              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{l === 'am' ? 'የSMS ኛዎታ ዳግም ጀምር' : 'Reset SMS quota'}</div>
-              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'የወር የSMS ኛዎታ ወደ ዜሮ ይመለሳል።' : 'Resets this shop’s monthly SMS usage to zero.'}</div>
+              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{label('admin.reset-sms-quota', l)}</div>
+              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{label('admin.resets-this-shop-s-monthly-sms-usage-to-zero', l)}</div>
               <button onClick={handleResetQuota} disabled={resetBusy} className="w-full py-2.5 rounded-xl text-xs font-bold min-h-[44px] text-white" style={{ background: 'var(--color-primary)' }}>
-                {resetBusy ? '...' : (l === 'am' ? 'ኛዎታ ዳግም ጀምር' : 'Reset quota')}
+                {resetBusy ? '...' : (label('admin.reset-quota', l))}
               </button>
               {resetResult && <div className="mt-2 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: resetResult.ok ? 'var(--color-success-bg)' : 'var(--color-danger-bg)', color: resetResult.ok ? 'var(--color-success-text)' : 'var(--color-danger-text)' }}>{resetResult.message}</div>}
             </div>
 
             {/* Nudge owner */}
             <div className="border-t pt-3" style={{ borderColor: 'var(--color-border-light)' }}>
-              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{l === 'am' ? 'ወደ ባለቤት ማስታወቂያ' : 'Reach owner'}</div>
-              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'በተያያዘ ቴሌግራም፣ ወይም SMS ወይም በእጅጉ ማጋሪያ ሊላክ ይችላል።' : 'Sends via linked Telegram, SMS fallback, or returns a manual link.'}</div>
-              <textarea value={nudgeMsg} onChange={e => setNudgeMsg(e.target.value)} placeholder={l === 'am' ? 'አማራጭ መልእክት (ባዶ ልቀ)' : 'Optional message (leave blank for default)'} rows={3} className="w-full px-3 py-2.5 rounded-xl text-xs border-2 resize-none focus:outline-none" style={{ borderColor: 'var(--color-border)' }} />
+              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{label('admin.reach-owner', l)}</div>
+              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{label('admin.sends-via-linked-telegram-sms-fallback-or', l)}</div>
+              <textarea value={nudgeMsg} onChange={e => setNudgeMsg(e.target.value)} placeholder={label('admin.optional-message-leave-blank-for-default', l)} rows={3} className="w-full px-3 py-2.5 rounded-xl text-xs border-2 resize-none focus:outline-none" style={{ borderColor: 'var(--color-border)' }} />
               <button onClick={handleNudge} disabled={nudgeBusy} className="mt-2 w-full py-2.5 rounded-xl text-xs font-bold min-h-[44px] text-white" style={{ background: 'var(--color-primary)' }}>
-                {nudgeBusy ? '...' : (l === 'am' ? 'ላባለቤት ላክ' : 'Send to owner')}
+                {nudgeBusy ? '...' : (label('admin.send-to-owner', l))}
               </button>
               {nudgeResult && (
                 <div className="mt-2 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: nudgeResult.ok ? 'var(--color-success-bg)' : 'var(--color-danger-bg)', color: nudgeResult.ok ? 'var(--color-success-text)' : 'var(--color-danger-text)' }}>
-                  {l === 'am' ? `ቻናል: ${nudgeResult.channel} · ${nudgeResult.status}` : `Channel: ${nudgeResult.channel} · ${nudgeResult.status}`}
+                  {label('admin.channel', l, nudgeResult.channel, nudgeResult.status)}
                   {nudgeResult.detail ? ` — ${nudgeResult.detail}` : ''}
                   {nudgeResult.deepLink ? ` · ${nudgeResult.deepLink}` : ''}
                 </div>
@@ -486,15 +487,15 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
 
             {/* Resend failed reminders */}
             <div className="border-t pt-3" style={{ borderColor: 'var(--color-border-light)' }}>
-              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{l === 'am' ? 'የእላቂ ማስታወሻዎችን እንደገና ላክ' : 'Resend failed reminders'}</div>
-              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'ለዚህ ሱቅ የተከለከሉ የመልእክት ማስታወሻዎችን እንደገና ይላካል።' : 'Re-sends Telegram/SMS to this shop’s customers whose last reminder failed.'}</div>
+              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{label('admin.resend-failed-reminders', l)}</div>
+              <div className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>{label('admin.re-sends-telegram-sms-to-this-shop-s', l)}</div>
               <button onClick={handleResend} disabled={resendBusy} className="w-full py-2.5 rounded-xl text-xs font-bold min-h-[44px] text-white" style={{ background: 'var(--color-primary)' }}>
-                {resendBusy ? '...' : (l === 'am' ? 'እንደገና ላክ' : 'Resend failed')}
+                {resendBusy ? '...' : (label('admin.resend-failed', l))}
               </button>
               {resendResult && (
                 <div className="mt-2 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: resendResult.ok ? 'var(--color-success-bg)' : 'var(--color-danger-bg)', color: resendResult.ok ? 'var(--color-success-text)' : 'var(--color-danger-text)' }}>
                   {resendResult.ok
-                    ? (l === 'am' ? `ተራው: ${resendResult.scanned} · ተላከ: ${resendResult.sent} · አልተሳካም: ${resendResult.failed}` : `Scanned: ${resendResult.scanned} · Sent: ${resendResult.sent} · Failed: ${resendResult.failed}`)
+                    ? (label('admin.scanned-sent-failed', l, resendResult.scanned, resendResult.sent, resendResult.failed))
                     : (resendResult.error || 'Failed')}
                 </div>
               )}
@@ -502,10 +503,10 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
 
             {/* Notes */}
             <div className="border-t pt-3" style={{ borderColor: 'var(--color-border-light)' }}>
-              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{l === 'am' ? 'የአስተዳዳሪ ማስታወሻዎች' : 'Admin notes'}</div>
-              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder={l === 'am' ? 'ማስታወሻ ይጻፉ...' : 'Write a private note...'} rows={2} className="w-full px-3 py-2.5 rounded-xl text-xs border-2 resize-none focus:outline-none" style={{ borderColor: 'var(--color-border)' }} />
+              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{label('admin.admin-notes', l)}</div>
+              <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder={label('admin.write-a-private-note', l)} rows={2} className="w-full px-3 py-2.5 rounded-xl text-xs border-2 resize-none focus:outline-none" style={{ borderColor: 'var(--color-border)' }} />
               <button onClick={handleAddNote} disabled={noteBusy || !noteText.trim()} className="mt-2 w-full py-2.5 rounded-xl text-xs font-bold min-h-[44px] text-white" style={{ background: (noteBusy || !noteText.trim()) ? 'var(--color-bg-disabled)' : 'var(--color-primary)', color: (noteBusy || !noteText.trim()) ? 'var(--color-text-soft)' : 'var(--color-bg-white)' }}>
-                {noteBusy ? '...' : (l === 'am' ? 'ማስታወሻ ጨምር' : 'Add note')}
+                {noteBusy ? '...' : (label('admin.add-note', l))}
               </button>
               {noteError && <div className="mt-2 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: 'var(--color-danger-bg)', color: 'var(--color-danger-text)' }}>{noteError}</div>}
               <div className="mt-2 space-y-2">
@@ -515,13 +516,13 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
                     <div className="opacity-50">{new Date(n.createdAt).toLocaleString()}{n.adminPhone ? ` · ${n.adminPhone}` : ''}</div>
                   </div>
                 ))}
-                {(shop.notes || []).length === 0 && <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'ምንም ማስታወሻ የለም' : 'No notes yet'}</div>}
+                {(shop.notes || []).length === 0 && <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{label('admin.no-notes-yet', l)}</div>}
               </div>
             </div>
 
             {/* Outreach / action log */}
             <div className="border-t pt-3" style={{ borderColor: 'var(--color-border-light)' }}>
-              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{l === 'am' ? 'የክኢያ መዝለያ' : 'OUTREACH LOG'}</div>
+              <div className="text-xs font-bold mb-1" style={{ color: 'var(--color-text)' }}>{label('admin.outreach-log', l)}</div>
               <div className="space-y-2">
                 {(shop.log || []).map(ev => (
                   <div key={ev.id} className="text-[11px] border-b pb-2" style={{ borderColor: 'var(--color-border-light)' }}>
@@ -530,7 +531,7 @@ export default function AdminShopDetail({ businessId, onBack, lang: propLang }) 
                     <div className="opacity-50">{new Date(ev.createdAt).toLocaleString()}</div>
                   </div>
                 ))}
-                {(shop.log || []).length === 0 && <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{l === 'am' ? 'ምንም ክኢያ የለም' : 'No outreach yet'}</div>}
+                {(shop.log || []).length === 0 && <div className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{label('admin.no-outreach-yet', l)}</div>}
               </div>
             </div>
           </div>
