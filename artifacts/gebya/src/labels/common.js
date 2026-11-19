@@ -85,6 +85,7 @@ export default {
   "common.sales-data": { en: "Sales data", am: "የሽያጭ መረጃ" },
   "common.select-a-bank": { en: "Select a bank", am: "ባንክ ይምረጡ" },
   "common.share-your-business-data-with-banks-for": { en: "Share your business data with banks for credit scoring", am: "ንግድ መረጃዎን ከባንኮች ጋር ያጋሩ" },
+  "common.shop-has-been-notified-your-balance-will": { en: "Shop has been notified. Your balance will update once confirmed.", am: "ሱቁ ተነገረ። ቀሪ ሂሳብዎ ሲረጋገጥ ይዘምናል።" },
   "common.sold-etb-top-seller-today": { en: (v0, v1, v2) => `${v0()} sold ${v1()} ETB — top seller today.`, am: (v0, v1, v2) => `${v0()} ${v2()} ETB ሸጠዋል — ከፍተኛ ሻጭ` },
   "common.sold-the-most-etb": { en: (a0, a1) => `${a0} sold the most: ${a1} ETB.`, am: (a0, a1) => `${a0} በብዛት ተሽጧል፦ ${a1} ETB` },
   "common.staff-haven-t-reported-cash": { en: (a0) => `${a0} staff haven't reported cash.`, am: (a0) => `${a0} ሰራተኛ ገንዘብ አላስረከበም` },

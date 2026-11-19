@@ -84,6 +84,22 @@
     },
     {
       "file": "src/components/AdminDashboard.jsx",
+      "line": 93,
+      "key": "admin.couldn-t-load",
+      "kind": "plain",
+      "en": "Couldn’t load",
+      "am": "ስህተት"
+    },
+    {
+      "file": "src/components/AdminDashboard.jsx",
+      "line": 96,
+      "key": "admin.retry",
+      "kind": "plain",
+      "en": "Retry",
+      "am": "እንደገና ሞክር"
+    },
+    {
+      "file": "src/components/AdminDashboard.jsx",
       "line": 193,
       "key": "admin.updated",
       "kind": "format",
@@ -175,22 +191,6 @@
       "kind": "plain",
       "en": "Friction Summary",
       "am": "ጥርጣሬዎች"
-    },
-    {
-      "file": "src/components/AdminDashboard.jsx",
-      "line": 93,
-      "key": "admin.couldn-t-load",
-      "kind": "plain",
-      "en": "Couldn’t load",
-      "am": "ስህተት"
-    },
-    {
-      "file": "src/components/AdminDashboard.jsx",
-      "line": 96,
-      "key": "admin.retry",
-      "kind": "plain",
-      "en": "Retry",
-      "am": "እንደገና ሞክር"
     },
     {
       "file": "src/components/AdminMetricsView.jsx",
@@ -298,6 +298,22 @@
     },
     {
       "file": "src/components/AdminPortal.jsx",
+      "line": 48,
+      "key": "admin.platform-admin-shops-frictions-comms",
+      "kind": "plain",
+      "en": "Platform admin · shops · frictions · comms",
+      "am": "የመሣሪያ ስርዓት አስተዳደር"
+    },
+    {
+      "file": "src/components/AdminPortal.jsx",
+      "line": 53,
+      "key": "admin.open-app",
+      "kind": "plain",
+      "en": "Open app",
+      "am": "ወደ መተግበሪያው"
+    },
+    {
+      "file": "src/components/AdminPortal.jsx",
       "line": 113,
       "key": "admin.google-sign-in-not-configured",
       "kind": "plain",
@@ -327,22 +343,6 @@
       "kind": "plain",
       "en": "Admin access required",
       "am": "የአስተዳደሪ መዳረሻ የለም"
-    },
-    {
-      "file": "src/components/AdminPortal.jsx",
-      "line": 48,
-      "key": "admin.platform-admin-shops-frictions-comms",
-      "kind": "plain",
-      "en": "Platform admin · shops · frictions · comms",
-      "am": "የመሣሪያ ስርዓት አስተዳደር"
-    },
-    {
-      "file": "src/components/AdminPortal.jsx",
-      "line": 53,
-      "key": "admin.open-app",
-      "kind": "plain",
-      "en": "Open app",
-      "am": "ወደ መተግበሪያው"
     },
     {
       "file": "src/components/AdminShopDetail.jsx",
@@ -1070,6 +1070,28 @@
     },
     {
       "file": "src/components/AppShell.jsx",
+      "line": 903,
+      "key": "shell.free-plan-limit-month-reached-see-plus-in",
+      "kind": "format",
+      "enParts": [
+        "Free plan limit (",
+        "/month) reached — see Plus in Settings → Money."
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "የዚህ ወር ",
+        " ግብይቶች ተደርሰዋል። Plus ለማግኘት ቅንብሮች → ገንዘብ ይመልከቱ።"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/AppShell.jsx",
       "line": 1175,
       "key": "shell.entry-deleted",
       "kind": "plain",
@@ -1091,28 +1113,6 @@
       "kind": "plain",
       "en": "All reminders sent",
       "am": "ሁሉም ማሳሰቢያዎች ተልከዋል"
-    },
-    {
-      "file": "src/components/AppShell.jsx",
-      "line": 903,
-      "key": "shell.free-plan-limit-month-reached-see-plus-in",
-      "kind": "format",
-      "enParts": [
-        "Free plan limit (",
-        "/month) reached — see Plus in Settings → Money."
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "የዚህ ወር ",
-        " ግብይቶች ተደርሰዋል። Plus ለማግኘት ቅንብሮች → ገንዘብ ይመልከቱ።"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
     },
     {
       "file": "src/components/AskNotebookFAB.jsx",
@@ -1441,6 +1441,374 @@
       "kind": "plain",
       "en": "Dismiss",
       "am": "ካንዳ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 294,
+      "key": "customers.back-customers",
+      "kind": "plain",
+      "en": "Back · Customers",
+      "am": "ተመለስ · ደንበኞች"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 317,
+      "key": "customers.settled",
+      "kind": "plain",
+      "en": "SETTLED",
+      "am": "ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 328,
+      "key": "customers.promise",
+      "kind": "plain",
+      "en": "PROMISE",
+      "am": "ተስፋ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 397,
+      "key": "customers.no-phone-or-telegram",
+      "kind": "plain",
+      "en": "No phone or Telegram",
+      "am": "ስልክ ወይም ቴሌግራም የለም"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 409,
+      "key": "customers.edit-customer",
+      "kind": "plain",
+      "en": "Edit customer",
+      "am": "አስተካክል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 472,
+      "key": "customers.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 480,
+      "key": "customers.settled-2",
+      "kind": "plain",
+      "en": "Settled",
+      "am": "ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 483,
+      "key": "customers.due",
+      "kind": "plain",
+      "en": "Due",
+      "am": "የሚከፍለው"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 512,
+      "key": "customers.settled-2",
+      "kind": "plain",
+      "en": "Settled",
+      "am": "ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 513,
+      "key": "customers.you-are-owed",
+      "kind": "plain",
+      "en": "You are owed",
+      "am": "ለእኔ ይከፍላሉ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 526,
+      "key": "customers.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 538,
+      "key": "customers.paid",
+      "kind": "plain",
+      "en": "Paid",
+      "am": "ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 553,
+      "key": "customers.settled-2",
+      "kind": "plain",
+      "en": "Settled",
+      "am": "ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 554,
+      "key": "customers.you-are-owed",
+      "kind": "plain",
+      "en": "You are owed",
+      "am": "ለእኔ ይከፍላሉ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 566,
+      "key": "customers.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 576,
+      "key": "customers.entries",
+      "kind": "plain",
+      "en": "entries",
+      "am": "መዝገብ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 582,
+      "key": "customers.avg-pay",
+      "kind": "plain",
+      "en": "Avg pay",
+      "am": "አማካይ ክፍያ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 598,
+      "key": "customers.balance-fully-paid",
+      "kind": "plain",
+      "en": "Balance Fully Paid",
+      "am": "ሙሉ ተከፍሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 611,
+      "key": "customers.automated-reminders-are-a-plus-feature-on",
+      "kind": "plain",
+      "en": "Automated reminders are a Plus feature — on-demand reminders still work.",
+      "am": "ራስ-ሰር ማስታወሻ የ Plus ምርቅ ነው — ከፈለጉ በኩል ማስታወሻ ይሠራል።"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 640,
+      "key": "customers.mark-fully-paid",
+      "kind": "plain",
+      "en": "Mark Fully Paid",
+      "am": "ሙሉ ይከፍሉ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 665,
+      "key": "customers.promise-2",
+      "kind": "plain",
+      "en": "Promise",
+      "am": "ቃል የተገባ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 687,
+      "key": "customers.call",
+      "kind": "plain",
+      "en": "Call",
+      "am": "ለመደወል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 720,
+      "key": "customers.more-actions",
+      "kind": "plain",
+      "en": "More actions",
+      "am": "ተጨማሪ እርምጃዎች"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 736,
+      "key": "customers.more",
+      "kind": "plain",
+      "en": "More",
+      "am": "ተጨማሪ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 757,
+      "key": "customers.missed-promise-due",
+      "kind": "format",
+      "enParts": [
+        "Missed promise — due ",
+        ""
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "የጠበቀው ቀን አልፏል — ",
+        ""
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 759,
+      "key": "customers.promised-to-pay-today",
+      "kind": "plain",
+      "en": "Promised to pay today",
+      "am": "ዛሬ ይከፍላል ብሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 760,
+      "key": "customers.promised-to-pay-by",
+      "kind": "format",
+      "enParts": [
+        "Promised to pay by ",
+        ""
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "እስከ ",
+        " ይከፍላል ብሏል"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 763,
+      "key": "customers.clear",
+      "kind": "plain",
+      "en": "Clear",
+      "am": "አስወግድ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 795,
+      "key": "customers.timeline",
+      "kind": "plain",
+      "en": "Timeline",
+      "am": "ታሪክ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 796,
+      "key": "customers.promises",
+      "kind": "plain",
+      "en": "Promises",
+      "am": "ቃል የተገባ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 797,
+      "key": "customers.notes",
+      "kind": "plain",
+      "en": "Notes",
+      "am": "ማስታወሻዎች"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 839,
+      "key": "customers.follow-up",
+      "kind": "plain",
+      "en": "Follow-up",
+      "am": "ተከታተል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 863,
+      "key": "customers.missed-promise-was-due",
+      "kind": "format",
+      "enParts": [
+        "Missed promise — was due ",
+        ""
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "የጠበቀው ቀን አልፏል — ",
+        ""
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 867,
+      "key": "customers.promised-to-pay-today",
+      "kind": "plain",
+      "en": "Promised to pay today",
+      "am": "ዛሬ ይከፍላል ብሏል"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 868,
+      "key": "customers.promised-to-pay-by",
+      "kind": "format",
+      "enParts": [
+        "Promised to pay by ",
+        ""
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "እስከ ",
+        " ይከፍላል ብሏል"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 886,
+      "key": "customers.clear",
+      "kind": "plain",
+      "en": "Clear",
+      "am": "አስወግድ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 899,
+      "key": "customers.record-a-promise",
+      "kind": "plain",
+      "en": "Record a Promise",
+      "am": "ቃል የተገባ ይመዝግቡ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 915,
+      "key": "customers.record-promise-to-pay",
+      "kind": "plain",
+      "en": "Record Promise to Pay",
+      "am": "ቃል የተገባ ይመዝግቡ"
+    },
+    {
+      "file": "src/components/CustomerDetail.jsx",
+      "line": 938,
+      "key": "customers.amount-optional",
+      "kind": "plain",
+      "en": "Amount (optional)",
+      "am": "መጠን (ምርጫ)"
     },
     {
       "file": "src/components/CustomerDetail.jsx",
@@ -1829,374 +2197,6 @@
       "am": "ሙሉ በሙሉ ተከፍሏል!"
     },
     {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 294,
-      "key": "customers.back-customers",
-      "kind": "plain",
-      "en": "Back · Customers",
-      "am": "ተመለስ · ደንበኞች"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 317,
-      "key": "customers.settled",
-      "kind": "plain",
-      "en": "SETTLED",
-      "am": "ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 328,
-      "key": "customers.promise",
-      "kind": "plain",
-      "en": "PROMISE",
-      "am": "ተስፋ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 397,
-      "key": "customers.no-phone-or-telegram",
-      "kind": "plain",
-      "en": "No phone or Telegram",
-      "am": "ስልክ ወይም ቴሌግራም የለም"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 409,
-      "key": "customers.edit-customer",
-      "kind": "plain",
-      "en": "Edit customer",
-      "am": "አስተካክል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 472,
-      "key": "customers.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 480,
-      "key": "customers.settled-2",
-      "kind": "plain",
-      "en": "Settled",
-      "am": "ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 483,
-      "key": "customers.due",
-      "kind": "plain",
-      "en": "Due",
-      "am": "የሚከፍለው"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 512,
-      "key": "customers.settled-2",
-      "kind": "plain",
-      "en": "Settled",
-      "am": "ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 513,
-      "key": "customers.you-are-owed",
-      "kind": "plain",
-      "en": "You are owed",
-      "am": "ለእኔ ይከፍላሉ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 526,
-      "key": "customers.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 538,
-      "key": "customers.paid",
-      "kind": "plain",
-      "en": "Paid",
-      "am": "ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 553,
-      "key": "customers.settled-2",
-      "kind": "plain",
-      "en": "Settled",
-      "am": "ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 554,
-      "key": "customers.you-are-owed",
-      "kind": "plain",
-      "en": "You are owed",
-      "am": "ለእኔ ይከፍላሉ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 566,
-      "key": "customers.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 576,
-      "key": "customers.entries",
-      "kind": "plain",
-      "en": "entries",
-      "am": "መዝገብ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 582,
-      "key": "customers.avg-pay",
-      "kind": "plain",
-      "en": "Avg pay",
-      "am": "አማካይ ክፍያ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 598,
-      "key": "customers.balance-fully-paid",
-      "kind": "plain",
-      "en": "Balance Fully Paid",
-      "am": "ሙሉ ተከፍሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 611,
-      "key": "customers.automated-reminders-are-a-plus-feature-on",
-      "kind": "plain",
-      "en": "Automated reminders are a Plus feature — on-demand reminders still work.",
-      "am": "ራስ-ሰር ማስታወሻ የ Plus ምርቅ ነው — ከፈለጉ በኩል ማስታወሻ ይሠራል።"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 640,
-      "key": "customers.mark-fully-paid",
-      "kind": "plain",
-      "en": "Mark Fully Paid",
-      "am": "ሙሉ ይከፍሉ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 665,
-      "key": "customers.promise-2",
-      "kind": "plain",
-      "en": "Promise",
-      "am": "ቃል የተገባ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 687,
-      "key": "customers.call",
-      "kind": "plain",
-      "en": "Call",
-      "am": "ለመደወል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 720,
-      "key": "customers.more-actions",
-      "kind": "plain",
-      "en": "More actions",
-      "am": "ተጨማሪ እርምጃዎች"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 736,
-      "key": "customers.more",
-      "kind": "plain",
-      "en": "More",
-      "am": "ተጨማሪ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 757,
-      "key": "customers.missed-promise-due",
-      "kind": "format",
-      "enParts": [
-        "Missed promise — due ",
-        ""
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "የጠበቀው ቀን አልፏል — ",
-        ""
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 759,
-      "key": "customers.promised-to-pay-today",
-      "kind": "plain",
-      "en": "Promised to pay today",
-      "am": "ዛሬ ይከፍላል ብሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 760,
-      "key": "customers.promised-to-pay-by",
-      "kind": "format",
-      "enParts": [
-        "Promised to pay by ",
-        ""
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "እስከ ",
-        " ይከፍላል ብሏል"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 763,
-      "key": "customers.clear",
-      "kind": "plain",
-      "en": "Clear",
-      "am": "አስወግድ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 795,
-      "key": "customers.timeline",
-      "kind": "plain",
-      "en": "Timeline",
-      "am": "ታሪክ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 796,
-      "key": "customers.promises",
-      "kind": "plain",
-      "en": "Promises",
-      "am": "ቃል የተገባ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 797,
-      "key": "customers.notes",
-      "kind": "plain",
-      "en": "Notes",
-      "am": "ማስታወሻዎች"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 839,
-      "key": "customers.follow-up",
-      "kind": "plain",
-      "en": "Follow-up",
-      "am": "ተከታተል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 863,
-      "key": "customers.missed-promise-was-due",
-      "kind": "format",
-      "enParts": [
-        "Missed promise — was due ",
-        ""
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "የጠበቀው ቀን አልፏል — ",
-        ""
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 867,
-      "key": "customers.promised-to-pay-today",
-      "kind": "plain",
-      "en": "Promised to pay today",
-      "am": "ዛሬ ይከፍላል ብሏል"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 868,
-      "key": "customers.promised-to-pay-by",
-      "kind": "format",
-      "enParts": [
-        "Promised to pay by ",
-        ""
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "እስከ ",
-        " ይከፍላል ብሏል"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 886,
-      "key": "customers.clear",
-      "kind": "plain",
-      "en": "Clear",
-      "am": "አስወግድ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 899,
-      "key": "customers.record-a-promise",
-      "kind": "plain",
-      "en": "Record a Promise",
-      "am": "ቃል የተገባ ይመዝግቡ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 915,
-      "key": "customers.record-promise-to-pay",
-      "kind": "plain",
-      "en": "Record Promise to Pay",
-      "am": "ቃል የተገባ ይመዝግቡ"
-    },
-    {
-      "file": "src/components/CustomerDetail.jsx",
-      "line": 938,
-      "key": "customers.amount-optional",
-      "kind": "plain",
-      "en": "Amount (optional)",
-      "am": "መጠን (ምርጫ)"
-    },
-    {
       "file": "src/components/CustomerForm.jsx",
       "line": 105,
       "key": "customers.edit-customer-2",
@@ -2374,59 +2374,11 @@
     },
     {
       "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 107,
-      "key": "credit.reminder-history",
-      "kind": "plain",
-      "en": "Reminder history",
-      "am": "የማስታወሻ ታሪክ"
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 158,
-      "key": "credit.error",
-      "kind": "plain",
-      "en": "Error: ",
-      "am": "ስህተት፦ "
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 163,
-      "key": "credit.retry",
-      "kind": "plain",
-      "en": "Retry",
-      "am": "እንደገና ሞክር"
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 171,
-      "key": "credit.no-reminder-history",
-      "kind": "plain",
-      "en": "No reminder history",
-      "am": "ምንም ማስታወሻ ታሪክ የለም"
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 198,
-      "key": "credit.error",
-      "kind": "plain",
-      "en": "Error: ",
-      "am": "ስህተት፦ "
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
       "line": 23,
       "key": "credit.en-us",
       "kind": "plain",
       "en": "en-US",
       "am": "am-ET"
-    },
-    {
-      "file": "src/components/CustomerReminderHistory.jsx",
-      "line": 238,
-      "key": "credit.send-reminder",
-      "kind": "plain",
-      "en": "Send reminder",
-      "am": "ማስታወሻ ላክ"
     },
     {
       "file": "src/components/CustomerReminderHistory.jsx",
@@ -2479,6 +2431,54 @@
       ],
       "enArgs": 3,
       "amArgs": 4
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 107,
+      "key": "credit.reminder-history",
+      "kind": "plain",
+      "en": "Reminder history",
+      "am": "የማስታወሻ ታሪክ"
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 158,
+      "key": "credit.error",
+      "kind": "plain",
+      "en": "Error: ",
+      "am": "ስህተት፦ "
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 163,
+      "key": "credit.retry",
+      "kind": "plain",
+      "en": "Retry",
+      "am": "እንደገና ሞክር"
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 171,
+      "key": "credit.no-reminder-history",
+      "kind": "plain",
+      "en": "No reminder history",
+      "am": "ምንም ማስታወሻ ታሪክ የለም"
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 198,
+      "key": "credit.error",
+      "kind": "plain",
+      "en": "Error: ",
+      "am": "ስህተት፦ "
+    },
+    {
+      "file": "src/components/CustomerReminderHistory.jsx",
+      "line": 238,
+      "key": "credit.send-reminder",
+      "kind": "plain",
+      "en": "Send reminder",
+      "am": "ማስታወሻ ላክ"
     },
     {
       "file": "src/components/CustomerTelegramConnectSheet.jsx",
@@ -3280,46 +3280,6 @@
     },
     {
       "file": "src/components/MembersPanel.jsx",
-      "line": 102,
-      "key": "staff.add-member",
-      "kind": "plain",
-      "en": "Add member",
-      "am": "ጨምር"
-    },
-    {
-      "file": "src/components/MembersPanel.jsx",
-      "line": 114,
-      "key": "staff.team-members",
-      "kind": "plain",
-      "en": "Team members",
-      "am": "የቡድን አባላት"
-    },
-    {
-      "file": "src/components/MembersPanel.jsx",
-      "line": 123,
-      "key": "staff.no-members-yet",
-      "kind": "plain",
-      "en": "No members yet",
-      "am": "አባላት የሉም ገና"
-    },
-    {
-      "file": "src/components/MembersPanel.jsx",
-      "line": 132,
-      "key": "staff.added",
-      "kind": "plain",
-      "en": "added",
-      "am": "ተጨምራል"
-    },
-    {
-      "file": "src/components/MembersPanel.jsx",
-      "line": 140,
-      "key": "staff.remove",
-      "kind": "plain",
-      "en": "Remove",
-      "am": "አስወግድ"
-    },
-    {
-      "file": "src/components/MembersPanel.jsx",
       "line": 41,
       "key": "staff.member-added",
       "kind": "plain",
@@ -3389,6 +3349,46 @@
       "am": "ማስታወሻ (አማራጭ)"
     },
     {
+      "file": "src/components/MembersPanel.jsx",
+      "line": 102,
+      "key": "staff.add-member",
+      "kind": "plain",
+      "en": "Add member",
+      "am": "ጨምር"
+    },
+    {
+      "file": "src/components/MembersPanel.jsx",
+      "line": 114,
+      "key": "staff.team-members",
+      "kind": "plain",
+      "en": "Team members",
+      "am": "የቡድን አባላት"
+    },
+    {
+      "file": "src/components/MembersPanel.jsx",
+      "line": 123,
+      "key": "staff.no-members-yet",
+      "kind": "plain",
+      "en": "No members yet",
+      "am": "አባላት የሉም ገና"
+    },
+    {
+      "file": "src/components/MembersPanel.jsx",
+      "line": 132,
+      "key": "staff.added",
+      "kind": "plain",
+      "en": "added",
+      "am": "ተጨምራል"
+    },
+    {
+      "file": "src/components/MembersPanel.jsx",
+      "line": 140,
+      "key": "staff.remove",
+      "kind": "plain",
+      "en": "Remove",
+      "am": "አስወግድ"
+    },
+    {
       "file": "src/components/MoneyFlowBar.jsx",
       "line": 27,
       "key": "today.cash",
@@ -3444,6 +3444,88 @@
     },
     {
       "file": "src/components/NotificationPanel.jsx",
+      "line": 22,
+      "key": "common.just-now",
+      "kind": "plain",
+      "en": "Just now",
+      "am": "አሁን"
+    },
+    {
+      "file": "src/components/NotificationPanel.jsx",
+      "line": 23,
+      "key": "common.m-ago",
+      "kind": "format",
+      "enParts": [
+        "",
+        "m ago"
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "ከ ",
+        " ደቂቃ በፊት"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/NotificationPanel.jsx",
+      "line": 25,
+      "key": "common.h-ago",
+      "kind": "format",
+      "enParts": [
+        "",
+        "h ago"
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "ከ ",
+        " ሰዓት በፊት"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/NotificationPanel.jsx",
+      "line": 27,
+      "key": "common.d-ago",
+      "kind": "format",
+      "enParts": [
+        "",
+        "d ago"
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "ከ ",
+        " ቀን በፊት"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/NotificationPanel.jsx",
+      "line": 28,
+      "key": "common.en-us",
+      "kind": "plain",
+      "en": "en-US",
+      "am": "am-ET"
+    },
+    {
+      "file": "src/components/NotificationPanel.jsx",
       "line": 171,
       "key": "common.today",
       "kind": "plain",
@@ -3492,41 +3574,11 @@
     },
     {
       "file": "src/components/NotificationPanel.jsx",
-      "line": 22,
-      "key": "common.just-now",
-      "kind": "plain",
-      "en": "Just now",
-      "am": "አሁን"
-    },
-    {
-      "file": "src/components/NotificationPanel.jsx",
       "line": 221,
       "key": "common.close",
       "kind": "plain",
       "en": "Close",
       "am": "ዝጋ"
-    },
-    {
-      "file": "src/components/NotificationPanel.jsx",
-      "line": 23,
-      "key": "common.m-ago",
-      "kind": "format",
-      "enParts": [
-        "",
-        "m ago"
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "ከ ",
-        " ደቂቃ በፊት"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
     },
     {
       "file": "src/components/NotificationPanel.jsx",
@@ -3554,55 +3606,11 @@
     },
     {
       "file": "src/components/NotificationPanel.jsx",
-      "line": 25,
-      "key": "common.h-ago",
-      "kind": "format",
-      "enParts": [
-        "",
-        "h ago"
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "ከ ",
-        " ሰዓት በፊት"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/NotificationPanel.jsx",
       "line": 256,
       "key": "common.no-thanks",
       "kind": "plain",
       "en": "No thanks",
       "am": "አይፈልግም"
-    },
-    {
-      "file": "src/components/NotificationPanel.jsx",
-      "line": 27,
-      "key": "common.d-ago",
-      "kind": "format",
-      "enParts": [
-        "",
-        "d ago"
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "ከ ",
-        " ቀን በፊት"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
     },
     {
       "file": "src/components/NotificationPanel.jsx",
@@ -3622,27 +3630,11 @@
     },
     {
       "file": "src/components/NotificationPanel.jsx",
-      "line": 28,
-      "key": "common.en-us",
-      "kind": "plain",
-      "en": "en-US",
-      "am": "am-ET"
-    },
-    {
-      "file": "src/components/NotificationPanel.jsx",
       "line": 324,
       "key": "common.birr",
       "kind": "plain",
       "en": "birr",
       "am": "ብር"
-    },
-    {
-      "file": "src/components/OfflineStatusStrip.jsx",
-      "line": 100,
-      "key": "sync.sync-conflict",
-      "kind": "plain",
-      "en": "Sync conflict",
-      "am": "ሁከት ተፈጠረ"
     },
     {
       "file": "src/components/OfflineStatusStrip.jsx",
@@ -3757,6 +3749,22 @@
       "am": "ያለ ኢንተርኔት ይሰራል"
     },
     {
+      "file": "src/components/OfflineStatusStrip.jsx",
+      "line": 100,
+      "key": "sync.sync-conflict",
+      "kind": "plain",
+      "en": "Sync conflict",
+      "am": "ሁከት ተፈጠረ"
+    },
+    {
+      "file": "src/components/OnboardingScreen.jsx",
+      "line": 45,
+      "key": "onboarding.two-ways-to-use-gebya",
+      "kind": "plain",
+      "en": "Two ways to use Gebya",
+      "am": "ገበያን ለመጠቀም ሁለት መንገዶች"
+    },
+    {
       "file": "src/components/OnboardingScreen.jsx",
       "line": 189,
       "key": "onboarding.saved-on-this-phone-connect-to-internet-to",
@@ -3853,14 +3861,6 @@
       "am": "ጀምር"
     },
     {
-      "file": "src/components/OnboardingScreen.jsx",
-      "line": 45,
-      "key": "onboarding.two-ways-to-use-gebya",
-      "kind": "plain",
-      "en": "Two ways to use Gebya",
-      "am": "ገበያን ለመጠቀም ሁለት መንገዶች"
-    },
-    {
       "file": "src/components/OverdueCustomerFlags.jsx",
       "line": 48,
       "key": "credit.overdue-customers",
@@ -3883,6 +3883,94 @@
       "kind": "plain",
       "en": "more",
       "am": "የሚግንሳ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 27,
+      "key": "admin.yesterday",
+      "kind": "plain",
+      "en": "Yesterday ",
+      "am": "ትላንትና "
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 28,
+      "key": "admin.en-us",
+      "kind": "plain",
+      "en": "en-US",
+      "am": "am-ET"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 35,
+      "key": "admin.today",
+      "kind": "plain",
+      "en": "Today",
+      "am": "ዛሬ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 37,
+      "key": "admin.yesterday-2",
+      "kind": "plain",
+      "en": "Yesterday",
+      "am": "ትላንትና"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 63,
+      "key": "admin.sale-expense",
+      "kind": "plain",
+      "en": "sale/expense",
+      "am": "ሽያጭ/ወጪ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 64,
+      "key": "admin.customer",
+      "kind": "plain",
+      "en": "customer",
+      "am": "ደንበኛ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 65,
+      "key": "admin.customer-ledger",
+      "kind": "plain",
+      "en": "customer ledger",
+      "am": "የደንበኛ ሂሳብ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 66,
+      "key": "admin.supplier",
+      "kind": "plain",
+      "en": "supplier",
+      "am": "አቅራቢ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 67,
+      "key": "admin.supplier-ledger",
+      "kind": "plain",
+      "en": "supplier ledger",
+      "am": "የአቅራቢ ሂሳብ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 68,
+      "key": "admin.staff-2",
+      "kind": "plain",
+      "en": "staff",
+      "am": "ሰራተኛ"
+    },
+    {
+      "file": "src/components/OwnerActivityDashboard.jsx",
+      "line": 89,
+      "key": "admin.conflicts",
+      "kind": "plain",
+      "en": "Conflicts",
+      "am": "የሁከት ሪኮርዶች"
     },
     {
       "file": "src/components/OwnerActivityDashboard.jsx",
@@ -3942,14 +4030,6 @@
     },
     {
       "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 27,
-      "key": "admin.yesterday",
-      "kind": "plain",
-      "en": "Yesterday ",
-      "am": "ትላንትና "
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
       "line": 272,
       "key": "admin.total",
       "kind": "plain",
@@ -3971,14 +4051,6 @@
       "kind": "plain",
       "en": "No performance data yet",
       "am": "ምንም እንቅስቃሴ አልተመዘገበም"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 28,
-      "key": "admin.en-us",
-      "kind": "plain",
-      "en": "en-US",
-      "am": "am-ET"
     },
     {
       "file": "src/components/OwnerActivityDashboard.jsx",
@@ -4054,14 +4126,6 @@
     },
     {
       "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 35,
-      "key": "admin.today",
-      "kind": "plain",
-      "en": "Today",
-      "am": "ዛሬ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
       "line": 364,
       "key": "admin.filters",
       "kind": "plain",
@@ -4075,14 +4139,6 @@
       "kind": "plain",
       "en": "All staff",
       "am": "ሁሉም ሰራተኞች"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 37,
-      "key": "admin.yesterday-2",
-      "kind": "plain",
-      "en": "Yesterday",
-      "am": "ትላንትና"
     },
     {
       "file": "src/components/OwnerActivityDashboard.jsx",
@@ -4171,62 +4227,6 @@
       "kind": "plain",
       "en": "birr",
       "am": "ብር"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 63,
-      "key": "admin.sale-expense",
-      "kind": "plain",
-      "en": "sale/expense",
-      "am": "ሽያጭ/ወጪ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 64,
-      "key": "admin.customer",
-      "kind": "plain",
-      "en": "customer",
-      "am": "ደንበኛ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 65,
-      "key": "admin.customer-ledger",
-      "kind": "plain",
-      "en": "customer ledger",
-      "am": "የደንበኛ ሂሳብ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 66,
-      "key": "admin.supplier",
-      "kind": "plain",
-      "en": "supplier",
-      "am": "አቅራቢ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 67,
-      "key": "admin.supplier-ledger",
-      "kind": "plain",
-      "en": "supplier ledger",
-      "am": "የአቅራቢ ሂሳብ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 68,
-      "key": "admin.staff-2",
-      "kind": "plain",
-      "en": "staff",
-      "am": "ሰራተኛ"
-    },
-    {
-      "file": "src/components/OwnerActivityDashboard.jsx",
-      "line": 89,
-      "key": "admin.conflicts",
-      "kind": "plain",
-      "en": "Conflicts",
-      "am": "የሁከት ሪኮርዶች"
     },
     {
       "file": "src/components/PartialPaymentSheet.jsx",
@@ -4429,6 +4429,14 @@
       "am": "ከፊል ክፍያ አስቀምጥ"
     },
     {
+      "file": "src/components/PayPage.jsx",
+      "line": 474,
+      "key": "common.shop-has-been-notified-your-balance-will",
+      "kind": "plain",
+      "en": "Shop has been notified. Your balance will update once confirmed.",
+      "am": "ሱቁ ተነገረ። ቀሪ ሂሳብዎ ሲረጋገጥ ይዘምናል።"
+    },
+    {
       "file": "src/components/PeriodInsights.jsx",
       "line": 103,
       "key": "today.top-sellers",
@@ -4467,6 +4475,38 @@
       "kind": "plain",
       "en": "Next photo",
       "am": "ቀጣዩ ፎቶ"
+    },
+    {
+      "file": "src/components/ProfitCard.jsx",
+      "line": 75,
+      "key": "today.today-net",
+      "kind": "plain",
+      "en": "TODAY · NET",
+      "am": "ዛሬ · ቀሪ"
+    },
+    {
+      "file": "src/components/ProfitCard.jsx",
+      "line": 78,
+      "key": "today.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/ProfitCard.jsx",
+      "line": 88,
+      "key": "today.toggle-privacy",
+      "kind": "plain",
+      "en": "Toggle privacy",
+      "am": "ቁጥሮችን ደብቅ/አሳይ"
+    },
+    {
+      "file": "src/components/ProfitCard.jsx",
+      "line": 96,
+      "key": "today.show-details",
+      "kind": "plain",
+      "en": "Show details",
+      "am": "ዝርዝር አሳይ"
     },
     {
       "file": "src/components/ProfitCard.jsx",
@@ -4541,44 +4581,20 @@
       "am": "በዚህ ስልክ ብቻ ይቀመጣል። ለማንም አንልክም።"
     },
     {
-      "file": "src/components/ProfitCard.jsx",
-      "line": 75,
-      "key": "today.today-net",
-      "kind": "plain",
-      "en": "TODAY · NET",
-      "am": "ዛሬ · ቀሪ"
-    },
-    {
-      "file": "src/components/ProfitCard.jsx",
-      "line": 78,
-      "key": "today.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/ProfitCard.jsx",
-      "line": 88,
-      "key": "today.toggle-privacy",
-      "kind": "plain",
-      "en": "Toggle privacy",
-      "am": "ቁጥሮችን ደብቅ/አሳይ"
-    },
-    {
-      "file": "src/components/ProfitCard.jsx",
-      "line": 96,
-      "key": "today.show-details",
-      "kind": "plain",
-      "en": "Show details",
-      "am": "ዝርዝር አሳይ"
-    },
-    {
       "file": "src/components/PwaInstallPanel.jsx",
       "line": 133,
       "key": "pwa.gebya-is-installed-on-this-device",
       "kind": "plain",
       "en": "Gebya is installed on this device",
       "am": "ገበያ በስልክዎ ላይ ተጭኗል"
+    },
+    {
+      "file": "src/components/ReminderSheet.jsx",
+      "line": 80,
+      "key": "credit.en",
+      "kind": "plain",
+      "en": "en",
+      "am": "am"
     },
     {
       "file": "src/components/ReminderSheet.jsx",
@@ -4691,14 +4707,6 @@
       "kind": "plain",
       "en": "Send reminder",
       "am": "ላክ"
-    },
-    {
-      "file": "src/components/ReminderSheet.jsx",
-      "line": 80,
-      "key": "credit.en",
-      "kind": "plain",
-      "en": "en",
-      "am": "am"
     },
     {
       "file": "src/components/ReportView.jsx",
@@ -5308,6 +5316,30 @@
     },
     {
       "file": "src/components/SettingsPage.jsx",
+      "line": 55,
+      "key": "nav.owner",
+      "kind": "plain",
+      "en": "Owner",
+      "am": "ባለቤት"
+    },
+    {
+      "file": "src/components/SettingsPage.jsx",
+      "line": 56,
+      "key": "nav.manager",
+      "kind": "plain",
+      "en": "Manager",
+      "am": "ሥራ አስኪያጅ"
+    },
+    {
+      "file": "src/components/SettingsPage.jsx",
+      "line": 57,
+      "key": "nav.staff",
+      "kind": "plain",
+      "en": "Staff",
+      "am": "ሰራተኛ"
+    },
+    {
+      "file": "src/components/SettingsPage.jsx",
       "line": 121,
       "key": "nav.enable-dev-mode-this-reveals-shop-level",
       "kind": "plain",
@@ -5369,30 +5401,6 @@
       "kind": "plain",
       "en": "more taps",
       "am": "ተጨማሪ መታ"
-    },
-    {
-      "file": "src/components/SettingsPage.jsx",
-      "line": 55,
-      "key": "nav.owner",
-      "kind": "plain",
-      "en": "Owner",
-      "am": "ባለቤት"
-    },
-    {
-      "file": "src/components/SettingsPage.jsx",
-      "line": 56,
-      "key": "nav.manager",
-      "kind": "plain",
-      "en": "Manager",
-      "am": "ሥራ አስኪያጅ"
-    },
-    {
-      "file": "src/components/SettingsPage.jsx",
-      "line": 57,
-      "key": "nav.staff",
-      "kind": "plain",
-      "en": "Staff",
-      "am": "ሰራተኛ"
     },
     {
       "file": "src/components/SupplierDetail.jsx",
@@ -5556,6 +5564,30 @@
     },
     {
       "file": "src/components/SupplierForm.jsx",
+      "line": 83,
+      "key": "suppliers.edit-supplier-2",
+      "kind": "plain",
+      "en": "Edit supplier",
+      "am": "አቅራቢ አስተካክል"
+    },
+    {
+      "file": "src/components/SupplierForm.jsx",
+      "line": 84,
+      "key": "suppliers.add-supplier",
+      "kind": "plain",
+      "en": "Add supplier",
+      "am": "አቅራቢ አክል"
+    },
+    {
+      "file": "src/components/SupplierForm.jsx",
+      "line": 87,
+      "key": "suppliers.someone-you-buy-from-on-credit",
+      "kind": "plain",
+      "en": "Someone you buy from on credit",
+      "am": "የምትገዙበት ሰው"
+    },
+    {
+      "file": "src/components/SupplierForm.jsx",
       "line": 143,
       "key": "suppliers.take-a-photo-optional",
       "kind": "plain",
@@ -5695,30 +5727,6 @@
       "kind": "plain",
       "en": "Save supplier",
       "am": "አስቀምጥ"
-    },
-    {
-      "file": "src/components/SupplierForm.jsx",
-      "line": 83,
-      "key": "suppliers.edit-supplier-2",
-      "kind": "plain",
-      "en": "Edit supplier",
-      "am": "አቅራቢ አስተካክል"
-    },
-    {
-      "file": "src/components/SupplierForm.jsx",
-      "line": 84,
-      "key": "suppliers.add-supplier",
-      "kind": "plain",
-      "en": "Add supplier",
-      "am": "አቅራቢ አክል"
-    },
-    {
-      "file": "src/components/SupplierForm.jsx",
-      "line": 87,
-      "key": "suppliers.someone-you-buy-from-on-credit",
-      "kind": "plain",
-      "en": "Someone you buy from on credit",
-      "am": "የምትገዙበት ሰው"
     },
     {
       "file": "src/components/SupplierTransactionSheet.jsx",
@@ -5976,6 +5984,14 @@
     },
     {
       "file": "src/components/SyncStatusIndicator.jsx",
+      "line": 63,
+      "key": "sync.no-auth-token-manual-sync-will-not-upload",
+      "kind": "plain",
+      "en": "No auth token. Manual sync will not upload data.",
+      "am": "የሂለው መረጃ ይስጠው አለህ። ከዚህ ማስተካከያ ይቀኝባታ።"
+    },
+    {
+      "file": "src/components/SyncStatusIndicator.jsx",
       "line": 123,
       "key": "sync.just-now",
       "kind": "plain",
@@ -6087,22 +6103,6 @@
       "am": "ማስተካከያ"
     },
     {
-      "file": "src/components/SyncStatusIndicator.jsx",
-      "line": 63,
-      "key": "sync.no-auth-token-manual-sync-will-not-upload",
-      "kind": "plain",
-      "en": "No auth token. Manual sync will not upload data.",
-      "am": "የሂለው መረጃ ይስጠው አለህ። ከዚህ ማስተካከያ ይቀኝባታ።"
-    },
-    {
-      "file": "src/components/TimelineView.jsx",
-      "line": 127,
-      "key": "history.record",
-      "kind": "plain",
-      "en": "Record",
-      "am": "መዝገብ"
-    },
-    {
       "file": "src/components/TimelineView.jsx",
       "line": 23,
       "key": "history.all",
@@ -6175,76 +6175,12 @@
       "am": "ምንም እንቅስቃሴ የለም"
     },
     {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 100,
-      "key": "today.received-bank-wallet",
+      "file": "src/components/TimelineView.jsx",
+      "line": 127,
+      "key": "history.record",
       "kind": "plain",
-      "en": "📱 Received · bank/wallet",
-      "am": "📱 በባንክ/ዋሌት የተቀበለ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 101,
-      "key": "today.still-owed-dubie",
-      "kind": "plain",
-      "en": "↩ Still owed (Dubie)",
-      "am": "↩ ገና ያልተከፈለ (ዱቤ)"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 105,
-      "key": "today.cash-you-should-have",
-      "kind": "plain",
-      "en": "💵 Cash you should have",
-      "am": "💵 ሊኖርህ የሚገባ ገንዘብ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 108,
-      "key": "today.cash-in-hand",
-      "kind": "plain",
-      "en": "↓ Cash in hand",
-      "am": "↓ በእጅህ ያለ ገንዘብ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 110,
-      "key": "today.difference",
-      "kind": "plain",
-      "en": "📊 Difference",
-      "am": "📊 ልዩነት"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 122,
-      "key": "today.cash-i-counted",
-      "kind": "plain",
-      "en": "Cash I counted",
-      "am": "የቆጠርኩት ጥሬ ገንዘብ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 123,
-      "key": "today.cash-in-hand-2",
-      "kind": "plain",
-      "en": "Cash in hand",
-      "am": "በእጅህ ያለ ገንዘብ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 150,
-      "key": "today.check",
-      "kind": "plain",
-      "en": "Check",
-      "am": "አረጋግጥ"
-    },
-    {
-      "file": "src/components/TodayBusiness.jsx",
-      "line": 151,
-      "key": "today.close",
-      "kind": "plain",
-      "en": "Close",
-      "am": "ዝጋ"
+      "en": "Record",
+      "am": "መዝገብ"
     },
     {
       "file": "src/components/TodayBusiness.jsx",
@@ -6325,6 +6261,78 @@
       "am": "💵 በጥሬ የተቀበለ"
     },
     {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 100,
+      "key": "today.received-bank-wallet",
+      "kind": "plain",
+      "en": "📱 Received · bank/wallet",
+      "am": "📱 በባንክ/ዋሌት የተቀበለ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 101,
+      "key": "today.still-owed-dubie",
+      "kind": "plain",
+      "en": "↩ Still owed (Dubie)",
+      "am": "↩ ገና ያልተከፈለ (ዱቤ)"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 105,
+      "key": "today.cash-you-should-have",
+      "kind": "plain",
+      "en": "💵 Cash you should have",
+      "am": "💵 ሊኖርህ የሚገባ ገንዘብ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 108,
+      "key": "today.cash-in-hand",
+      "kind": "plain",
+      "en": "↓ Cash in hand",
+      "am": "↓ በእጅህ ያለ ገንዘብ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 110,
+      "key": "today.difference",
+      "kind": "plain",
+      "en": "📊 Difference",
+      "am": "📊 ልዩነት"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 122,
+      "key": "today.cash-i-counted",
+      "kind": "plain",
+      "en": "Cash I counted",
+      "am": "የቆጠርኩት ጥሬ ገንዘብ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 123,
+      "key": "today.cash-in-hand-2",
+      "kind": "plain",
+      "en": "Cash in hand",
+      "am": "በእጅህ ያለ ገንዘብ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 150,
+      "key": "today.check",
+      "kind": "plain",
+      "en": "Check",
+      "am": "አረጋግጥ"
+    },
+    {
+      "file": "src/components/TodayBusiness.jsx",
+      "line": 151,
+      "key": "today.close",
+      "kind": "plain",
+      "en": "Close",
+      "am": "ዝጋ"
+    },
+    {
       "file": "src/components/TodayTab.jsx",
       "line": 125,
       "key": "today.entries",
@@ -6355,6 +6363,30 @@
       "kind": "plain",
       "en": "Tap above to start",
       "am": "ለመጀመር ከላይ ይጫኑ"
+    },
+    {
+      "file": "src/components/TransactionDetailSheet.jsx",
+      "line": 48,
+      "key": "sales.payment",
+      "kind": "plain",
+      "en": "PAYMENT",
+      "am": "ክፍያ"
+    },
+    {
+      "file": "src/components/TransactionDetailSheet.jsx",
+      "line": 49,
+      "key": "sales.credit",
+      "kind": "plain",
+      "en": "CREDIT",
+      "am": "ዱቤ"
+    },
+    {
+      "file": "src/components/TransactionDetailSheet.jsx",
+      "line": 86,
+      "key": "sales.transaction-detail",
+      "kind": "plain",
+      "en": "Transaction Detail",
+      "am": "የግብይት ዝርዝር"
     },
     {
       "file": "src/components/TransactionDetailSheet.jsx",
@@ -6501,28 +6533,100 @@
       "am": "አይስረዝም"
     },
     {
-      "file": "src/components/TransactionDetailSheet.jsx",
-      "line": 48,
-      "key": "sales.payment",
+      "file": "src/components/TransactionForm.jsx",
+      "line": 69,
+      "key": "sales.sale",
       "kind": "plain",
-      "en": "PAYMENT",
-      "am": "ክፍያ"
+      "en": "+ Sale",
+      "am": "+ ሽያጭ"
     },
     {
-      "file": "src/components/TransactionDetailSheet.jsx",
-      "line": 49,
-      "key": "sales.credit",
+      "file": "src/components/TransactionForm.jsx",
+      "line": 70,
+      "key": "sales.expense",
       "kind": "plain",
-      "en": "CREDIT",
-      "am": "ዱቤ"
+      "en": "− Expense",
+      "am": "− ወጪ"
     },
     {
-      "file": "src/components/TransactionDetailSheet.jsx",
+      "file": "src/components/TransactionForm.jsx",
+      "line": 71,
+      "key": "sales.credit-2",
+      "kind": "plain",
+      "en": "↻ Credit",
+      "am": "↻ ዱቤ"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 72,
+      "key": "sales.sale",
+      "kind": "plain",
+      "en": "+ Sale",
+      "am": "+ ሽያጭ"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 84,
+      "key": "sales.e-g-abebe",
+      "kind": "plain",
+      "en": "e.g. Abebe...",
+      "am": "ለምሳሌ አበበ…"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
       "line": 86,
-      "key": "sales.transaction-detail",
+      "key": "sales.add-details",
       "kind": "plain",
-      "en": "Transaction Detail",
-      "am": "የግብይት ዝርዝር"
+      "en": "Add details...",
+      "am": "ዝርዝሩን ይመዝቡ..."
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 87,
+      "key": "sales.add-details",
+      "kind": "plain",
+      "en": "Add details...",
+      "am": "ዝርዝሩን ይመዝቡ..."
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 90,
+      "key": "sales.name",
+      "kind": "plain",
+      "en": "NAME",
+      "am": "ስም"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 91,
+      "key": "sales.item-service-optional",
+      "kind": "plain",
+      "en": "Item / Service (Optional)",
+      "am": "ዕቃ / አገልግሎት (አማራጭ)"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 94,
+      "key": "sales.save-credit",
+      "kind": "plain",
+      "en": "Save Credit",
+      "am": "ዱቤ አስቀምጥ"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 96,
+      "key": "sales.save-expense",
+      "kind": "plain",
+      "en": "Save Expense",
+      "am": "ወጪ አስቀምጥ"
+    },
+    {
+      "file": "src/components/TransactionForm.jsx",
+      "line": 97,
+      "key": "sales.save-sale",
+      "kind": "plain",
+      "en": "Save Sale",
+      "am": "ሽያጭ አስቀምጥ"
     },
     {
       "file": "src/components/TransactionForm.jsx",
@@ -6940,14 +7044,6 @@
     },
     {
       "file": "src/components/TransactionForm.jsx",
-      "line": 69,
-      "key": "sales.sale",
-      "kind": "plain",
-      "en": "+ Sale",
-      "am": "+ ሽያጭ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
       "line": 691,
       "key": "sales.back",
       "kind": "plain",
@@ -6964,27 +7060,11 @@
     },
     {
       "file": "src/components/TransactionForm.jsx",
-      "line": 70,
-      "key": "sales.expense",
-      "kind": "plain",
-      "en": "− Expense",
-      "am": "− ወጪ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
       "line": 708,
       "key": "sales.direction",
       "kind": "plain",
       "en": "DIRECTION",
       "am": "አቅጣጫ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 71,
-      "key": "sales.credit-2",
-      "kind": "plain",
-      "en": "↻ Credit",
-      "am": "↻ ዱቤ"
     },
     {
       "file": "src/components/TransactionForm.jsx",
@@ -7001,14 +7081,6 @@
       "kind": "plain",
       "en": "I owe them",
       "am": "የተበደርኩት"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 72,
-      "key": "sales.sale",
-      "kind": "plain",
-      "en": "+ Sale",
-      "am": "+ ሽያጭ"
     },
     {
       "file": "src/components/TransactionForm.jsx",
@@ -7132,14 +7204,6 @@
     },
     {
       "file": "src/components/TransactionForm.jsx",
-      "line": 84,
-      "key": "sales.e-g-abebe",
-      "kind": "plain",
-      "en": "e.g. Abebe...",
-      "am": "ለምሳሌ አበበ…"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
       "line": 849,
       "key": "sales.phone-optional",
       "kind": "plain",
@@ -7148,27 +7212,11 @@
     },
     {
       "file": "src/components/TransactionForm.jsx",
-      "line": 86,
-      "key": "sales.add-details",
-      "kind": "plain",
-      "en": "Add details...",
-      "am": "ዝርዝሩን ይመዝቡ..."
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
       "line": 864,
       "key": "sales.when-is-it-due",
       "kind": "plain",
       "en": "WHEN IS IT DUE?",
       "am": "መቼ ይከፍላል?"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 87,
-      "key": "sales.add-details",
-      "kind": "plain",
-      "en": "Add details...",
-      "am": "ዝርዝሩን ይመዝቡ..."
     },
     {
       "file": "src/components/TransactionForm.jsx",
@@ -7185,22 +7233,6 @@
       "kind": "plain",
       "en": "Please select a due date",
       "am": "የመክፍያ ቀን ይምረጡ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 90,
-      "key": "sales.name",
-      "kind": "plain",
-      "en": "NAME",
-      "am": "ስም"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 91,
-      "key": "sales.item-service-optional",
-      "kind": "plain",
-      "en": "Item / Service (Optional)",
-      "am": "ዕቃ / አገልግሎት (አማራጭ)"
     },
     {
       "file": "src/components/TransactionForm.jsx",
@@ -7276,14 +7308,6 @@
     },
     {
       "file": "src/components/TransactionForm.jsx",
-      "line": 94,
-      "key": "sales.save-credit",
-      "kind": "plain",
-      "en": "Save Credit",
-      "am": "ዱቤ አስቀምጥ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
       "line": 943,
       "key": "sales.birr",
       "kind": "plain",
@@ -7329,22 +7353,6 @@
       "kind": "plain",
       "en": "Add & Use",
       "am": "አስቀምጥ እና ተጠቀም"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 96,
-      "key": "sales.save-expense",
-      "kind": "plain",
-      "en": "Save Expense",
-      "am": "ወጪ አስቀምጥ"
-    },
-    {
-      "file": "src/components/TransactionForm.jsx",
-      "line": 97,
-      "key": "sales.save-sale",
-      "kind": "plain",
-      "en": "Save Sale",
-      "am": "ሽያጭ አስቀምጥ"
     },
     {
       "file": "src/components/TransactionRow.jsx",
@@ -7399,6 +7407,14 @@
       ],
       "enArgs": 1,
       "amArgs": 1
+    },
+    {
+      "file": "src/components/TransferSheet.jsx",
+      "line": 80,
+      "key": "sales.transfer-credit",
+      "kind": "plain",
+      "en": "Transfer Credit",
+      "am": "ዱቤ ማስተላለፍ"
     },
     {
       "file": "src/components/TransferSheet.jsx",
@@ -7481,54 +7497,6 @@
       "am": "ዱቤ አስተላልፍ"
     },
     {
-      "file": "src/components/TransferSheet.jsx",
-      "line": 80,
-      "key": "sales.transfer-credit",
-      "kind": "plain",
-      "en": "Transfer Credit",
-      "am": "ዱቤ ማስተላለፍ"
-    },
-    {
-      "file": "src/components/TxRow.jsx",
-      "line": 108,
-      "key": "history.discount",
-      "kind": "plain",
-      "en": "Discount",
-      "am": "ቅናሽ"
-    },
-    {
-      "file": "src/components/TxRow.jsx",
-      "line": 109,
-      "key": "history.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/TxRow.jsx",
-      "line": 116,
-      "key": "history.unaccounted",
-      "kind": "plain",
-      "en": "Unaccounted",
-      "am": "ቀሪ"
-    },
-    {
-      "file": "src/components/TxRow.jsx",
-      "line": 116,
-      "key": "history.excess",
-      "kind": "plain",
-      "en": "Excess",
-      "am": "በላይ"
-    },
-    {
-      "file": "src/components/TxRow.jsx",
-      "line": 117,
-      "key": "history.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
       "file": "src/components/TxRow.jsx",
       "line": 25,
       "key": "history.credit-2",
@@ -7595,6 +7563,46 @@
     {
       "file": "src/components/TxRow.jsx",
       "line": 96,
+      "key": "history.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/TxRow.jsx",
+      "line": 108,
+      "key": "history.discount",
+      "kind": "plain",
+      "en": "Discount",
+      "am": "ቅናሽ"
+    },
+    {
+      "file": "src/components/TxRow.jsx",
+      "line": 109,
+      "key": "history.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/TxRow.jsx",
+      "line": 116,
+      "key": "history.unaccounted",
+      "kind": "plain",
+      "en": "Unaccounted",
+      "am": "ቀሪ"
+    },
+    {
+      "file": "src/components/TxRow.jsx",
+      "line": 116,
+      "key": "history.excess",
+      "kind": "plain",
+      "en": "Excess",
+      "am": "በላይ"
+    },
+    {
+      "file": "src/components/TxRow.jsx",
+      "line": 117,
       "key": "history.birr",
       "kind": "plain",
       "en": "birr",
@@ -7866,6 +7874,62 @@
     },
     {
       "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 48,
+      "key": "settings-shop.save-items-you-sell-often-with-their-prices",
+      "kind": "plain",
+      "en": "Save items you sell often with their prices — they autofill when you record a sale.",
+      "am": "በተደጋጋሚ የሚሸጡትን ዕቃዎች ከነ ዋጋቸው ያስቀምጡ — ሽያጭ ሲመዘግቡ በፍጥነት ይመጣሉ።"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 66,
+      "key": "settings-shop.item",
+      "kind": "plain",
+      "en": "📦 Item",
+      "am": "📦 ዕቃ"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 67,
+      "key": "settings-shop.service",
+      "kind": "plain",
+      "en": "🛠 Service",
+      "am": "🛠 አገልግሎት"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 75,
+      "key": "settings-shop.name-e-g-sugar",
+      "kind": "plain",
+      "en": "Name · e.g. Sugar",
+      "am": "ስም · ለምሳሌ ስኳር"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 82,
+      "key": "settings-shop.sale-price",
+      "kind": "plain",
+      "en": "Sale price",
+      "am": "የሽያጭ ዋጋ"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 89,
+      "key": "settings-shop.birr",
+      "kind": "plain",
+      "en": "birr",
+      "am": "ብር"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
+      "line": 96,
+      "key": "settings-shop.cost-optional",
+      "kind": "plain",
+      "en": "Cost (optional)",
+      "am": "መግዣ ዋጋ (አማራጭ)"
+    },
+    {
+      "file": "src/components/settings/CatalogPanel.jsx",
       "line": 103,
       "key": "settings-shop.for-profit",
       "kind": "plain",
@@ -7969,62 +8033,6 @@
       "am": "ደብቅ"
     },
     {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 48,
-      "key": "settings-shop.save-items-you-sell-often-with-their-prices",
-      "kind": "plain",
-      "en": "Save items you sell often with their prices — they autofill when you record a sale.",
-      "am": "በተደጋጋሚ የሚሸጡትን ዕቃዎች ከነ ዋጋቸው ያስቀምጡ — ሽያጭ ሲመዘግቡ በፍጥነት ይመጣሉ።"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 66,
-      "key": "settings-shop.item",
-      "kind": "plain",
-      "en": "📦 Item",
-      "am": "📦 ዕቃ"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 67,
-      "key": "settings-shop.service",
-      "kind": "plain",
-      "en": "🛠 Service",
-      "am": "🛠 አገልግሎት"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 75,
-      "key": "settings-shop.name-e-g-sugar",
-      "kind": "plain",
-      "en": "Name · e.g. Sugar",
-      "am": "ስም · ለምሳሌ ስኳር"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 82,
-      "key": "settings-shop.sale-price",
-      "kind": "plain",
-      "en": "Sale price",
-      "am": "የሽያጭ ዋጋ"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 89,
-      "key": "settings-shop.birr",
-      "kind": "plain",
-      "en": "birr",
-      "am": "ብር"
-    },
-    {
-      "file": "src/components/settings/CatalogPanel.jsx",
-      "line": 96,
-      "key": "settings-shop.cost-optional",
-      "kind": "plain",
-      "en": "Cost (optional)",
-      "am": "መግዣ ዋጋ (አማራጭ)"
-    },
-    {
       "file": "src/components/settings/DubieRulesPanel.jsx",
       "line": 33,
       "key": "settings-money.dubie-overdue-threshold-days",
@@ -8079,6 +8087,38 @@
       "kind": "plain",
       "en": "Export to CSV",
       "am": "ወደ CSV ያውርዱ"
+    },
+    {
+      "file": "src/components/settings/NotificationPreferences.jsx",
+      "line": 39,
+      "key": "settings-data.app",
+      "kind": "plain",
+      "en": "App",
+      "am": "App"
+    },
+    {
+      "file": "src/components/settings/NotificationPreferences.jsx",
+      "line": 77,
+      "key": "settings-data.quiet-hours",
+      "kind": "plain",
+      "en": "Quiet Hours",
+      "am": "የማሳወቂያ ሰዓት"
+    },
+    {
+      "file": "src/components/settings/NotificationPreferences.jsx",
+      "line": 81,
+      "key": "settings-data.push-notifications-silenced-during-this",
+      "kind": "plain",
+      "en": "Push notifications silenced during this window",
+      "am": "በዚህ ጊዜ ውስጥ push ማስጠንቂያ አይልክም"
+    },
+    {
+      "file": "src/components/settings/NotificationPreferences.jsx",
+      "line": 88,
+      "key": "settings-data.from",
+      "kind": "plain",
+      "en": "From",
+      "am": "ከ"
     },
     {
       "file": "src/components/settings/NotificationPreferences.jsx",
@@ -8185,118 +8225,6 @@
       "am": "ወደ ነባሪ ተመልስ"
     },
     {
-      "file": "src/components/settings/NotificationPreferences.jsx",
-      "line": 39,
-      "key": "settings-data.app",
-      "kind": "plain",
-      "en": "App",
-      "am": "App"
-    },
-    {
-      "file": "src/components/settings/NotificationPreferences.jsx",
-      "line": 77,
-      "key": "settings-data.quiet-hours",
-      "kind": "plain",
-      "en": "Quiet Hours",
-      "am": "የማሳወቂያ ሰዓት"
-    },
-    {
-      "file": "src/components/settings/NotificationPreferences.jsx",
-      "line": 81,
-      "key": "settings-data.push-notifications-silenced-during-this",
-      "kind": "plain",
-      "en": "Push notifications silenced during this window",
-      "am": "በዚህ ጊዜ ውስጥ push ማስጠንቂያ አይልክም"
-    },
-    {
-      "file": "src/components/settings/NotificationPreferences.jsx",
-      "line": 88,
-      "key": "settings-data.from",
-      "kind": "plain",
-      "en": "From",
-      "am": "ከ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 100,
-      "key": "settings-data.new-password",
-      "kind": "plain",
-      "en": "New Password",
-      "am": "የሚስጥር ቃል መዲዛ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 106,
-      "key": "settings-data.6-32-characters",
-      "kind": "plain",
-      "en": "6-32 characters",
-      "am": "6-32 ሰምዶች"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 110,
-      "key": "settings-data.new-password",
-      "kind": "plain",
-      "en": "New Password",
-      "am": "የሚስጥር ቃል መዲዛ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 117,
-      "key": "settings-data.hide",
-      "kind": "plain",
-      "en": "Hide",
-      "am": "ዝርዝር ይመልስ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 118,
-      "key": "settings-data.show",
-      "kind": "plain",
-      "en": "Show",
-      "am": "ተወድህ ነው"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 122,
-      "key": "settings-data.hide",
-      "kind": "plain",
-      "en": "Hide",
-      "am": "ዝርዝር ይመልስ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 123,
-      "key": "settings-data.show",
-      "kind": "plain",
-      "en": "Show",
-      "am": "ተወድህ ነው"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 130,
-      "key": "settings-data.set-password",
-      "kind": "plain",
-      "en": "Set Password",
-      "am": "የሚስጥር ቃል መዲዛ ያስገቡ"
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 133,
-      "key": "settings-data.saving-2",
-      "kind": "plain",
-      "en": "Saving...",
-      "am": "በመያየዝ..."
-    },
-    {
-      "file": "src/components/settings/PasswordSettings.jsx",
-      "line": 134,
-      "key": "settings-data.set-password",
-      "kind": "plain",
-      "en": "Set Password",
-      "am": "የሚስጥር ቃል መዲዛ ያስገቡ"
-    },
-    {
       "file": "src/components/settings/PasswordSettings.jsx",
       "line": 16,
       "key": "settings-data.password-must-be-at-least-6-characters",
@@ -8393,6 +8321,118 @@
       "am": "የሚስጥር ቃል መዲዛ አስudya"
     },
     {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 100,
+      "key": "settings-data.new-password",
+      "kind": "plain",
+      "en": "New Password",
+      "am": "የሚስጥር ቃል መዲዛ"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 106,
+      "key": "settings-data.6-32-characters",
+      "kind": "plain",
+      "en": "6-32 characters",
+      "am": "6-32 ሰምዶች"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 110,
+      "key": "settings-data.new-password",
+      "kind": "plain",
+      "en": "New Password",
+      "am": "የሚስጥር ቃል መዲዛ"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 117,
+      "key": "settings-data.hide",
+      "kind": "plain",
+      "en": "Hide",
+      "am": "ዝርዝር ይመልስ"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 118,
+      "key": "settings-data.show",
+      "kind": "plain",
+      "en": "Show",
+      "am": "ተወድህ ነው"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 122,
+      "key": "settings-data.hide",
+      "kind": "plain",
+      "en": "Hide",
+      "am": "ዝርዝር ይመልስ"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 123,
+      "key": "settings-data.show",
+      "kind": "plain",
+      "en": "Show",
+      "am": "ተወድህ ነው"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 130,
+      "key": "settings-data.set-password",
+      "kind": "plain",
+      "en": "Set Password",
+      "am": "የሚስጥር ቃል መዲዛ ያስገቡ"
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 133,
+      "key": "settings-data.saving-2",
+      "kind": "plain",
+      "en": "Saving...",
+      "am": "በመያየዝ..."
+    },
+    {
+      "file": "src/components/settings/PasswordSettings.jsx",
+      "line": 134,
+      "key": "settings-data.set-password",
+      "kind": "plain",
+      "en": "Set Password",
+      "am": "የሚስጥር ቃል መዲዛ ያስገቡ"
+    },
+    {
+      "file": "src/components/settings/PaymentChannelsSection.jsx",
+      "line": 63,
+      "key": "settings-money.payment-channels",
+      "kind": "plain",
+      "en": "Payment channels",
+      "am": "የክፍያ መንገዶች"
+    },
+    {
+      "file": "src/components/settings/PaymentChannelsSection.jsx",
+      "line": 73,
+      "key": "settings-money.configured",
+      "kind": "plain",
+      "en": "configured",
+      "am": "ተዋቅሯል"
+    },
+    {
+      "file": "src/components/settings/PaymentChannelsSection.jsx",
+      "line": 77,
+      "key": "settings-money.enable-channels-they-appear-when-you-record",
+      "kind": "plain",
+      "en": "Enable channels — they appear when you record a sale.",
+      "am": "መንገድ ይምረጡ — በሽያጭ መመዝገብ ጊዜ ይታያል።"
+    },
+    {
+      "file": "src/components/settings/PaymentChannelsSection.jsx",
+      "line": 90,
+      "key": "settings-money.search-banks-and-wallets",
+      "kind": "plain",
+      "en": "Search banks and wallets...",
+      "am": "ባንኮች እና ዋሌቶችን ፈልጉ..."
+    },
+    {
       "file": "src/components/settings/PaymentChannelsSection.jsx",
       "line": 110,
       "key": "settings-money.mobile-wallets",
@@ -8481,78 +8521,6 @@
       "am": "9XXXXXXXX"
     },
     {
-      "file": "src/components/settings/PaymentChannelsSection.jsx",
-      "line": 63,
-      "key": "settings-money.payment-channels",
-      "kind": "plain",
-      "en": "Payment channels",
-      "am": "የክፍያ መንገዶች"
-    },
-    {
-      "file": "src/components/settings/PaymentChannelsSection.jsx",
-      "line": 73,
-      "key": "settings-money.configured",
-      "kind": "plain",
-      "en": "configured",
-      "am": "ተዋቅሯል"
-    },
-    {
-      "file": "src/components/settings/PaymentChannelsSection.jsx",
-      "line": 77,
-      "key": "settings-money.enable-channels-they-appear-when-you-record",
-      "kind": "plain",
-      "en": "Enable channels — they appear when you record a sale.",
-      "am": "መንገድ ይምረጡ — በሽያጭ መመዝገብ ጊዜ ይታያል።"
-    },
-    {
-      "file": "src/components/settings/PaymentChannelsSection.jsx",
-      "line": 90,
-      "key": "settings-money.search-banks-and-wallets",
-      "kind": "plain",
-      "en": "Search banks and wallets...",
-      "am": "ባንኮች እና ዋሌቶችን ፈልጉ..."
-    },
-    {
-      "file": "src/components/settings/PlanPanel.jsx",
-      "line": 104,
-      "key": "settings-money.upgrade-to-plus",
-      "kind": "plain",
-      "en": "Upgrade to Plus",
-      "am": "ወደ Plus አሻሽል"
-    },
-    {
-      "file": "src/components/settings/PlanPanel.jsx",
-      "line": 137,
-      "key": "settings-money.unlock-everything-and-scale-your-business",
-      "kind": "plain",
-      "en": "Unlock everything and scale your business",
-      "am": "ሁሉንም ገደቦች ይክፈቱ እና የንግድዎን አቅም ይጨምሩ"
-    },
-    {
-      "file": "src/components/settings/PlanPanel.jsx",
-      "line": 157,
-      "key": "settings-money.upgrading",
-      "kind": "plain",
-      "en": "Upgrading...",
-      "am": "በመስራት ላይ..."
-    },
-    {
-      "file": "src/components/settings/PlanPanel.jsx",
-      "line": 158,
-      "key": "settings-money.upgrade-now",
-      "kind": "plain",
-      "en": "Upgrade Now",
-      "am": "ወደ Plus አሻሽል"
-    },
-    {
-      "file": "src/components/settings/PlanPanel.jsx",
-      "line": 162,
-      "key": "settings-money.tied-to-this-device-no-payment-is-taken",
-      "kind": "plain",
-      "en": "Tied to this device. No payment is taken.",
-      "am": "ከዚህ ስልክ ጋር የተያያዘ ነው። ምንም ክፍያ አይጠየቅም።"
-    },
-    {
       "file": "src/components/settings/PlanPanel.jsx",
       "line": 51,
       "key": "settings-money.upgraded-to-gebya-plus",
@@ -8601,6 +8569,62 @@
       "am": "ወርሃዊ ግብይቶች"
     },
     {
+      "file": "src/components/settings/PlanPanel.jsx",
+      "line": 104,
+      "key": "settings-money.upgrade-to-plus",
+      "kind": "plain",
+      "en": "Upgrade to Plus",
+      "am": "ወደ Plus አሻሽል"
+    },
+    {
+      "file": "src/components/settings/PlanPanel.jsx",
+      "line": 137,
+      "key": "settings-money.unlock-everything-and-scale-your-business",
+      "kind": "plain",
+      "en": "Unlock everything and scale your business",
+      "am": "ሁሉንም ገደቦች ይክፈቱ እና የንግድዎን አቅም ይጨምሩ"
+    },
+    {
+      "file": "src/components/settings/PlanPanel.jsx",
+      "line": 157,
+      "key": "settings-money.upgrading",
+      "kind": "plain",
+      "en": "Upgrading...",
+      "am": "በመስራት ላይ..."
+    },
+    {
+      "file": "src/components/settings/PlanPanel.jsx",
+      "line": 158,
+      "key": "settings-money.upgrade-now",
+      "kind": "plain",
+      "en": "Upgrade Now",
+      "am": "ወደ Plus አሻሽል"
+    },
+    {
+      "file": "src/components/settings/PlanPanel.jsx",
+      "line": 162,
+      "key": "settings-money.tied-to-this-device-no-payment-is-taken",
+      "kind": "plain",
+      "en": "Tied to this device. No payment is taken.",
+      "am": "ከዚህ ስልክ ጋር የተያያዘ ነው። ምንም ክፍያ አይጠየቅም።"
+    },
+    {
+      "file": "src/components/settings/ReadinessHero.jsx",
+      "line": 90,
+      "key": "settings-shop.all-set-up",
+      "kind": "plain",
+      "en": "All set up",
+      "am": "ሁሉም ተዋቅሯል"
+    },
+    {
+      "file": "src/components/settings/ReadinessHero.jsx",
+      "line": 93,
+      "key": "settings-shop.details",
+      "kind": "plain",
+      "en": "Details",
+      "am": "ተጨማሪ"
+    },
+    {
       "file": "src/components/settings/ReadinessHero.jsx",
       "line": 126,
       "key": "settings-shop.shop",
@@ -8635,20 +8659,44 @@
       "amArgs": 2
     },
     {
-      "file": "src/components/settings/ReadinessHero.jsx",
-      "line": 90,
-      "key": "settings-shop.all-set-up",
+      "file": "src/components/settings/ReminderSettings.jsx",
+      "line": 61,
+      "key": "settings-data.auto-reminders-enabled",
       "kind": "plain",
-      "en": "All set up",
-      "am": "ሁሉም ተዋቅሯል"
+      "en": "Auto-reminders enabled",
+      "am": "ራስ-ሰር ማስታወቂያ ተከፍቷል"
     },
     {
-      "file": "src/components/settings/ReadinessHero.jsx",
-      "line": 93,
-      "key": "settings-shop.details",
+      "file": "src/components/settings/ReminderSettings.jsx",
+      "line": 62,
+      "key": "settings-data.auto-reminders-paused",
       "kind": "plain",
-      "en": "Details",
-      "am": "ተጨማሪ"
+      "en": "Auto-reminders paused",
+      "am": "ራስ-ሰር ማስታወቂያ ተዘግቷል"
+    },
+    {
+      "file": "src/components/settings/ReminderSettings.jsx",
+      "line": 67,
+      "key": "settings-data.failed-to-update",
+      "kind": "plain",
+      "en": "Failed to update",
+      "am": "ማስተካከል አልተሳካም"
+    },
+    {
+      "file": "src/components/settings/ReminderSettings.jsx",
+      "line": 83,
+      "key": "settings-data.reminder-frequency-updated",
+      "kind": "plain",
+      "en": "Reminder frequency updated",
+      "am": "ድግግሞሽ ተስተካክሏል"
+    },
+    {
+      "file": "src/components/settings/ReminderSettings.jsx",
+      "line": 89,
+      "key": "settings-data.failed-to-update",
+      "kind": "plain",
+      "en": "Failed to update",
+      "am": "ማስተካከል አልተሳካም"
     },
     {
       "file": "src/components/settings/ReminderSettings.jsx",
@@ -8723,138 +8771,12 @@
       "am": "ራስ-ሰር ማስታወቂያ ተዘግቷል። ደንበኛውን ይምረጡ → \"አስታውስ\" ይጫኑ።"
     },
     {
-      "file": "src/components/settings/ReminderSettings.jsx",
-      "line": 61,
-      "key": "settings-data.auto-reminders-enabled",
-      "kind": "plain",
-      "en": "Auto-reminders enabled",
-      "am": "ራስ-ሰር ማስታወቂያ ተከፍቷል"
-    },
-    {
-      "file": "src/components/settings/ReminderSettings.jsx",
-      "line": 62,
-      "key": "settings-data.auto-reminders-paused",
-      "kind": "plain",
-      "en": "Auto-reminders paused",
-      "am": "ራስ-ሰር ማስታወቂያ ተዘግቷል"
-    },
-    {
-      "file": "src/components/settings/ReminderSettings.jsx",
-      "line": 67,
-      "key": "settings-data.failed-to-update",
-      "kind": "plain",
-      "en": "Failed to update",
-      "am": "ማስተካከል አልተሳካም"
-    },
-    {
-      "file": "src/components/settings/ReminderSettings.jsx",
-      "line": 83,
-      "key": "settings-data.reminder-frequency-updated",
-      "kind": "plain",
-      "en": "Reminder frequency updated",
-      "am": "ድግግሞሽ ተስተካክሏል"
-    },
-    {
-      "file": "src/components/settings/ReminderSettings.jsx",
-      "line": 89,
-      "key": "settings-data.failed-to-update",
-      "kind": "plain",
-      "en": "Failed to update",
-      "am": "ማስተካከል አልተሳካም"
-    },
-    {
       "file": "src/components/settings/ShopProfilePanel.jsx",
       "line": 55,
       "key": "settings-shop.this-profile-is-the-main-owner-identity-for",
       "kind": "plain",
       "en": "This profile is the main owner identity for this phone's notebook. Changes here affect the whole shop notebook.",
       "am": "ይህ የዚህ ስልክ ዋና ባለቤት መለያ ነው። እዚህ የሚደረጉ ለውጦች መላውን ሱቅ ማስታወሻ ይነካሉ።"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 100,
-      "key": "settings-data.no-keep-my-data",
-      "kind": "plain",
-      "en": "No, keep my data",
-      "am": "አይ፣ ይተወው"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 108,
-      "key": "settings-data.restore-from-backup",
-      "kind": "plain",
-      "en": "Restore from backup?",
-      "am": "ምትኬ ይመለስ?"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 109,
-      "key": "settings-data.backup-contains-sales-expenses-customers",
-      "kind": "format",
-      "enParts": [
-        "Backup contains: ",
-        " sales+expenses, ",
-        " customers, ",
-        " suppliers"
-      ],
-      "enIdx": [
-        0,
-        1,
-        2
-      ],
-      "amParts": [
-        "ይህ ምትኬ ይዟል: ",
-        " ሽያጭ+ወጪ, ",
-        " ደንበኞች, ",
-        " አቅራቢዎች"
-      ],
-      "amIdx": [
-        0,
-        1,
-        2
-      ],
-      "enArgs": 3,
-      "amArgs": 3
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 112,
-      "key": "settings-data.continue",
-      "kind": "plain",
-      "en": "Continue →",
-      "am": "ቀጥል →"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 121,
-      "key": "settings-data.are-you-sure",
-      "kind": "plain",
-      "en": "Are you sure?",
-      "am": "እርግጠኛ ነዎት?"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 122,
-      "key": "settings-data.tip-download-a-backup-of-current-data-first",
-      "kind": "plain",
-      "en": "Tip: download a backup of current data first.",
-      "am": "ከመመለስ በፊት የአሁኑን መረጃ ምትኬ ይውሰዱ።"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 123,
-      "key": "settings-data.yes-restore-now",
-      "kind": "plain",
-      "en": "Yes, restore now",
-      "am": "አዎ፣ መልሰው ጫን"
-    },
-    {
-      "file": "src/components/settings/backup/DangerZoneSection.jsx",
-      "line": 124,
-      "key": "settings-data.no-keep-current-data",
-      "kind": "plain",
-      "en": "No, keep current data",
-      "am": "አይ፣ ይተወው"
     },
     {
       "file": "src/components/settings/backup/DangerZoneSection.jsx",
@@ -8977,6 +8899,162 @@
       "kind": "plain",
       "en": "Yes, delete everything",
       "am": "አዎ፣ አሁን ሰርዝ"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 100,
+      "key": "settings-data.no-keep-my-data",
+      "kind": "plain",
+      "en": "No, keep my data",
+      "am": "አይ፣ ይተወው"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 108,
+      "key": "settings-data.restore-from-backup",
+      "kind": "plain",
+      "en": "Restore from backup?",
+      "am": "ምትኬ ይመለስ?"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 109,
+      "key": "settings-data.backup-contains-sales-expenses-customers",
+      "kind": "format",
+      "enParts": [
+        "Backup contains: ",
+        " sales+expenses, ",
+        " customers, ",
+        " suppliers"
+      ],
+      "enIdx": [
+        0,
+        1,
+        2
+      ],
+      "amParts": [
+        "ይህ ምትኬ ይዟል: ",
+        " ሽያጭ+ወጪ, ",
+        " ደንበኞች, ",
+        " አቅራቢዎች"
+      ],
+      "amIdx": [
+        0,
+        1,
+        2
+      ],
+      "enArgs": 3,
+      "amArgs": 3
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 112,
+      "key": "settings-data.continue",
+      "kind": "plain",
+      "en": "Continue →",
+      "am": "ቀጥል →"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 121,
+      "key": "settings-data.are-you-sure",
+      "kind": "plain",
+      "en": "Are you sure?",
+      "am": "እርግጠኛ ነዎት?"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 122,
+      "key": "settings-data.tip-download-a-backup-of-current-data-first",
+      "kind": "plain",
+      "en": "Tip: download a backup of current data first.",
+      "am": "ከመመለስ በፊት የአሁኑን መረጃ ምትኬ ይውሰዱ።"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 123,
+      "key": "settings-data.yes-restore-now",
+      "kind": "plain",
+      "en": "Yes, restore now",
+      "am": "አዎ፣ መልሰው ጫን"
+    },
+    {
+      "file": "src/components/settings/backup/DangerZoneSection.jsx",
+      "line": 124,
+      "key": "settings-data.no-keep-current-data",
+      "kind": "plain",
+      "en": "No, keep current data",
+      "am": "አይ፣ ይተወው"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 25,
+      "key": "settings-data.empty",
+      "kind": "plain",
+      "en": "Empty",
+      "am": "ባዶ"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 58,
+      "key": "settings-data.your-data",
+      "kind": "plain",
+      "en": "Your Data",
+      "am": "የእርስዎ ውሂብ"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 59,
+      "key": "settings-data.entries-backup-export",
+      "kind": "format",
+      "enParts": [
+        "",
+        " entries · backup & export"
+      ],
+      "enIdx": [
+        0
+      ],
+      "amParts": [
+        "",
+        " መዝገብ · ምትኬ እና ውጤት"
+      ],
+      "amIdx": [
+        0
+      ],
+      "enArgs": 1,
+      "amArgs": 1
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 77,
+      "key": "settings-data.display-privacy",
+      "kind": "plain",
+      "en": "Display & Privacy",
+      "am": "ማሳያ እና ግላዊነት"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 78,
+      "key": "settings-data.dark-light-mode-hide-amounts",
+      "kind": "plain",
+      "en": "Dark/light mode, hide amounts",
+      "am": "ጨለማ/ብርሃን ሁነታ፣ መጠኖችን ደብቅ"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 88,
+      "key": "settings-data.error-usage-reporting",
+      "kind": "plain",
+      "en": "Error & usage reporting",
+      "am": "የስህተት እና አጠቃቀም ሪፖርት"
+    },
+    {
+      "file": "src/components/settings/tabs/DataTab.jsx",
+      "line": 91,
+      "key": "settings-data.helps-fix-crashes-and-improve-the-app-never",
+      "kind": "plain",
+      "en": "Helps fix crashes and improve the app. Never includes personal data.",
+      "am": "መተግበሪያው ሲታገድ ለማስተካከል እና ለማሻሻል ይረዳል። ምንም የግል መረጃ አይላክም።"
     },
     {
       "file": "src/components/settings/tabs/DataTab.jsx",
@@ -9113,76 +9191,6 @@
       "kind": "plain",
       "en": "Built",
       "am": "የግንባታ ቀን"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 25,
-      "key": "settings-data.empty",
-      "kind": "plain",
-      "en": "Empty",
-      "am": "ባዶ"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 58,
-      "key": "settings-data.your-data",
-      "kind": "plain",
-      "en": "Your Data",
-      "am": "የእርስዎ ውሂብ"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 59,
-      "key": "settings-data.entries-backup-export",
-      "kind": "format",
-      "enParts": [
-        "",
-        " entries · backup & export"
-      ],
-      "enIdx": [
-        0
-      ],
-      "amParts": [
-        "",
-        " መዝገብ · ምትኬ እና ውጤት"
-      ],
-      "amIdx": [
-        0
-      ],
-      "enArgs": 1,
-      "amArgs": 1
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 77,
-      "key": "settings-data.display-privacy",
-      "kind": "plain",
-      "en": "Display & Privacy",
-      "am": "ማሳያ እና ግላዊነት"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 78,
-      "key": "settings-data.dark-light-mode-hide-amounts",
-      "kind": "plain",
-      "en": "Dark/light mode, hide amounts",
-      "am": "ጨለማ/ብርሃን ሁነታ፣ መጠኖችን ደብቅ"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 88,
-      "key": "settings-data.error-usage-reporting",
-      "kind": "plain",
-      "en": "Error & usage reporting",
-      "am": "የስህተት እና አጠቃቀም ሪፖርት"
-    },
-    {
-      "file": "src/components/settings/tabs/DataTab.jsx",
-      "line": 91,
-      "key": "settings-data.helps-fix-crashes-and-improve-the-app-never",
-      "kind": "plain",
-      "en": "Helps fix crashes and improve the app. Never includes personal data.",
-      "am": "መተግበሪያው ሲታገድ ለማስተካከል እና ለማሻሻል ይረዳል። ምንም የግል መረጃ አይላክም።"
     },
     {
       "file": "src/components/settings/tabs/MoneyTab.jsx",
@@ -9382,19 +9390,19 @@
     },
     {
       "file": "src/components/staff/StaffPerformanceDashboard.jsx",
-      "line": 174,
-      "key": "staff.top-performer",
-      "kind": "plain",
-      "en": "Top Performer",
-      "am": "ረዢ ሰራተኛ"
-    },
-    {
-      "file": "src/components/staff/StaffPerformanceDashboard.jsx",
       "line": 89,
       "key": "staff.staff",
       "kind": "plain",
       "en": "Staff",
       "am": "ሰራተኛ"
+    },
+    {
+      "file": "src/components/staff/StaffPerformanceDashboard.jsx",
+      "line": 174,
+      "key": "staff.top-performer",
+      "kind": "plain",
+      "en": "Top Performer",
+      "am": "ረዢ ሰራተኛ"
     },
     {
       "file": "src/hooks/useCustomers.js",
@@ -9454,6 +9462,14 @@
     },
     {
       "file": "src/utils/reminders.js",
+      "line": 52,
+      "key": "common.en",
+      "kind": "plain",
+      "en": "en",
+      "am": "am"
+    },
+    {
+      "file": "src/utils/reminders.js",
       "line": 145,
       "key": "common.today-2",
       "kind": "plain",
@@ -9461,12 +9477,12 @@
       "am": "ዛሬ"
     },
     {
-      "file": "src/utils/reminders.js",
-      "line": 52,
-      "key": "common.en",
+      "file": "src/utils/shopStory.js",
+      "line": 33,
+      "key": "common.other",
       "kind": "plain",
-      "en": "en",
-      "am": "am"
+      "en": "Other",
+      "am": "ልዩ"
     },
     {
       "file": "src/utils/shopStory.js",
@@ -9897,14 +9913,6 @@
       "kind": "plain",
       "en": "No sales yet today.",
       "am": "ዛሬ ገና ምንም ሽያጭ የለም"
-    },
-    {
-      "file": "src/utils/shopStory.js",
-      "line": 33,
-      "key": "common.other",
-      "kind": "plain",
-      "en": "Other",
-      "am": "ልዩ"
     },
     {
       "file": "src/utils/shopStory.js",
