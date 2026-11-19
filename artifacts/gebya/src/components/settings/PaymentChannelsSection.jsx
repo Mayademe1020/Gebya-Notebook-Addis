@@ -7,6 +7,7 @@ import {
 } from '../../utils/paymentChannels';
 import { extractSubscriberDigits } from '../../utils/phoneNumber';
 import ConfirmDialog from '../ConfirmDialog';
+import { label } from '../../labels/index';
 
 export default function PaymentChannelsSection({ channels, shopPhone, enabledCount, configuredCount, onChange, lang }) {
   const [query, setQuery] = useState('');
@@ -60,7 +61,7 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4" style={{ color: 'var(--color-success-text)' }} />
             <p className="text-sm font-black" style={{ color: 'var(--color-success-text)' }}>
-              {lang === 'am' ? 'የክፍያ መንገዶች' : 'Payment channels'}
+              {label('settings-money.payment-channels', lang)}
             </p>
           </div>
           <span
@@ -70,13 +71,11 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
               color: 'var(--color-bg-white)',
             }}
           >
-            {configuredCount}/{enabledCount} {lang === 'am' ? 'ተዋቅሯል' : 'configured'}
+            {configuredCount}/{enabledCount} {label('settings-money.configured', lang)}
           </span>
         </div>
         <p className="text-[11px] leading-snug" style={{ color: 'var(--color-success-text)' }}>
-          {lang === 'am'
-            ? 'መንገድ ይምረጡ — በሽያጭ መመዝገብ ጊዜ ይታያል።'
-            : 'Enable channels — they appear when you record a sale.'}
+          {label('settings-money.enable-channels-they-appear-when-you-record', lang)}
         </p>
       </div>
 
@@ -87,7 +86,7 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={lang === 'am' ? 'ባንኮች እና ዋሌቶችን ፈልጉ...' : 'Search banks and wallets...'}
+            placeholder={label('settings-money.search-banks-and-wallets', lang)}
             className="w-full pl-9 pr-8 py-2.5 border-2 text-sm focus:outline-none"
             style={{ borderRadius: 10, borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
           />
@@ -107,7 +106,7 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
 
       <div className="px-5 py-3 border-b" style={{ borderBottom: '1px solid var(--color-success-bg)' }}>
         <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          📱 {lang === 'am' ? 'ሞባይል ዋሌት' : 'Mobile wallets'}
+          📱 {label('settings-money.mobile-wallets', lang)}
         </p>
         <div className="flex flex-col gap-2">
           {visibleWallets.map((c) => (
@@ -127,7 +126,7 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
 
       <div className="px-5 py-3 border-b" style={{ borderBottom: '1px solid var(--color-success-bg)' }}>
         <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          🏦 {lang === 'am' ? 'ባንኮች' : 'Banks'}
+          🏦 {label('settings-money.banks', lang)}
         </p>
         <div className="flex flex-col gap-2">
           {visibleBanks.map((c) => (
@@ -149,7 +148,7 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
         <div className="px-5 py-8 text-center">
           <Search className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--color-bg-disabled)' }} />
           <p className="text-xs font-medium" style={{ color: 'var(--color-text-soft)' }}>
-            {lang === 'am' ? 'ምንም ውጤት አልተገኘም' : 'No results'}
+            {label('settings-money.no-results', lang)}
           </p>
         </div>
       )}
@@ -157,19 +156,17 @@ export default function PaymentChannelsSection({ channels, shopPhone, enabledCou
       <div className="px-5 pb-4">
         <p className="text-[10px] leading-snug" style={{ color: 'var(--color-text-muted)' }}>
           🔒{' '}
-          {lang === 'am'
-            ? 'መረጃው በዚህ ስልክ ላይ ብቻ ይቀመጣል። Gebya ገንዘቡን አያይም — እርስዎ በቀጥታ ይቀበላሉ።'
-            : 'Stored on this phone only. Gebya never touches the money — customers pay you direct.'}
+          {label('settings-money.stored-on-this-phone-only-gebya-never', lang)}
         </p>
       </div>
 
       <ConfirmDialog
         open={pendingRemoveId != null}
         tone="danger"
-        title={lang === 'am' ? 'ይህን መንገድ ይሰርዙ?' : 'Remove this channel?'}
-        message={lang === 'am' ? 'ይህ መንገድ ከዝርዝርዎ ይወገዳል።' : 'This channel will be removed from your list.'}
-        confirmLabel={lang === 'am' ? 'አስወግድ' : 'Remove'}
-        cancelLabel={lang === 'am' ? 'ሰርዝ' : 'Cancel'}
+        title={label('settings-money.remove-this-channel', lang)}
+        message={label('settings-money.this-channel-will-be-removed-from-your-list', lang)}
+        confirmLabel={label('settings-money.remove', lang)}
+        cancelLabel={label('settings-money.cancel', lang)}
         onConfirm={confirmRemove}
         onCancel={() => setPendingRemoveId(null)}
       />
@@ -215,7 +212,7 @@ function ChannelRow({ channel, shopPhone, onToggle, onField, onToggleSameAsShop,
           <button
             type="button"
             onClick={onRemove}
-            aria-label={lang === 'am' ? 'አስወግድ' : 'Remove'}
+            aria-label={label('settings-money.remove', lang)}
             className="press-scale"
             style={{
               padding: 4, color: 'var(--color-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer',
@@ -258,7 +255,7 @@ function ChannelRow({ channel, shopPhone, onToggle, onField, onToggleSameAsShop,
                 onChange={(e) => onToggleSameAsShop(e.target.checked)}
                 style={{ width: 16, height: 16, accentColor: 'var(--color-success)' }}
               />
-              {lang === 'am' ? 'ከሱቅ ስልክ ጋር አንድ' : 'Same as shop phone'}
+              {label('settings-money.same-as-shop-phone', lang)}
               {channel.usePhoneFromShop && shopPhone && (
                 <span className="ml-1 text-[11px] font-bold" style={{ color: 'var(--color-success-text)' }}>
                   ({shopPhone})
@@ -286,7 +283,7 @@ function ChannelRow({ channel, shopPhone, onToggle, onField, onToggleSameAsShop,
                 inputMode="numeric"
                 value={extractSubscriberDigits(channel.phone)}
                 onChange={(e) => onField('phone', e.target.value.replace(/\D/g, '').slice(0, 9))}
-                placeholder={lang === 'am' ? '9XXXXXXXX' : '9XXXXXXXX'}
+                placeholder={label('settings-money.9xxxxxxxx', lang)}
                 maxLength={9}
                 className="flex-1 p-2 border-2 focus:outline-none text-sm"
                 style={{

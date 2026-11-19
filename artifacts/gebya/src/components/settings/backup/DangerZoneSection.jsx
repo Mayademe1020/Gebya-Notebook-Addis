@@ -4,6 +4,7 @@ import { fireToast } from '../../Toast';
 import { Trash2 } from 'lucide-react';
 import { clearAllData, restoreFromJSON } from './useBackupData';
 import ConfirmDialog from '../../ConfirmDialog';
+import { label } from '../../../labels/index';
 
 export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
   const { lang } = useLang();
@@ -26,7 +27,7 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
         setRestoreTarget(data);
         setShowRestoreStep(1);
       } catch (err) {
-        fireToast(lang === 'am' ? 'የተበላሸ ምትኬ ፋይል' : 'Invalid backup file', 2400);
+        fireToast(label('settings-data.invalid-backup-file', lang), 2400);
         if (import.meta.env.DEV) console.error(err);
       }
     };
@@ -39,11 +40,11 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
       await restoreFromJSON(restoreTarget);
       setRestoreTarget(null);
       setShowRestoreStep(0);
-      fireToast(lang === 'am' ? '✓ መልሶ ተመለሰ — በመጫን ላይ…' : '✓ Restored — reloading…', 1800);
+      fireToast(label('settings-data.restored-reloading', lang), 1800);
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       if (import.meta.env.DEV) console.error('Restore failed:', err);
-      fireToast(lang === 'am' ? 'መልሶ ማስቀመጥ አልተሳካም' : 'Restore failed', 2600);
+      fireToast(label('settings-data.restore-failed', lang), 2600);
       setRestoreTarget(null);
       setShowRestoreStep(0);
     }
@@ -56,9 +57,9 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
           <Trash2 className="w-5 h-5" style={{ color: 'var(--color-warning)' }} />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-gray-800">{lang === 'am' ? 'ከምትኬ ፋይል መልሰው ይጫኑ' : 'Restore from backup file'}</div>
+          <div className="font-bold text-gray-800">{label('settings-data.restore-from-backup-file', lang)}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {lang === 'am' ? 'ሁሉንም መረጃ ይተካል · ሁለት ጊዜ ማረጋገጫ ያስፈልጋል' : 'Replaces all data · two-step confirm'}
+            {label('settings-data.replaces-all-data-two-step-confirm', lang)}
           </div>
         </div>
         <input type="file" accept=".json,application/json" onChange={handleImportFileSelected} className="hidden" />
@@ -72,20 +73,18 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
           <Trash2 className="w-5 h-5 text-red-600" />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-red-600">{lang === 'am' ? 'መልሰው ጀምር' : 'Start over on this phone'}</div>
+          <div className="font-bold text-red-600">{label('settings-data.start-over-on-this-phone', lang)}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {lang === 'am' ? 'ሁሉንም ይሰርዛል — መልሶ ማግኘት አይቻልም' : 'Deletes everything — cannot be undone'}
+            {label('settings-data.deletes-everything-cannot-be-undone', lang)}
           </div>
         </div>
       </button>
 
       <ConfirmDialog
         open={showClearStep === 1}
-        title={lang === 'am' ? 'በዚህ ስልክ መልሰው ይጀምሩ?' : 'Start over on this phone?'}
-        message={lang === 'am'
-          ? `ይህ ${totalEntries} መዝገብ፣ ${totalCustomers} ደንበኞች ይሰረዛሉ። መልሶ ማግኘት አይቻልም።`
-          : `This will delete ${totalEntries} entries and ${totalCustomers} customer ledgers. Cannot be undone.`}
-        confirmLabel={lang === 'am' ? 'ቀጥል →' : 'Continue →'}
+        title={label('settings-data.start-over-on-this-phone-2', lang)}
+        message={label('settings-data.this-will-delete-entries-and-customer', lang, totalEntries, totalCustomers)}
+        confirmLabel={label('settings-data.continue', lang)}
         cancelLabel={t.cancel}
         tone="danger"
         onConfirm={() => { setShowClearStep(2); }}
@@ -94,10 +93,10 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
 
       <ConfirmDialog
         open={showClearStep === 2}
-        title={lang === 'am' ? 'እርግጠኛ ነዎት?' : 'Are you sure?'}
-        message={lang === 'am' ? 'ይህ የመጨረሻ ማረጋገጫ ነው። ሁሉም ውሂብ ይሰረዛል።' : 'This is your last chance. All data will be permanently deleted.'}
-        confirmLabel={lang === 'am' ? 'አዎ፣ አሁን ሰርዝ' : 'Yes, delete everything'}
-        cancelLabel={lang === 'am' ? 'አይ፣ ይተወው' : 'No, keep my data'}
+        title={label('settings-data.are-you-sure', lang)}
+        message={label('settings-data.this-is-your-last-chance-all-data-will-be', lang)}
+        confirmLabel={label('settings-data.yes-delete-everything', lang)}
+        cancelLabel={label('settings-data.no-keep-my-data', lang)}
         tone="danger"
         onConfirm={() => { setShowClearStep(0); clearAllData(setCleared, () => setShowClearStep(0)); }}
         onCancel={() => setShowClearStep(0)}
@@ -105,11 +104,9 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
 
       <ConfirmDialog
         open={showRestoreStep === 1}
-        title={lang === 'am' ? 'ምትኬ ይመለስ?' : 'Restore from backup?'}
-        message={lang === 'am'
-          ? `ይህ ምትኬ ይዟል: ${restoreTarget?.counts?.transactions || 0} ሽያጭ+ወጪ, ${restoreTarget?.counts?.customers || 0} ደንበኞች, ${restoreTarget?.counts?.suppliers || 0} አቅራቢዎች`
-          : `Backup contains: ${restoreTarget?.counts?.transactions || 0} sales+expenses, ${restoreTarget?.counts?.customers || 0} customers, ${restoreTarget?.counts?.suppliers || 0} suppliers`}
-        confirmLabel={lang === 'am' ? 'ቀጥል →' : 'Continue →'}
+        title={label('settings-data.restore-from-backup', lang)}
+        message={label('settings-data.backup-contains-sales-expenses-customers', lang, restoreTarget?.counts?.transactions || 0, restoreTarget?.counts?.customers || 0, restoreTarget?.counts?.suppliers || 0)}
+        confirmLabel={label('settings-data.continue', lang)}
         cancelLabel={t.cancel}
         tone="default"
         onConfirm={() => setShowRestoreStep(2)}
@@ -118,10 +115,10 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
 
       <ConfirmDialog
         open={showRestoreStep === 2}
-        title={lang === 'am' ? 'እርግጠኛ ነዎት?' : 'Are you sure?'}
-        message={lang === 'am' ? 'ከመመለስ በፊት የአሁኑን መረጃ ምትኬ ይውሰዱ።' : 'Tip: download a backup of current data first.'}
-        confirmLabel={lang === 'am' ? 'አዎ፣ መልሰው ጫን' : 'Yes, restore now'}
-        cancelLabel={lang === 'am' ? 'አይ፣ ይተወው' : 'No, keep current data'}
+        title={label('settings-data.are-you-sure', lang)}
+        message={label('settings-data.tip-download-a-backup-of-current-data-first', lang)}
+        confirmLabel={label('settings-data.yes-restore-now', lang)}
+        cancelLabel={label('settings-data.no-keep-current-data', lang)}
         tone="danger"
         onConfirm={handleRestoreConfirm}
         onCancel={() => { setShowRestoreStep(0); setRestoreTarget(null); }}

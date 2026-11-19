@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { exportToCSV } from './backup/useBackupData';
+import { label } from '../../labels/index';
 
 export default function ExportPanel({ transactions }) {
   const { lang } = useLang();
@@ -25,7 +26,7 @@ export default function ExportPanel({ transactions }) {
           style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text)' }}
         >
           <Download className="w-4 h-4" />
-          {exporting ? (lang === 'am' ? 'በማውረድ ላይ...' : 'Downloading...') : (lang === 'am' ? 'ወደ CSV ያውርዱ' : 'Export to CSV')}
+          {exporting ? (label('settings-data.downloading', lang)) : (label('settings-data.export-to-csv', lang))}
         </button>
       </div>
     </div>

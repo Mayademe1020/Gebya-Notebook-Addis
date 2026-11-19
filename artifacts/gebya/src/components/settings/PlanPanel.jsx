@@ -3,6 +3,7 @@ import { useLang } from '../../context/LangContext';
 import { setPlanTier } from '../../utils/entitlements';
 import { fireToast } from '../Toast';
 import { X, Check, Sparkles } from 'lucide-react';
+import { label } from '../../labels/index';
 
 const PLUS_FEATURES = [
   { key: 'staff', en: 'Unlimited staff members', am: 'ያልተገደበ ሰራተኞች' },
@@ -48,10 +49,10 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
     setUpgrading(true);
     try {
       await setPlanTier('plus');
-      fireToast(lang === 'am' ? 'ወደ Gebya Plus ተሻሽሏል! 🎉' : 'Upgraded to Gebya Plus! 🎉', 2500);
+      fireToast(label('settings-money.upgraded-to-gebya-plus', lang), 2500);
       setTimeout(() => window.location.reload(), 800);
     } catch {
-      fireToast(lang === 'am' ? 'እባክዎ እንደገና ይሞክሩ' : 'Something went wrong', 2000);
+      fireToast(label('settings-money.something-went-wrong', lang), 2000);
     } finally {
       setUpgrading(false);
     }
@@ -65,15 +66,15 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
             ★
           </div>
           <div className="flex-1">
-            <div className="text-sm font-black text-gray-800">{lang === 'am' ? 'ነፃ ፕላን' : 'Free Plan'}</div>
-            <div className="text-xs text-gray-500">{lang === 'am' ? 'የሰራተኞች እና የሪፖርት ገደቦች አሉ' : 'Limited staff and reports'}</div>
+            <div className="text-sm font-black text-gray-800">{label('settings-money.free-plan', lang)}</div>
+            <div className="text-xs text-gray-500">{label('settings-money.limited-staff-and-reports', lang)}</div>
           </div>
         </div>
 
         {showStaffMeter && (
           <div className="mb-2">
             <div className="flex justify-between text-xs font-semibold mb-1">
-              <span style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ሰራተኞች' : 'Staff'}</span>
+              <span style={{ color: 'var(--color-text-muted)' }}>{label('settings-money.staff', lang)}</span>
               <span style={{ color: 'var(--color-text)' }}>{staffCount}/{entitlements.max_staff}</span>
             </div>
             <div className="h-1.5 rounded-full" style={{ background: 'var(--color-bg-hover)' }}>
@@ -85,7 +86,7 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
         {entitlements.max_transactions_per_month !== Infinity && (
           <div className="mb-3">
             <div className="flex justify-between text-xs font-semibold mb-1">
-              <span style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ወርሃዊ ግብይቶች' : 'Monthly tx'}</span>
+              <span style={{ color: 'var(--color-text-muted)' }}>{label('settings-money.monthly-tx', lang)}</span>
               <span style={{ color: 'var(--color-text)' }}>{transactionCount}/{entitlements.max_transactions_per_month}</span>
             </div>
             <div className="h-1.5 rounded-full" style={{ background: 'var(--color-bg-hover)' }}>
@@ -101,7 +102,7 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
           style={{ background: 'var(--color-accent-amber)', color: 'var(--color-bg-white)' }}
         >
           <Sparkles className="w-3.5 h-3.5" />
-          {lang === 'am' ? 'ወደ Plus አሻሽል' : 'Upgrade to Plus'}
+          {label('settings-money.upgrade-to-plus', lang)}
         </button>
       </div>
 
@@ -134,7 +135,7 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
             </div>
 
             <p className="text-sm text-gray-600 mb-4">
-              {lang === 'am' ? 'ሁሉንም ገደቦች ይክፈቱ እና የንግድዎን አቅም ይጨምሩ' : 'Unlock everything and scale your business'}
+              {label('settings-money.unlock-everything-and-scale-your-business', lang)}
             </p>
 
             <div className="space-y-2 mb-5">
@@ -154,12 +155,12 @@ export default function PlanPanel({ tier, entitlements, staffCount, transactionC
               style={{ background: 'var(--color-primary)' }}
             >
               {upgrading
-                ? (lang === 'am' ? 'በመስራት ላይ...' : 'Upgrading...')
-                : (lang === 'am' ? 'ወደ Plus አሻሽል' : 'Upgrade Now')}
+                ? (label('settings-money.upgrading', lang))
+                : (label('settings-money.upgrade-now', lang))}
             </button>
 
             <p className="text-[10px] text-center mt-3" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ከዚህ ስልክ ጋር የተያያዘ ነው። ምንም ክፍያ አይጠየቅም።' : 'Tied to this device. No payment is taken.'}
+              {label('settings-money.tied-to-this-device-no-payment-is-taken', lang)}
             </p>
           </div>
         </div>

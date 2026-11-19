@@ -9,6 +9,7 @@ import ReminderSettings from '../ReminderSettings';
 import NotificationPreferences from '../NotificationPreferences';
 import PasswordSettings from '../PasswordSettings';
 import { isErrorReportingEnabled, setErrorReportingPreference } from '../../../sentry';
+import { label } from '../../../labels/index';
 
 // Build info injected at bundle time by Vite
 const BUILD_VERSION = import.meta.env?.VITE_APP_VERSION || 'dev';
@@ -22,7 +23,7 @@ export default function DataTab({
   shopId,
 }) {
   const totalEntries = (transactions || []).length;
-  const dataBadge = totalEntries > 0 ? `${totalEntries}` : (lang === 'am' ? 'ባዶ' : 'Empty');
+  const dataBadge = totalEntries > 0 ? `${totalEntries}` : (label('settings-data.empty', lang));
   const dataTone = totalEntries > 0 ? 'ok' : 'neutral';
 
   // Error-reporting consent (Sentry). Default ON, user can switch off.
@@ -55,10 +56,8 @@ export default function DataTab({
       {/* Your Data — backup + export combined */}
       <TabCard
         icon="📦"
-        title={lang === 'am' ? 'የእርስዎ ውሂብ' : 'Your Data'}
-        subtitle={lang === 'am'
-          ? `${totalEntries} መዝገብ · ምትኬ እና ውጤት`
-          : `${totalEntries} entries · backup & export`}
+        title={label('settings-data.your-data', lang)}
+        subtitle={label('settings-data.entries-backup-export', lang, totalEntries)}
         badge={dataBadge}
         badgeTone={dataTone}
       >
@@ -74,8 +73,8 @@ export default function DataTab({
       {/* Display & Privacy */}
       <TabCard
         icon="🎨"
-        title={lang === 'am' ? 'ማሳያ እና ግላዊነት' : 'Display & Privacy'}
-        subtitle={lang === 'am' ? 'ጨለማ/ብርሃን ሁነታ፣ መጠኖችን ደብቅ' : 'Dark/light mode, hide amounts'}
+        title={label('settings-data.display-privacy', lang)}
+        subtitle={label('settings-data.dark-light-mode-hide-amounts', lang)}
         badgeTone="neutral"
       >
         <DisplayPrivacyPanel />
@@ -85,19 +84,17 @@ export default function DataTab({
         >
           <div className="min-w-0">
             <p className="text-xs font-bold text-gray-700">
-              {lang === 'am' ? 'የስህተት እና አጠቃቀም ሪፖርት' : 'Error & usage reporting'}
+              {label('settings-data.error-usage-reporting', lang)}
             </p>
             <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am'
-                ? 'መተግበሪያው ሲታገድ ለማስተካከል እና ለማሻሻል ይረዳል። ምንም የግል መረጃ አይላክም።'
-                : 'Helps fix crashes and improve the app. Never includes personal data.'}
+              {label('settings-data.helps-fix-crashes-and-improve-the-app-never', lang)}
             </p>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={errorReporting}
-            aria-label={lang === 'am' ? 'የስህተት እና አጠቃቀም ሪፖርት' : 'Error & usage reporting'}
+            aria-label={label('settings-data.error-usage-reporting', lang)}
             onClick={toggleErrorReporting}
             className="flex-shrink-0 relative inline-flex h-7 w-12 items-center rounded-full transition-colors"
             style={{ background: errorReporting ? 'var(--color-primary, #1B4332)' : 'var(--color-bg-disabled, #d9d9d4)' }}
@@ -114,8 +111,8 @@ export default function DataTab({
       {pwa && pwa.shouldShowInstallPrompt && (
         <TabCard
           icon="📲"
-          title={lang === 'am' ? 'መተግበሪያውን ይጫኑ' : 'Install the App'}
-          subtitle={lang === 'am' ? 'እንደ መተግበሪያ ይክፈቱ — ከመስመር ውጭም ይሰራል' : 'Use it like a native app — works offline too'}
+          title={label('settings-data.install-the-app', lang)}
+          subtitle={label('settings-data.use-it-like-a-native-app-works-offline-too', lang)}
           badgeTone="neutral"
         >
           <PwaInstallPanel pwa={pwa} />
@@ -125,8 +122,8 @@ export default function DataTab({
       {/* Sync Status */}
       <TabCard
         icon="☁️"
-        title={lang === 'am' ? 'ማስተካከያ' : 'Sync Status'}
-        subtitle={lang === 'am' ? 'የውሂብ መስተካከያ ማስታወሻ' : 'Cloud sync status & backup'}
+        title={label('settings-data.sync-status', lang)}
+        subtitle={label('settings-data.cloud-sync-status-backup', lang)}
         badgeTone="neutral"
       >
         <SyncStatusIndicator onSyncNow />
@@ -135,37 +132,31 @@ export default function DataTab({
       {/* Help & Support */}
       <TabCard
         icon="❓"
-        title={lang === 'am' ? 'እርዳታ እና ድጋፍ' : 'Help & Support'}
-        subtitle={lang === 'am' ? 'ጥያቄዎችን ያግኙ፡ ችግር ያመልክቱ' : 'Get answers, report a problem'}
+        title={label('settings-data.help-support', lang)}
+        subtitle={label('settings-data.get-answers-report-a-problem', lang)}
         badgeTone="neutral"
       >
         <div className="space-y-3">
           {/* FAQ */}
           <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden px-5 py-4 text-sm text-gray-500">
-            <p className="font-bold text-gray-800 mb-2">{lang === 'am' ? 'ተደጋጋሚ ጥያቄዎች' : 'Common Questions'}</p>
+            <p className="font-bold text-gray-800 mb-2">{label('settings-data.common-questions', lang)}</p>
             <div className="space-y-2">
               <div>
-                <p className="text-xs font-bold text-gray-700">{lang === 'am' ? 'ዱቤ እንዴት ላስታውሳል?' : 'How do I remind a customer about dubie?'}</p>
+                <p className="text-xs font-bold text-gray-700">{label('settings-data.how-do-i-remind-a-customer-about-dubie', lang)}</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am'
-                    ? 'ደንበኛውን ይምረጡ → "አስታውስ" ይጫኑ → ቴሌግራም፣ ዋትስአፕ ወይም SMS ይምረጡ'
-                    : 'Open the customer → tap "Remind" → choose Telegram, WhatsApp, or SMS'}
+                  {label('settings-data.open-the-customer-tap-remind-choose-telegram', lang)}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700">{lang === 'am' ? 'ሽያጭ ሲመዘገብ ቅናሽ እንዴት ልጨምር?' : 'How do I add a discount to a sale?'}</p>
+                <p className="text-xs font-bold text-gray-700">{label('settings-data.how-do-i-add-a-discount-to-a-sale', lang)}</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am'
-                    ? 'ሽያጭ ሲመዘገብ → "+ Add discount" ይጫኑ → መጠኑን ያስገቡ (ከሽያጭ ድምር በላይ መሆን አይችልም)'
-                    : 'While recording a sale → tap "+ Add discount" → enter amount (cannot exceed sale total)'}
+                  {label('settings-data.while-recording-a-sale-tap-add-discount', lang)}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-700">{lang === 'am' ? 'ውሂቤ ወዴት ይሄዳል?' : 'Where is my data stored?'}</p>
+                <p className="text-xs font-bold text-gray-700">{label('settings-data.where-is-my-data-stored', lang)}</p>
                 <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am'
-                    ? 'ሁሉም ውሂብ በዚህ ስልክ ላይ ብቻ ይቀመጣል። ምንም ወደ ውጭ አይላክም።'
-                    : 'All data stays on this phone only. Nothing is sent to the cloud unless you choose to backup.'}
+                  {label('settings-data.all-data-stays-on-this-phone-only-nothing-is', lang)}
                 </p>
               </div>
             </div>
@@ -176,7 +167,7 @@ export default function DataTab({
       {/* About Gebya */}
       <TabCard
         icon="ℹ️"
-        title={lang === 'am' ? 'ስለ ገበያ' : 'About Gebya'}
+        title={label('settings-data.about-gebya', lang)}
         subtitle={BUILD_VERSION}
         badgeTone="neutral"
       >
@@ -184,11 +175,11 @@ export default function DataTab({
           <p className="font-bold text-gray-800 mb-1">Gebya · የንግድ ማስታወሻ</p>
           <p className="text-xs mb-2">Business Notebook for Ethiopian shopkeepers</p>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'ሁሉም ውሂብ በዚህ ስልክ ላይ ብቻ ይቀመጣል' : 'All data stays on this phone only'}
+            {label('settings-data.all-data-stays-on-this-phone-only', lang)}
           </p>
           {BUILD_DATE && (
             <p className="text-[10px] mt-2" style={{ color: 'var(--color-text-soft)' }}>
-              {lang === 'am' ? 'የግንባታ ቀን' : 'Built'}: {BUILD_DATE}
+              {label('settings-data.built', lang)}: {BUILD_DATE}
             </p>
           )}
         </div>

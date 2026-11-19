@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fireToast } from '../Toast';
 import { remindersApi } from '../../api/reminders';
 import { getAuthToken } from '../../utils/syncEngine';
+import { label } from '../../labels/index';
 
 // The reminder engine understands EXACTLY these three values — verified against
 // artifacts/api-server/src/routes/reminders.ts (frequencySchema =
@@ -58,13 +59,13 @@ function ReminderSettings({ shopId, lang }) {
       setFrequency(newFreq);
       fireToast(
         enabled
-          ? (lang === 'am' ? 'ራስ-ሰር ማስታወቂያ ተከፍቷል' : 'Auto-reminders enabled')
-          : (lang === 'am' ? 'ራስ-ሰር ማስታወቂያ ተዘግቷል' : 'Auto-reminders paused'),
+          ? (label('settings-data.auto-reminders-enabled', lang))
+          : (label('settings-data.auto-reminders-paused', lang)),
         2000
       );
     } catch (err) {
       console.error('Failed to update reminder config:', err);
-      fireToast(lang === 'am' ? 'ማስተካከል አልተሳካም' : 'Failed to update', 2500);
+      fireToast(label('settings-data.failed-to-update', lang), 2500);
     } finally {
       setSaving(false);
     }
@@ -80,13 +81,13 @@ function ReminderSettings({ shopId, lang }) {
       await remindersApi.setShopDefault(shopId, next);
       setFrequency(next);
       fireToast(
-        lang === 'am' ? 'ድግግሞሽ ተስተካክሏል' : 'Reminder frequency updated',
+        label('settings-data.reminder-frequency-updated', lang),
         2000
       );
     } catch (err) {
       console.error('Failed to update reminder frequency:', err);
       setFrequency(previous);
-      fireToast(lang === 'am' ? 'ማስተካከል አልተሳካም' : 'Failed to update', 2500);
+      fireToast(label('settings-data.failed-to-update', lang), 2500);
     } finally {
       setSaving(false);
     }
@@ -98,14 +99,14 @@ function ReminderSettings({ shopId, lang }) {
     <div className="card">
       <div className="card-header">
         <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-          {lang === 'am' ? 'ራስ-ሰር ማስታወቂያ' : 'AUTO REMINDERS'}
+          {label('settings-data.auto-reminders', lang)}
         </span>
       </div>
       <div className="card-body">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-gray-900">
-              {lang === 'am' ? 'ተገዢ ማስታወቂያ' : 'Reminder Notifications'}
+              {label('settings-data.reminder-notifications', lang)}
             </div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
               {isEnabled
@@ -114,7 +115,7 @@ function ReminderSettings({ shopId, lang }) {
                   : (frequency === 'weekly'
                     ? 'Sends weekly reminders to customers'
                     : 'Sends daily reminders to customers'))
-                : (lang === 'am' ? 'ማስታወቂያ ተዘግቷል' : 'Reminders are paused')}
+                : (label('settings-data.reminders-are-paused', lang))}
             </div>
           </div>
           <label className="toggle-pill">
@@ -124,8 +125,8 @@ function ReminderSettings({ shopId, lang }) {
               onChange={(e) => handleToggle(e.target.checked)}
               disabled={loading || saving}
               aria-label={isEnabled
-                ? (lang === 'am' ? 'ማስታወቂያ አልተሰጠም' : 'Pause reminders')
-                : (lang === 'am' ? 'ማስታወቂያ አድረጹ' : 'Enable reminders')
+                ? (label('settings-data.pause-reminders', lang))
+                : (label('settings-data.enable-reminders', lang))
               }
             />
             <span className="toggle-slider" />
@@ -135,7 +136,7 @@ function ReminderSettings({ shopId, lang }) {
           <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border-light)' }}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'ድግግሞሽ:' : 'Frequency:'}
+                {label('settings-data.frequency', lang)}
               </span>
               {/* Segmented Daily/Weekly control — the ONLY values the reminder
                   engine supports (besides "disabled", handled by the toggle).
@@ -144,7 +145,7 @@ function ReminderSettings({ shopId, lang }) {
                 className="flex rounded-lg overflow-hidden flex-shrink-0"
                 style={{ border: '1px solid var(--color-border)' }}
                 role="group"
-                aria-label={lang === 'am' ? 'ድግግሞሽ' : 'Reminder frequency'}
+                aria-label={label('settings-data.reminder-frequency', lang)}
               >
                 {SELECTABLE_FREQUENCIES.map((f) => {
                   const active = frequency === f.key;
@@ -168,18 +169,14 @@ function ReminderSettings({ shopId, lang }) {
               </div>
             </div>
             <div className="text-[0.65rem] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am'
-                ? 'ከዘገዬ ቀን በ1-7 ቀን ውስጥ ይላካል'
-                : 'Sends based on credit due date — 1-7 days before/after due'}
+              {label('settings-data.sends-based-on-credit-due-date-1-7-days', lang)}
             </div>
           </div>
         ) : (
           /* Why reminders are off — an off state with no explanation reads
              like a bug (owner request, Gate A fold-in). */
           <p className="text-[0.65rem] mt-2" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am'
-              ? 'ራስ-ሰር ማስታወቂያ ተዘግቷል። ደንበኛውን ይምረጡ → "አስታውስ" ይጫኑ።'
-              : 'Automatic reminders are off. You can still remind a customer from their page.'}
+            {label('settings-data.automatic-reminders-are-off-you-can-still', lang)}
           </p>
         )}
       </div>

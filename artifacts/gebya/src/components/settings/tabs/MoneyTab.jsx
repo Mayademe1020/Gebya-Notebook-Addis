@@ -3,6 +3,7 @@ import PaymentChannelsSection from '../PaymentChannelsSection';
 import DubieRulesPanel from '../DubieRulesPanel';
 import TabCard from '../TabCard';
 import useAccordion from '../useAccordion';
+import { label } from '../../../labels/index';
 
 export default function MoneyTab({
   paymentChannels,
@@ -24,8 +25,8 @@ export default function MoneyTab({
   const channelBadge = `${chOnConfigured}/${chTotal}`;
   const channelTone = chOnConfigured === 0 ? 'warn' : (chOnConfigured < chTotal ? 'warn' : 'ok');
   const channelSub = chOnConfigured > 0
-    ? `${chOnConfigured} ${lang === 'am' ? 'መንገድ ዝግጁ' : 'configured'}`
-    : (lang === 'am' ? 'አንድ መንገድ ያዋቅሩ' : 'Set up a payment channel');
+    ? `${chOnConfigured} ${label('settings-money.configured-2', lang)}`
+    : (label('settings-money.set-up-a-payment-channel', lang));
 
   const shopPhone = shopProfile?.phone || '';
 
@@ -44,7 +45,7 @@ export default function MoneyTab({
       <TabCard
         id="channels"
         icon="💳"
-        title={lang === 'am' ? 'የክፍያ መንገዶች' : 'Payment Channels'}
+        title={label('settings-money.payment-channels-2', lang)}
         subtitle={channelSub}
         badge={channelBadge}
         badgeTone={channelTone}
@@ -64,8 +65,8 @@ export default function MoneyTab({
       <TabCard
         id="dubie-rules"
         icon="⚖️"
-        title={lang === 'am' ? 'የዱቤ ህጎች' : 'Dubie (Credit) Rules'}
-        subtitle={lang === 'am' ? 'የዘገዬ ጊዜ · ማስታወቂያ በውሂብ ውስጥ' : 'Overdue threshold · reminders in Data tab'}
+        title={label('settings-money.dubie-credit-rules', lang)}
+        subtitle={label('settings-money.overdue-threshold-reminders-in-data-tab', lang)}
         badgeTone="neutral"
         open={openCards.has('dubie-rules')}
         onToggle={() => toggleCard('dubie-rules')}

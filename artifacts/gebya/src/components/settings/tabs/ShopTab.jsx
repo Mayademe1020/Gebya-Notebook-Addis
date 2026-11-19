@@ -4,6 +4,7 @@ import CatalogPanel from '../CatalogPanel';
 import RecurringExpensesPanel from '../RecurringExpensesPanel';
 import TabCard from '../TabCard';
 import useAccordion from '../useAccordion';
+import { label } from '../../../labels/index';
 
 export default function ShopTab({
   shopProfile,
@@ -20,18 +21,18 @@ export default function ShopTab({
   const { openCards, toggleCard, openCard } = useAccordion();
 
   const activeItems = (catalogEntries || []).filter(e => e.active !== false);
-  const itemsBadge = activeItems.length > 0 ? `${activeItems.length}` : (lang === 'am' ? 'ባዶ' : 'Empty');
+  const itemsBadge = activeItems.length > 0 ? `${activeItems.length}` : (label('settings-shop.empty', lang));
   const itemsTone = activeItems.length > 0 ? 'ok' : 'neutral';
   const itemsSub = activeItems.length > 0
-    ? (lang === 'am' ? `${activeItems.length} እቃዎች ተቀምጠዋል` : `${activeItems.length} saved items`)
-    : (lang === 'am' ? 'ለመጀመር ይጨምሩ' : 'Add to get started');
+    ? (label('settings-shop.saved-items', lang, activeItems.length))
+    : (label('settings-shop.add-to-get-started', lang));
 
   const recurringCount = (recurringExpenses || []).length;
-  const recurringBadge = recurringCount > 0 ? `${recurringCount}` : (lang === 'am' ? 'ባዶ' : 'None');
+  const recurringBadge = recurringCount > 0 ? `${recurringCount}` : (label('settings-shop.none', lang));
   const recurringTone = recurringCount > 0 ? 'ok' : 'neutral';
   const recurringSub = recurringCount > 0
-    ? (lang === 'am' ? `${recurringCount} ወርሃዊ ወጪ` : `${recurringCount} monthly bills`)
-    : (lang === 'am' ? 'ኪራይ፣ ኢንተርኔት፣ ወዘተ' : 'Rent, internet, electricity, etc.');
+    ? (label('settings-shop.monthly-bills', lang, recurringCount))
+    : (label('settings-shop.rent-internet-electricity-etc', lang));
 
   return (
     <div>
@@ -55,9 +56,9 @@ export default function ShopTab({
       <TabCard
         id="profile"
         icon="🏪"
-        title={lang === 'am' ? 'የሱቅ መገለጫ' : 'Shop Profile'}
-        subtitle={`${shopProfile?.name || (lang === 'am' ? 'ስም የለም' : 'No name')}${shopProfile?.phone ? ` · ${shopProfile.phone}` : ''}`}
-        badge={shopProfile?.name && shopProfile?.phone ? (lang === 'am' ? 'ተዋቅሯል' : 'Set') : (lang === 'am' ? 'ይጨምሩ' : 'Partial')}
+        title={label('settings-shop.shop-profile', lang)}
+        subtitle={`${shopProfile?.name || (label('settings-shop.no-name', lang))}${shopProfile?.phone ? ` · ${shopProfile.phone}` : ''}`}
+        badge={shopProfile?.name && shopProfile?.phone ? (label('settings-shop.set', lang)) : (label('settings-shop.partial', lang))}
         badgeTone={shopProfile?.name && shopProfile?.phone ? 'ok' : 'warn'}
         open={openCards.has('profile')}
         onToggle={() => toggleCard('profile')}
@@ -68,7 +69,7 @@ export default function ShopTab({
       <TabCard
         id="items"
         icon="📦"
-        title={lang === 'am' ? 'እቃዎች' : 'Items'}
+        title={label('settings-shop.items', lang)}
         subtitle={itemsSub}
         badge={itemsBadge}
         badgeTone={itemsTone}
@@ -85,7 +86,7 @@ export default function ShopTab({
       <TabCard
         id="recurring"
         icon="🔁"
-        title={lang === 'am' ? 'ወርሃዊ ወጪ' : 'Recurring Expenses'}
+        title={label('settings-shop.recurring-expenses', lang)}
         subtitle={recurringSub}
         badge={recurringBadge}
         badgeTone={recurringTone}
