@@ -25,7 +25,8 @@ const TERNARY = new RegExp(
   String.raw`\b[\w$.]+\s*===\s*'am'\s*\?\s*` + STR + String.raw`\s*:\s*` + STR,
   'g',
 );
-const CALL = /\blabel\(\s*'([^']+)'/g;
+const CALL = /\b(?:label|tr)\(\s*'([^']+)'/g;
+// Files that declare a local `label` import the resolver as `tr`.
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -61,7 +62,8 @@ describe('R2.1 labels wiring', () => {
     expect(hits).toEqual([]);
   });
 
-  it('routes more than a thousand call sites through the module', () => {
+  it('routes every call site through the module, including the `tr` alias', () => {
+    const baseline = JSON.parse(readFileSync(join(SRC, '../tests/fixtures/labels-baseline.json'), 'utf8'));
     let calls = 0;
     const missing = [];
     for (const [file, text] of texts) {
@@ -73,7 +75,9 @@ describe('R2.1 labels wiring', () => {
       }
     }
     expect(missing).toEqual([]);
-    expect(calls).toBeGreaterThan(1000);
+    // One call site per baseline occurrence: the refactor moved every string
+    // and did not lose or duplicate any site.
+    expect(calls).toBe(baseline.occurrences.length);
   });
 
   it('has a baseline entry for every wired key and vice versa', () => {

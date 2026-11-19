@@ -148,15 +148,15 @@ describe('R2.1 labels module', () => {
   });
 
   it('has every label() call site pointing at a real key', () => {
-    const CALL = /\blabel\(\s*'([^']+)'/g;
+    // Five files declare a local `label` variable, so they import the resolver
+    // as `tr`; both spellings go through the same key space.
+    const CALL = /\b(?:label|tr)\(\s*'([^']+)'/g;
     const missing = [];
-    let calls = 0;
     for (const file of walk(SRC)) {
       if (file.includes('src/labels')) continue;
       const text = readFileSync(file, 'utf8');
       let m;
       while ((m = CALL.exec(text))) {
-        calls += 1;
         if (!entryFor(m[1])) missing.push({ file, key: m[1] });
       }
     }
