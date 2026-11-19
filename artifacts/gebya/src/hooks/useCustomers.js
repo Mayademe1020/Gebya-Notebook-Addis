@@ -31,6 +31,7 @@ import { enqueueTelegramLedgerUpdate, drainTelegramSyncQueue } from '../utils/sy
 import { syncTelegramCustomerState } from '../utils/telegramBotClient';
 import { isBrowserOnline } from '../utils/browser';
 import { enrichCustomerSummaries } from '../utils/customerMetrics';
+import { label } from '../labels/index.js';
 
 /**
  * useCustomers hook — manages customers, customer transactions (ledger),
@@ -121,7 +122,7 @@ export function useCustomers() {
         await db.customers.update(payload.id, updates);
         const updated = await db.customers.get(payload.id);
         setLedgerCustomers(prev => prev.map(c => (c.id === payload.id ? updated : c)));
-        fireToast(lang === 'am' ? 'ተስተካክሏል' : 'Customer updated', 1800);
+        fireToast(label('common.customer-updated', lang), 1800);
         return true;
       }
       const linkToken = createCustomerTelegramLinkToken();
@@ -286,11 +287,11 @@ export function useCustomers() {
       await db.customer_transactions.update(editingId, updates);
       const updated = await db.customer_transactions.get(editingId);
       setLedgerTransactions(prev => prev.map(t2 => (t2.id === editingId ? updated : t2)));
-      fireToast(lang === 'am' ? 'ተስተካክሏል' : 'Entry updated', 1800);
+      fireToast(label('common.entry-updated', lang), 1800);
       return true;
     } catch (err) {
       if (import.meta.env.DEV) console.error('Edit customer_transaction failed:', err);
-      fireToast(lang === 'am' ? 'ማስተካከል አልተሳካም' : 'Could not update entry', 2400);
+      fireToast(label('common.could-not-update-entry', lang), 2400);
       return false;
     }
   }, [lang, t]);
@@ -319,10 +320,10 @@ export function useCustomers() {
     } catch (err) {
       if (import.meta.env.DEV) console.error('Reversal entry failed:', err);
       setLedgerTransactions(prev => prev.find(t2 => t2.id === tx.id) ? prev : [tx, ...prev]);
-      fireToast(lang === 'am' ? 'ሰርዝ አልተሳካም' : 'Could not reverse entry', 2400);
+      fireToast(label('common.could-not-reverse-entry', lang), 2400);
       return false;
     }
-    const msg = lang === 'am' ? 'ተሰርዟል' : 'Entry reversed';
+    const msg = label('common.entry-reversed', lang);
     fireToast(msg, 4000, async () => {
       try {
         const reversals = await db.customer_transactions.where('reversal_of').equals(tx.id).toArray();

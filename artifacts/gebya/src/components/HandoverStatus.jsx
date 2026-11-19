@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getAllSettlements } from '../db';
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index.js';
 
 // HandoverStatus — owner's at-a-glance list of who has handed over today.
 //
@@ -120,9 +121,7 @@ export default function HandoverStatus({
           fontSize: 11, fontWeight: 600, color: 'var(--color-text-soft)',
           textAlign: 'center', padding: '8px 14px',
         }}>
-          {lang === 'am'
-            ? 'ሰራተኞች ገና አላስረከቡም — ይጠብቁ ወይም እራሳቸውን ይጠይቁ'
-            : 'Staff haven\'t handed over yet — wait or ask them'}
+          {label('sync.staff-haven-t-handed-over-yet-wait-or-ask', lang)}
         </p>
       )}
     </div>

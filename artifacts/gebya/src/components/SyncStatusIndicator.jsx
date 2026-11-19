@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Check, AlertCircle, RefreshCw, Cloud, Clock } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import db from '../db';
+import { label } from '../labels/index.js';
 
 const SYNC_CHECK_INTERVAL = 30000;
 const FIRST_SYNC_THRESHOLD = 60000;
@@ -60,7 +61,7 @@ export default function SyncStatusIndicator({ onSyncNow }) {
         setSyncState(prev => ({
           ...prev,
           isSyncing: false,
-          error: lang === 'am' ? 'የሂለው መረጃ ይስጠው አለህ። ከዚህ ማስተካከያ ይቀኝባታ።' : 'No auth token. Manual sync will not upload data.'
+          error: label('sync.no-auth-token-manual-sync-will-not-upload', lang)
         }));
         await new Promise(r => setTimeout(r, 2000));
         setSyncState(prev => ({ ...prev, isSyncing: false, error: null }));
@@ -120,14 +121,14 @@ export default function SyncStatusIndicator({ onSyncNow }) {
     const diffMs = now - timestamp;
     const diffMins = Math.floor(diffMs / 60000);
     
-    if (diffMins < 1) return lang === 'am' ? 'አሁን' : 'Just now';
-    if (diffMins < 60) return `${diffMins} ${lang === 'am' ? 'ደቂቃ' : 'min'} ${lang === 'am' ? 'በፊት' : 'ago'}`;
+    if (diffMins < 1) return label('sync.just-now', lang);
+    if (diffMins < 60) return `${diffMins} ${label('sync.min', lang)} ${label('sync.ago', lang)}`;
     
     const hours = Math.floor(diffMins / 60);
-    if (hours < 24) return `${hours} ${lang === 'am' ? 'ሰዓት' : 'hr'} ${lang === 'am' ? 'በፊት' : 'ago'}`;
+    if (hours < 24) return `${hours} ${label('sync.hr', lang)} ${label('sync.ago', lang)}`;
     
     const days = Math.floor(hours / 24);
-    return `${days} ${lang === 'am' ? 'ቀን' : 'day'} ${lang === 'am' ? 'በፊት' : 'ago'}`;
+    return `${days} ${label('sync.day', lang)} ${label('sync.ago', lang)}`;
   };
 
   const getStatusConfig = () => {
@@ -137,7 +138,7 @@ export default function SyncStatusIndicator({ onSyncNow }) {
         icon: AlertCircle,
         text: syncState.error,
         action: 'retry',
-        actionLabel: lang === 'am' ? 'እንደገና ሞክር' : 'Retry'
+        actionLabel: label('sync.retry-2', lang)
       };
     }
     
@@ -145,7 +146,7 @@ export default function SyncStatusIndicator({ onSyncNow }) {
       return {
         type: 'syncing',
         icon: RefreshCw,
-        text: lang === 'am' ? 'የተላሳዊ ማስተካከያ...' : 'Syncing...',
+        text: label('sync.syncing-2', lang),
         spinning: true
       };
     }
@@ -154,9 +155,9 @@ export default function SyncStatusIndicator({ onSyncNow }) {
       return {
         type: 'pending',
         icon: Clock,
-        text: `(${syncState.pendingCount}) ${lang === 'am' ? 'የተመለከተው' : 'Pending'}`,
+        text: `(${syncState.pendingCount}) ${label('sync.pending', lang)}`,
         action: 'sync',
-        actionLabel: lang === 'am' ? 'ማስተካከያ' : 'Sync'
+        actionLabel: label('sync.sync', lang)
       };
     }
     
@@ -166,16 +167,16 @@ export default function SyncStatusIndicator({ onSyncNow }) {
         icon: Check,
         text: `✓ ${formatTimeAgo(syncState.lastSyncedAt)}`,
         action: 'sync',
-        actionLabel: lang === 'am' ? 'ማስተካከያ' : 'Sync'
+        actionLabel: label('sync.sync', lang)
       };
     }
     
     return {
       type: 'first',
       icon: Cloud,
-      text: lang === 'am' ? 'የመጀመሪያ ማስተካከያ' : 'First sync pending',
+      text: label('sync.first-sync-pending', lang),
       action: 'sync',
-      actionLabel: lang === 'am' ? 'ማስተካከያ' : 'Sync'
+      actionLabel: label('sync.sync', lang)
     };
   };
 

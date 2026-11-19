@@ -3,6 +3,7 @@ import { getAuthToken } from './syncEngine';
 import { getOrCreateCloudProofDeviceId } from './cloudProof';
 import { fireToast } from '../components/Toast';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/$/, '');
 const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -101,9 +102,7 @@ export async function checkAndAutoBackup({ silent = true } = {}) {
       const { lang, t } = useAutoBackup();
       if (!silent && t) {
         fireToast(
-          lang === 'am'
-            ? '✓ በሂሳብ ቤት መደቃቀፋ ተሳክቷል'
-            : '✓ Auto-backup completed',
+          label('common.auto-backup-completed', lang),
           1800
         );
       }

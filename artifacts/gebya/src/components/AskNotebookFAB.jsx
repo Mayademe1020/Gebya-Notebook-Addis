@@ -1,4 +1,5 @@
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 export default function AskNotebookFAB({ onClick }) {
   const { lang } = useLang();
@@ -7,7 +8,7 @@ export default function AskNotebookFAB({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      aria-label={lang === 'am' ? 'ማስታወሻ ደብተርዎን ይጠይቁ' : 'Ask my notebook'}
+      aria-label={label('pwa.ask-my-notebook', lang)}
       style={{
         position: 'fixed',
         right: 16,
@@ -46,7 +47,7 @@ export default function AskNotebookFAB({ onClick }) {
     >
       <span style={{ fontSize: 16 }}>⚡</span>
       <span style={{ fontSize: 8 }}>
-        {lang === 'am' ? 'ጠይቅ' : 'Ask'}
+        {label('pwa.ask', lang)}
       </span>
     </button>
   );
