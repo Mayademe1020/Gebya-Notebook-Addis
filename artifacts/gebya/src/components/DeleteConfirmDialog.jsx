@@ -1,5 +1,6 @@
 import { useLang } from '../context/LangContext';
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index.js';
 
 const typeEmoji = { sale: '💰', expense: '🛒', credit: '👥' };
 
@@ -17,7 +18,7 @@ export default function DeleteConfirmDialog({ deleteTarget, onConfirm, onCancel 
         <div className="text-3xl text-center mb-3">{typeEmoji[deleteTarget.type]}</div>
         <h3 className="text-lg font-black text-gray-900 text-center mb-1 font-sans">{t.deleteEntry}</h3>
         <p className="text-sm text-gray-500 text-center mb-5" style={{ color: 'var(--color-text-muted)' }}>
-          "{deleteTarget.item_name}" · {fmt(deleteTarget.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+          "{deleteTarget.item_name}" · {fmt(deleteTarget.amount || 0)} {label('common.birr', lang)}
         </p>
         <div className="space-y-2">
           <button

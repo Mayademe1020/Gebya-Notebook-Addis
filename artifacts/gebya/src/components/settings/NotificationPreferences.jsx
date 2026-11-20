@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, BellOff, Moon, Sun } from 'lucide-react';
 import { fireToast } from '../Toast';
 import { getAuthToken } from '../../utils/syncEngine';
+import { label } from '../../labels/index.js';
 
 const NOTIFICATION_TYPES = [
   { key: 'sale', label: { en: 'Sales', am: 'ሽያጭ' }, icon: '💰' },
@@ -36,7 +37,7 @@ function NotificationPrefsRow({ type, prefs, onChange, lang }) {
         {/* In-app toggle */}
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--color-text-soft)' }}>
-            {lang === 'am' ? 'App' : 'App'}
+            {label('settings-data.app', lang)}
           </span>
           <label className="toggle-pill">
             <input
@@ -74,18 +75,16 @@ function QuietHoursRow({ startTime, endTime, onChange, lang }) {
       <div className="flex items-center gap-2 mb-2">
         <Moon className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         <span className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>
-          {lang === 'am' ? 'የማሳወቂያ ሰዓት' : 'Quiet Hours'}
+          {label('settings-data.quiet-hours', lang)}
         </span>
       </div>
       <p className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am'
-          ? 'በዚህ ጊዜ ውስጥ push ማስጠንቂያ አይልክም'
-          : 'Push notifications silenced during this window'}
+        {label('settings-data.push-notifications-silenced-during-this', lang)}
       </p>
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <label className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-text-soft)' }}>
-            {lang === 'am' ? 'ከ' : 'From'}
+            {label('settings-data.from', lang)}
           </label>
           <input
             type="time"
@@ -98,7 +97,7 @@ function QuietHoursRow({ startTime, endTime, onChange, lang }) {
         <span className="text-xs mt-4" style={{ color: 'var(--color-text-muted)' }}>—</span>
         <div className="flex-1">
           <label className="text-[10px] font-bold uppercase" style={{ color: 'var(--color-text-soft)' }}>
-            {lang === 'am' ? 'እስከ' : 'Until'}
+            {label('settings-data.until', lang)}
           </label>
           <input
             type="time"
@@ -126,7 +125,7 @@ export default function NotificationPreferences({ lang }) {
       const token = await getAuthToken();
       if (!token) {
         setLoading(false);
-        fireToast(lang === 'am' ? 'መለያ ያስፈልጋል። ይግቡ።' : 'Sign in required to load preferences', 3000);
+        fireToast(label('settings-data.sign-in-required-to-load-preferences', lang), 3000);
         return;
       }
 
@@ -156,7 +155,7 @@ export default function NotificationPreferences({ lang }) {
       setSaving(true);
       const token = await getAuthToken();
       if (!token) {
-        fireToast(lang === 'am' ? 'መለያ ያስፈልጋል። ይግቡ።' : 'Sign in to save preferences', 3000);
+        fireToast(label('settings-data.sign-in-to-save-preferences', lang), 3000);
         return;
       }
 
@@ -167,7 +166,7 @@ export default function NotificationPreferences({ lang }) {
       });
     } catch (err) {
       console.error('Failed to save preference:', err);
-      fireToast(lang === 'am' ? 'ማስተካከል አልተሳካም' : 'Failed to save', 2500);
+      fireToast(label('settings-data.failed-to-save', lang), 2500);
     } finally {
       setSaving(false);
     }
@@ -181,7 +180,7 @@ export default function NotificationPreferences({ lang }) {
       setSaving(true);
       const token = await getAuthToken();
       if (!token) {
-        fireToast(lang === 'am' ? 'መለያ ያስፈልጋል። ይግቡ።' : 'Sign in to save quiet hours', 3000);
+        fireToast(label('settings-data.sign-in-to-save-quiet-hours', lang), 3000);
         return;
       }
 
@@ -202,7 +201,7 @@ export default function NotificationPreferences({ lang }) {
       setSaving(true);
       const token = await getAuthToken();
       if (!token) {
-        fireToast(lang === 'am' ? 'መለያ ያስፈልጋል። ይግቡ።' : 'Sign in to reset preferences', 3000);
+        fireToast(label('settings-data.sign-in-to-reset-preferences', lang), 3000);
         return;
       }
 
@@ -211,7 +210,7 @@ export default function NotificationPreferences({ lang }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       await loadPreferences();
-      fireToast(lang === 'am' ? 'ወደ ነባሪ ተመልሷል' : 'Reset to defaults', 2000);
+      fireToast(label('settings-data.reset-to-defaults', lang), 2000);
     } catch (err) {
       console.error('Failed to reset preferences:', err);
     } finally {
@@ -224,7 +223,7 @@ export default function NotificationPreferences({ lang }) {
       <div className="card">
         <div className="card-header">
           <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            {lang === 'am' ? 'የማስጠንቂያ ምርጫ' : 'NOTIFICATION PREFERENCES'}
+            {label('settings-data.notification-preferences', lang)}
           </span>
         </div>
         <div className="card-body flex items-center justify-center py-8">
@@ -238,7 +237,7 @@ export default function NotificationPreferences({ lang }) {
     <div className="card">
       <div className="card-header">
         <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-          {lang === 'am' ? 'የማስጠንቂያ ምርጫ' : 'NOTIFICATION PREFERENCES'}
+          {label('settings-data.notification-preferences', lang)}
         </span>
       </div>
       <div className="card-body">
@@ -247,12 +246,12 @@ export default function NotificationPreferences({ lang }) {
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
             <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
-              {lang === 'am' ? 'ምን ይላኩ' : 'What to receive'}
+              {label('settings-data.what-to-receive', lang)}
             </span>
           </div>
           {saving && (
             <span className="text-[10px]" style={{ color: 'var(--color-text-soft)' }}>
-              {lang === 'am' ? 'በመቀየር...' : 'Saving...'}
+              {label('settings-data.saving', lang)}
             </span>
           )}
         </div>
@@ -262,7 +261,7 @@ export default function NotificationPreferences({ lang }) {
           <div className="flex-1" />
           <div className="flex items-center gap-3 flex-shrink-0">
             <span className="text-[9px] font-bold uppercase w-8 text-center" style={{ color: 'var(--color-text-soft)' }}>
-              {lang === 'am' ? 'App' : 'App'}
+              {label('settings-data.app', lang)}
             </span>
             <span className="text-[9px] font-bold uppercase w-8 text-center" style={{ color: 'var(--color-text-soft)' }}>
               Push
@@ -297,7 +296,7 @@ export default function NotificationPreferences({ lang }) {
             className="text-[11px] font-bold px-3 py-1.5"
             style={{ color: 'var(--color-text-muted)', background: 'transparent', border: 'none' }}
           >
-            {lang === 'am' ? 'ወደ ነባሪ ተመልስ' : 'Reset to defaults'}
+            {label('settings-data.reset-to-defaults-2', lang)}
           </button>
         </div>
       </div>

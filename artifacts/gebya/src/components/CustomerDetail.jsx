@@ -34,6 +34,7 @@ import CustomerReminderHistory from './CustomerReminderHistory';
 import { TransactionRow, transactionLabel, transactionStatusBadge } from '@/components/TransactionRow';
 import { TelegramIcon, initialsOf, telegramState, DAY_MS } from "./customerDetailHelpers";
 import { useAppStore } from '../stores/appStore';
+import { label as tr } from '../labels/index.js';
 
 
 // ─── component ────────────────────────────────────────────────────────
@@ -291,7 +292,7 @@ function CustomerDetail({
             }}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>{lang === 'am' ? 'ተመለስ · ደንበኞች' : 'Back · Customers'}</span>
+            <span>{tr('customers.back-customers', lang)}</span>
           </button>
 
           {/* Status Pill — single source of truth for overdue state */}
@@ -314,7 +315,7 @@ function CustomerDetail({
               letterSpacing: '0.04em',
               flexShrink: 0,
             }}>
-              {lang === 'am' ? 'ተከፍሏል' : 'SETTLED'}
+              {tr('customers.settled', lang)}
             </span>
           )}
           {customer.promised_pay_date && customer.promised_pay_date > Date.now() && !isSettled && (
@@ -325,7 +326,7 @@ function CustomerDetail({
               letterSpacing: '0.04em',
               flexShrink: 0,
             }}>
-              {lang === 'am' ? 'ተስፋ' : 'PROMISE'}
+              {tr('customers.promise', lang)}
             </span>
           )}
         </div>
@@ -394,7 +395,7 @@ function CustomerDetail({
                 <span>💬 @{customer.telegram_username}</span>
               ) : (
                 <span style={{ fontStyle: 'italic', color: '#8b9086' }}>
-                  {lang === 'am' ? 'ስልክ ወይም ቴሌግራም የለም' : 'No phone or Telegram'}
+                  {tr('customers.no-phone-or-telegram', lang)}
                 </span>
               )}
             </p>
@@ -406,7 +407,7 @@ function CustomerDetail({
               type="button"
               onClick={() => onEditCustomer(customer)}
               className="press-scale"
-              aria-label={lang === 'am' ? 'አስተካክል' : 'Edit customer'}
+              aria-label={tr('customers.edit-customer', lang)}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: 32, height: 32,
@@ -469,7 +470,7 @@ function CustomerDetail({
             color: isSettled ? '#2e6a47' : '#a0402a',
             margin: 0,
           }}>
-            {fmt(balance)} <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#8b9086' }}>{lang === 'am' ? 'ብር' : 'birr'}</span>
+            {fmt(balance)} <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#8b9086' }}>{tr('customers.birr', lang)}</span>
           </p>
         </div>
         {/* Contextual date/status chip — keeps the key "when" visible on scroll */}
@@ -477,10 +478,10 @@ function CustomerDetail({
           const due = customer.promised_pay_date;
           const isPromise = due && due > Date.now();
           if (isSettled) {
-            return <span style={{ background: '#e7f0e9', color: '#2e6a47', padding: '3px 8px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 800, flexShrink: 0 }}>✓ {lang === 'am' ? 'ተከፍሏል' : 'Settled'}</span>;
+            return <span style={{ background: '#e7f0e9', color: '#2e6a47', padding: '3px 8px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 800, flexShrink: 0 }}>✓ {tr('customers.settled-2', lang)}</span>;
           }
           if (isPromise) {
-            return <span style={{ background: '#f9eed4', color: '#7a5416', padding: '3px 8px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 800, flexShrink: 0 }}>{lang === 'am' ? 'የሚከፍለው' : 'Due'} {formatEthiopian(due)}</span>;
+            return <span style={{ background: '#f9eed4', color: '#7a5416', padding: '3px 8px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 800, flexShrink: 0 }}>{tr('customers.due', lang)} {formatEthiopian(due)}</span>;
           }
           if (customer.has_overdue && customer.overdue_days > 0) {
             return <span style={{ background: '#f5e7e1', color: '#a0402a', padding: '3px 8px', borderRadius: 999, fontSize: '0.58rem', fontWeight: 800, flexShrink: 0 }}>{formatDays(customer.overdue_days, lang)}</span>;
@@ -509,8 +510,8 @@ function CustomerDetail({
                 color: '#8b9086', letterSpacing: '0.08em', textTransform: 'uppercase',
               }}>
                 {isSettled
-                  ? (lang === 'am' ? 'ተከፍሏል' : 'Settled')
-                  : (lang === 'am' ? 'ለእኔ ይከፍላሉ' : 'You are owed')}
+                  ? (tr('customers.settled-2', lang))
+                  : (tr('customers.you-are-owed', lang))}
               </span>
               <p style={{
                 fontFamily: "'JetBrains Mono', monospace",
@@ -523,7 +524,7 @@ function CustomerDetail({
                 textOverflow: 'ellipsis',
                 transition: 'all 0.3s ease',
               }}>
-                {fmt(balance)} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#8b9086' }}>{lang === 'am' ? 'ብር' : 'birr'}</span>
+                {fmt(balance)} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#8b9086' }}>{tr('customers.birr', lang)}</span>
               </p>
             </div>
 
@@ -535,7 +536,7 @@ function CustomerDetail({
                 color: '#2e6a47',
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                {lang === 'am' ? 'ተከፍሏል' : 'Paid'}
+                {tr('customers.paid', lang)}
               </span>
             )}
           </>
@@ -550,8 +551,8 @@ function CustomerDetail({
                   margin: 0, transition: 'all 0.3s ease',
                 }}>
                   {isSettled
-                    ? (lang === 'am' ? 'ተከፍሏል' : 'Settled')
-                    : (lang === 'am' ? 'ለእኔ ይከፍላሉ' : 'You are owed')}
+                    ? (tr('customers.settled-2', lang))
+                    : (tr('customers.you-are-owed', lang))}
                 </p>
                 <p style={{
                   fontFamily: "'JetBrains Mono', monospace",
@@ -563,7 +564,7 @@ function CustomerDetail({
                 }}>
                   {fmt(balance)}
                   <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#8b9086', marginLeft: 4 }}>
-                    {lang === 'am' ? 'ብር' : 'birr'}
+                    {tr('customers.birr', lang)}
                   </span>
                 </p>
               </div>
@@ -573,13 +574,13 @@ function CustomerDetail({
               }}>
                 <span>
                   <span style={{ fontWeight: 700, color: '#171a17' }}>{customer.transaction_count || 0}</span>{' '}
-                  {lang === 'am' ? 'መዝገብ' : 'entries'}
+                  {tr('customers.entries', lang)}
                 </span>
                 {/* On-time % intentionally not shown in the shop-owner view.
                     Data + calculation remain available for admin/analytics. */}
                 {customer.avg_pay_days !== null && customer.avg_pay_days !== undefined && (
                   <span>
-                    {lang === 'am' ? 'አማካይ ክፍያ' : 'Avg pay'}:{' '}
+                    {tr('customers.avg-pay', lang)}:{' '}
                     <span style={{ fontWeight: 700, color: '#171a17' }}>{formatDays(customer.avg_pay_days, lang)}</span>
                   </span>
                 )}
@@ -595,7 +596,7 @@ function CustomerDetail({
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                {lang === 'am' ? 'ሙሉ ተከፍሏል' : 'Balance Fully Paid'}
+                {tr('customers.balance-fully-paid', lang)}
               </div>
             )}
           </>
@@ -608,9 +609,7 @@ function CustomerDetail({
       {shopPlan !== 'plus' && hasBalance && hasLinkedBorrower && (
         <div style={{ padding: '0 14px 8px' }}>
           <p style={{ margin: 0, fontSize: '0.66rem', color: '#a8ada2', lineHeight: 1.4 }}>
-            {lang === 'am'
-              ? 'ራስ-ሰር ማስታወሻ የ Plus ምርቅ ነው — ከፈለጉ በኩል ማስታወሻ ይሠራል።'
-              : 'Automated reminders are a Plus feature — on-demand reminders still work.'}
+            {tr('customers.automated-reminders-are-a-plus-feature-on', lang)}
           </p>
         </div>
       )}
@@ -637,7 +636,7 @@ function CustomerDetail({
             }}
           >
             <Wallet className="w-4 h-4" />
-            {lang === 'am' ? 'ሙሉ ይከፍሉ' : 'Mark Fully Paid'}
+            {tr('customers.mark-fully-paid', lang)}
           </button>
         )}
         {/* Tier 2 — Promise to Pay (record). Hidden while a promise is active;
@@ -662,7 +661,7 @@ function CustomerDetail({
             }}
           >
             <CalendarClock className="w-4 h-4" />
-            {lang === 'am' ? 'ቃል የተገባ' : 'Promise'}
+            {tr('customers.promise-2', lang)}
           </button>
         )}
         {isValidEthiopianPhone(customer.phone_number) && (
@@ -684,7 +683,7 @@ function CustomerDetail({
             }}
           >
             <Phone className="w-4 h-4" />
-            {lang === 'am' ? 'ለመደወል' : 'Call'}
+            {tr('customers.call', lang)}
           </a>
         )}
         {isValidEthiopianPhone(customer.phone_number) && (
@@ -717,7 +716,7 @@ function CustomerDetail({
             type="button"
             onClick={() => setShowMoreSheet(true)}
             className="press-scale"
-            aria-label={lang === 'am' ? 'ተጨማሪ እርምጃዎች' : 'More actions'}
+            aria-label={tr('customers.more-actions', lang)}
             style={{
               flex: '0 0 auto',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -733,7 +732,7 @@ function CustomerDetail({
             }}
           >
             <MoreVertical className="w-4 h-4" />
-            {lang === 'am' ? 'ተጨማሪ' : 'More'}
+            {tr('customers.more', lang)}
           </button>
         )}
       </div>
@@ -754,13 +753,13 @@ function CustomerDetail({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 10, background: isMissed ? '#f5e7e1' : '#f9eed4', border: `1px solid ${isMissed ? '#E7C3B7' : '#E4D5B0'}` }}>
                   <span style={{ fontSize: '0.76rem', fontWeight: 600, color: isMissed ? '#a0402a' : '#7a5416', display: 'flex', alignItems: 'center', gap: 6 }}>
                     📅 {isMissed
-                      ? (lang === 'am' ? `የጠበቀው ቀን አልፏል — ${formatEthiopian(promiseDateVal)}` : `Missed promise — due ${formatEthiopian(promiseDateVal)}`)
+                      ? (tr('customers.missed-promise-due', lang, formatEthiopian(promiseDateVal)))
                       : isToday
-                        ? (lang === 'am' ? 'ዛሬ ይከፍላል ብሏል' : 'Promised to pay today')
-                        : (lang === 'am' ? `እስከ ${formatEthiopian(promiseDateVal)} ይከፍላል ብሏል` : `Promised to pay by ${formatEthiopian(promiseDateVal)}`)}
+                        ? (tr('customers.promised-to-pay-today', lang))
+                        : (tr('customers.promised-to-pay-by', lang, formatEthiopian(promiseDateVal)))}
                     {customer.promise_note && <span style={{ fontWeight: 400, opacity: 0.8 }}> — {customer.promise_note}</span>}
                   </span>
-                  <button type="button" onClick={handleClearPromiseExt} style={{ background: 'none', border: 'none', fontSize: '0.65rem', fontWeight: 700, color: '#8b9086', cursor: 'pointer', padding: '4px 8px' }}>{lang === 'am' ? 'አስወግድ' : 'Clear'}</button>
+                  <button type="button" onClick={handleClearPromiseExt} style={{ background: 'none', border: 'none', fontSize: '0.65rem', fontWeight: 700, color: '#8b9086', cursor: 'pointer', padding: '4px 8px' }}>{tr('customers.clear', lang)}</button>
                 </div>
               )}
               {showReminder && (
@@ -792,9 +791,9 @@ function CustomerDetail({
         }}
       >
         {[
-          { key: 'timeline', label: lang === 'am' ? 'ታሪክ' : 'Timeline' },
-          { key: 'promises', label: lang === 'am' ? 'ቃል የተገባ' : 'Promises' },
-          { key: 'notes', label: lang === 'am' ? 'ማስታወሻዎች' : 'Notes' },
+          { key: 'timeline', label: tr('customers.timeline', lang) },
+          { key: 'promises', label: tr('customers.promises', lang) },
+          { key: 'notes', label: tr('customers.notes', lang) },
         ].map(tab => {
           const active = activeTab === tab.key;
           return (
@@ -836,7 +835,7 @@ function CustomerDetail({
             fontSize: '0.62rem', fontWeight: 800, color: '#8b9086',
             letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 6px',
           }}>
-            {lang === 'am' ? 'ተከታተል' : 'Follow-up'}
+            {tr('customers.follow-up', lang)}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {onRecordPromise &&
@@ -860,14 +859,10 @@ function CustomerDetail({
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
                     📅 {isMissed
-                      ? (lang === 'am'
-                        ? `የጠበቀው ቀን አልፏል — ${formatEthiopian(promiseDateVal)}`
-                        : `Missed promise — was due ${formatEthiopian(promiseDateVal)}`)
+                      ? (tr('customers.missed-promise-was-due', lang, formatEthiopian(promiseDateVal)))
                       : isToday
-                        ? (lang === 'am' ? 'ዛሬ ይከፍላል ብሏል' : 'Promised to pay today')
-                        : (lang === 'am'
-                          ? `እስከ ${formatEthiopian(promiseDateVal)} ይከፍላል ብሏል`
-                          : `Promised to pay by ${formatEthiopian(promiseDateVal)}`)}
+                        ? (tr('customers.promised-to-pay-today', lang))
+                        : (tr('customers.promised-to-pay-by', lang, formatEthiopian(promiseDateVal)))}
                     {customer.promise_note && (
                       <span style={{ fontWeight: 400, opacity: 0.8 }}>
                         — {customer.promise_note}
@@ -883,7 +878,7 @@ function CustomerDetail({
                       cursor: 'pointer', padding: '4px 8px',
                     }}
                   >
-                    {lang === 'am' ? 'አስወግድ' : 'Clear'}
+                    {tr('customers.clear', lang)}
                   </button>
                 </div>
               );
@@ -896,7 +891,7 @@ function CustomerDetail({
                   onClick={() => { setPromiseDate(''); setPromiseNote(''); setPromiseAmount(''); setShowPromiseForm(true); }}
                   style={{ padding: '12px', background: '#1b4332', border: 'none', borderRadius: 10, fontSize: '0.82rem', fontWeight: 700, color: '#fff', cursor: 'pointer', width: '100%' }}
                 >
-                  📅 {lang === 'am' ? 'ቃል የተገባ ይመዝግቡ' : 'Record a Promise'}
+                  📅 {tr('customers.record-a-promise', lang)}
                 </button>
               );
             }
@@ -912,7 +907,7 @@ function CustomerDetail({
                 gap: 10,
               }}>
                 <p style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0, color: '#171a17' }}>
-                  📅 {lang === 'am' ? 'ቃል የተገባ ይመዝግቡ' : 'Record Promise to Pay'}
+                  📅 {tr('customers.record-promise-to-pay', lang)}
                 </p>
                 <input
                   type="date"
@@ -935,7 +930,7 @@ function CustomerDetail({
                   inputMode="decimal"
                   value={promiseAmount}
                   onChange={(e) => setPromiseAmount(e.target.value)}
-                  placeholder={lang === 'am' ? 'መጠን (ምርጫ)' : 'Amount (optional)'}
+                  placeholder={tr('customers.amount-optional', lang)}
                   className="promise-input"
                   style={{
                     width: '100%',
@@ -1011,18 +1006,18 @@ function CustomerDetail({
             }
               {promiseHistory.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <p style={{ fontSize: '0.66rem', fontWeight: 800, color: '#8b9086', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>{lang === 'am' ? 'ያለፉ ቃል የተገባ' : 'Past Promises'}</p>
+                  <p style={{ fontSize: '0.66rem', fontWeight: 800, color: '#8b9086', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>{tr('customers.past-promises', lang)}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {promiseHistory.map(p => {
                       const sColor = p.status === 'missed' ? '#a0402a' : p.status === 'paid' ? '#1b7a3d' : '#5b6158';
                       return (
                         <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#fff', border: '1px solid #e4e6df', borderRadius: 10 }}>
                           <div style={{ minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 600, color: '#171a17' }}>{p.amount ? fmt(Number(p.amount)) : (lang === 'am' ? 'ቃል የተገባ' : 'Promise')}</p>
-                            <p style={{ margin: 0, fontSize: '0.68rem', color: '#8b9086' }}>{p.due ? formatEthiopian(p.due) : ''} · {new Date(p.at).toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-GB')}</p>
+                            <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 600, color: '#171a17' }}>{p.amount ? fmt(Number(p.amount)) : (tr('customers.promise-2', lang))}</p>
+                            <p style={{ margin: 0, fontSize: '0.68rem', color: '#8b9086' }}>{p.due ? formatEthiopian(p.due) : ''} · {new Date(p.at).toLocaleDateString(tr('customers.en-gb', lang))}</p>
                           </div>
                           <span style={{ fontSize: '0.66rem', fontWeight: 800, color: sColor, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            {p.status === 'missed' ? (lang === 'am' ? 'ተጠራቀመ' : 'Missed') : p.status === 'paid' ? (lang === 'am' ? 'ተከፍሏል' : 'Paid') : (lang === 'am' ? 'ተሰረዘ' : 'Cleared')}
+                            {p.status === 'missed' ? (tr('customers.missed', lang)) : p.status === 'paid' ? (tr('customers.paid', lang)) : (tr('customers.cleared', lang))}
                           </span>
                         </div>
                       );
@@ -1041,7 +1036,7 @@ function CustomerDetail({
         {/* History header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px 8px' }}>
           <p style={{ fontSize: '0.62rem', fontWeight: 800, color: '#8b9086', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
-            {lang === 'am' ? 'መዝገብ' : 'Timeline'}
+            {tr('customers.timeline-2', lang)}
           </p>
           <span
             style={{
@@ -1053,7 +1048,7 @@ function CustomerDetail({
               border: '1px solid #e4e6df',
             }}
           >
-            {lang === 'am' ? 'ለማስተካከል ይንኩ' : 'Tap row to edit'}
+            {tr('customers.tap-row-to-edit', lang)}
           </span>
         </div>
 
@@ -1069,7 +1064,7 @@ function CustomerDetail({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={lang === 'am' ? 'እቃ ይፈልጉ...' : 'Search items...'}
+              placeholder={tr('customers.search-items', lang)}
               style={{
                 border: 'none', outline: 'none', background: 'transparent',
                 fontSize: '0.85rem', width: '100%', fontFamily: 'inherit',
@@ -1088,9 +1083,9 @@ function CustomerDetail({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {[
-              { key: 'all', label: lang === 'am' ? 'ሁሉም' : 'All' },
-              { key: 'credit', label: lang === 'am' ? 'ዱቤ' : 'Credits' },
-              { key: 'pay', label: lang === 'am' ? 'ክፍያ' : 'Payments' },
+              { key: 'all', label: tr('customers.all', lang) },
+              { key: 'credit', label: tr('customers.credits', lang) },
+              { key: 'pay', label: tr('customers.payments', lang) },
             ].map(chip => (
               <button
                 key={chip.key}
@@ -1117,12 +1112,12 @@ function CustomerDetail({
               className="press-scale"
               style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: '#fff', border: '1px solid #e4e6df', fontSize: '0.7rem', fontWeight: 700, color: '#5b6158', cursor: 'pointer' }}
             >
-              <SlidersHorizontal size={12} /> {lang === 'am' ? 'ማጣሪያ' : 'Filter'}
+              <SlidersHorizontal size={12} /> {tr('customers.filter', lang)}
             </button>
           </div>
           {showFilterMenu && (
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {[{ key: 'all', label: lang === 'am' ? 'ሁሉም ጊዜ' : 'All time' }, { key: '30', label: lang === 'am' ? 'የመጨረሻ 30 ቀናት' : 'Last 30 days' }, { key: '90', label: lang === 'am' ? 'የመጨረሻ 90 ቀናት' : 'Last 90 days' }, { key: '365', label: lang === 'am' ? 'የመጨረሻ አመት' : 'Last year' }].map(opt => (
+              {[{ key: 'all', label: tr('customers.all-time', lang) }, { key: '30', label: tr('customers.last-30-days', lang) }, { key: '90', label: tr('customers.last-90-days', lang) }, { key: '365', label: tr('customers.last-year', lang) }].map(opt => (
                 <button
                   key={opt.key}
                   type="button"
@@ -1149,7 +1144,7 @@ function CustomerDetail({
           if (rows.length === 0) {
             return (
               <div style={{ margin: '0 14px', padding: 40, background: '#fff', border: '1px solid #e4e6df', borderRadius: 12, textAlign: 'center' }}>
-                <p style={{ fontSize: '0.85rem', color: '#8b9086', margin: 0 }}>{lang === 'am' ? 'ምንም ውጤት አልተገኘም' : 'No entries found'}</p>
+                <p style={{ fontSize: '0.85rem', color: '#8b9086', margin: 0 }}>{tr('customers.no-entries-found', lang)}</p>
               </div>
             );
           }
@@ -1166,17 +1161,17 @@ function CustomerDetail({
           const amtSign = (tx) => isPayment(tx) ? '−' : '+';
           const label = (tx) => {
             if (tx.item) return tx.item;
-            return isPayment(tx) ? (lang === 'am' ? 'ክፍያ' : 'Payment') : (lang === 'am' ? 'ዱቤ' : 'Credit');
+            return isPayment(tx) ? (tr('customers.payment', lang)) : (tr('customers.credit', lang));
           };
-          const sub = (tx) => tx.note || (isPayment(tx) ? (lang === 'am' ? 'ክፍል ተቀባይቷል' : 'Payment received') : (lang === 'am' ? 'ዱቤ ተሰጥቷል' : 'Credit given'));
-          const timeStr = (ts) => { try { return new Date(ts).toLocaleTimeString(lang === 'am' ? 'am-ET' : 'en-GB', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+          const sub = (tx) => tx.note || (isPayment(tx) ? (tr('customers.payment-received', lang)) : (tr('customers.credit-given', lang)));
+          const timeStr = (ts) => { try { return new Date(ts).toLocaleTimeString(tr('customers.en-gb', lang), { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
           return (
             <div style={{ margin: '0 14px 16px' }}>
               {groups.map((g) => (
                 <div key={g.date} style={{ marginBottom: 2 }}>
                   <div style={{ padding: '6px 0 2px', fontSize: '0.66rem', fontWeight: 800, color: '#8b9086', letterSpacing: '0.04em', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between' }}>
                     <span>📅 {g.date}</span>
-                    {g.items.length > 1 && <span style={{ fontWeight: 600, textTransform: 'none' }}>{g.items.length} {lang === 'am' ? 'መዝገብ' : 'entries'}</span>}
+                    {g.items.length > 1 && <span style={{ fontWeight: 600, textTransform: 'none' }}>{g.items.length} {tr('customers.entries', lang)}</span>}
                   </div>
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, background: '#e4e6df' }} />
@@ -1209,7 +1204,7 @@ function CustomerDetail({
         <div style={{ padding: '12px 14px 24px' }}>
           {notesList.length === 0 && (
             <p style={{ fontSize: '0.8rem', color: '#8b9086', textAlign: 'center', padding: 20, margin: 0 }}>
-              {lang === 'am' ? 'ምንም ማስታወሻ የለም' : 'No notes yet'}
+              {tr('customers.no-notes-yet', lang)}
             </p>
           )}
           {notesList.map(n => (
@@ -1231,10 +1226,10 @@ function CustomerDetail({
                 <div>
                   <p style={{ margin: 0, fontSize: '0.82rem', color: '#171a17', whiteSpace: 'pre-wrap' }}>{n.text}</p>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                    <span style={{ fontSize: '0.66rem', color: '#8b9086' }}>{new Date(n.created_at).toLocaleString(lang === 'am' ? 'am-ET' : 'en-GB')}</span>
+                    <span style={{ fontSize: '0.66rem', color: '#8b9086' }}>{new Date(n.created_at).toLocaleString(tr('customers.en-gb', lang))}</span>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" onClick={() => { setEditingNoteId(n.id); setEditNoteText(n.text); }} style={{ background: 'none', border: 'none', fontSize: '0.68rem', fontWeight: 700, color: '#5b6158', cursor: 'pointer' }}>{lang === 'am' ? 'አስተካክል' : 'Edit'}</button>
-                      <button type="button" onClick={() => deleteNote(n.id)} style={{ background: 'none', border: 'none', fontSize: '0.68rem', fontWeight: 700, color: '#a0402a', cursor: 'pointer' }}>{lang === 'am' ? 'ሰርዝ' : 'Delete'}</button>
+                      <button type="button" onClick={() => { setEditingNoteId(n.id); setEditNoteText(n.text); }} style={{ background: 'none', border: 'none', fontSize: '0.68rem', fontWeight: 700, color: '#5b6158', cursor: 'pointer' }}>{tr('customers.edit', lang)}</button>
+                      <button type="button" onClick={() => deleteNote(n.id)} style={{ background: 'none', border: 'none', fontSize: '0.68rem', fontWeight: 700, color: '#a0402a', cursor: 'pointer' }}>{tr('customers.delete', lang)}</button>
                     </div>
                   </div>
                 </div>
@@ -1246,7 +1241,7 @@ function CustomerDetail({
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
               rows={2}
-              placeholder={lang === 'am' ? 'ማስታወሻ ይጻፉ...' : 'Write a note...'}
+              placeholder={tr('customers.write-a-note', lang)}
               style={{ width: '100%', padding: '10px 12px', border: '1px solid #e4e6df', borderRadius: 10, fontSize: '0.85rem', fontFamily: 'inherit', color: '#171a17', resize: 'vertical' }}
             />
             <button
@@ -1255,7 +1250,7 @@ function CustomerDetail({
               disabled={!noteDraft.trim()}
               style={{ alignSelf: 'flex-end', padding: '9px 16px', background: '#1b4332', border: 'none', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700, color: '#fff', cursor: noteDraft.trim() ? 'pointer' : 'not-allowed', opacity: noteDraft.trim() ? 1 : 0.5 }}
             >
-              {lang === 'am' ? 'ጨምር' : 'Add note'}
+              {tr('customers.add-note', lang)}
             </button>
           </div>
         </div>
@@ -1268,9 +1263,7 @@ function CustomerDetail({
         textAlign: 'center', fontSize: '0.6rem', color: '#a8ada2',
         padding: '16px 14px 4px',
       }}>
-        🔒 {lang === 'am'
-          ? 'በደህንነት ይቀመጣል። መጠኖች በራስ ሰር ይደብቃሉ።'
-          : 'Backed up securely. Amounts auto-hide for privacy.'}
+        🔒 {tr('customers.backed-up-securely-amounts-auto-hide-for', lang)}
       </p>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -1289,14 +1282,10 @@ function CustomerDetail({
               gap: 10,
             }}>
               <p style={{ fontSize: '0.82rem', fontWeight: 600, margin: 0, color: '#171a17' }}>
-                {lang === 'am'
-                  ? `"${customer.display_name}" አርክስ?${hasBalance ? ` ይህ ደንበኛ ${fmt(balance)} ብር ዕዳ አለበት።` : ''}`
-                  : `Archive "${customer.display_name}"?${hasBalance ? ` This customer has ${fmt(balance)} birr outstanding.` : ''}`}
+                {tr('customers.archive', lang, () => customer.display_name, () => hasBalance ? ` This customer has ${fmt(balance)} birr outstanding.` : '', () => hasBalance ? ` ይህ ደንበኛ ${fmt(balance)} ብር ዕዳ አለበት።` : '')}
               </p>
               <p style={{ fontSize: '0.72rem', color: '#5b6158', margin: 0 }}>
-                {lang === 'am'
-                  ? 'የአርክስ መዝገቦች ለታሪክ ይቀመጣሉ።'
-                  : 'Archived records are preserved for history.'}
+                {tr('customers.archived-records-are-preserved-for-history', lang)}
               </p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
@@ -1333,7 +1322,7 @@ function CustomerDetail({
                     minHeight: 44,
                   }}
                 >
-                  {lang === 'am' ? 'አርክስ' : 'Archive'}
+                  {tr('customers.archive-2', lang)}
                 </button>
               </div>
             </div>
@@ -1354,8 +1343,8 @@ function CustomerDetail({
               }}
             >
               {customer.archived_at
-                ? (lang === 'am' ? 'መልስ' : 'Restore')
-                : (lang === 'am' ? 'አርክስ' : 'Archive')}
+                ? (tr('customers.restore', lang))
+                : (tr('customers.archive-2', lang))}
             </button>
           )}
         </div>
@@ -1447,12 +1436,12 @@ function CustomerDetail({
               borderBottom: '1px solid #e4e6df',
             }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#171a17', margin: 0 }}>
-                {lang === 'am' ? 'ተጨማሪ እርምጃዎች' : 'More actions'}
+                {tr('customers.more-actions', lang)}
               </p>
               <button
                 type="button"
                 onClick={() => setShowMoreSheet(false)}
-                aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
+                aria-label={tr('customers.close', lang)}
                 style={{
                   width: 32, height: 32, borderRadius: '50%',
                   background: '#f5f6f2', border: 'none',
@@ -1483,7 +1472,7 @@ function CustomerDetail({
                     <ArrowRightLeft size={16} />
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#171a17' }}>
-                    {lang === 'am' ? 'ዱቤ አስተላልፍ' : 'Transfer credit'}
+                    {tr('customers.transfer-credit', lang)}
                   </span>
                 </button>
               )}
@@ -1508,8 +1497,8 @@ function CustomerDetail({
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#171a17' }}>
                     {tg === 'linked'
-                      ? (lang === 'am' ? 'ቴሌግራም' : 'Telegram')
-                      : (lang === 'am' ? 'ቴሌግራም አገናኝ' : 'Connect Telegram')}
+                      ? (tr('customers.telegram', lang))
+                      : (tr('customers.connect-telegram', lang))}
                   </span>
                 </button>
               )}
@@ -1532,7 +1521,7 @@ function CustomerDetail({
                     <Send size={16} />
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#171a17' }}>
-                    {lang === 'am' ? 'አስታወስ' : 'Send Reminder'}
+                    {tr('customers.send-reminder', lang)}
                   </span>
                 </button>
               )}
@@ -1555,7 +1544,7 @@ function CustomerDetail({
                     <Pencil size={16} />
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#171a17' }}>
-                    {lang === 'am' ? 'ደንበኛ አስተካክል' : 'Edit customer'}
+                    {tr('customers.edit-customer-2', lang)}
                   </span>
                 </button>
               )}
@@ -1579,8 +1568,8 @@ function CustomerDetail({
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#171a17' }}>
                     {customer.archived_at
-                      ? (lang === 'am' ? 'ደንበኛ መልስ' : 'Restore customer')
-                      : (lang === 'am' ? 'ደንበኛ አርክስ' : 'Archive customer')}
+                      ? (tr('customers.restore-customer', lang))
+                      : (tr('customers.archive-customer', lang))}
                   </span>
                 </button>
               )}
@@ -1608,7 +1597,7 @@ function CustomerDetail({
             color: '#fff', fontSize: 40,
           }}>✓</div>
           <p style={{ marginTop: 20, fontSize: '1.2rem', fontWeight: 800, color: '#2e6a47' }}>
-            {lang === 'am' ? 'ሙሉ በሙሉ ተከፍሏል!' : 'Balance Settled!'}
+            {tr('customers.balance-settled', lang)}
           </p>
         </div>
       )}

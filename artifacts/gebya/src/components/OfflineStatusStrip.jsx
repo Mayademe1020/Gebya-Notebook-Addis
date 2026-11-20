@@ -1,4 +1,5 @@
 import { useSyncStore } from '../stores/syncStore';
+import { label as tr } from '../labels/index.js';
 
 export default function OfflineStatusStrip({
   pwa,
@@ -21,24 +22,24 @@ export default function OfflineStatusStrip({
 
   if (syncStatus === 'syncing') {
     tone = 'waiting';
-    label = lang === 'am' ? 'በማመሳሰል ላይ…' : 'Syncing…';
+    label = tr('sync.syncing', lang);
   } else if (pendingCount > 0 && pwa?.isOnline) {
     tone = 'waiting';
-    label = lang === 'am' ? 'ወደ ደመና እየጠበቀ' : 'Pending sync';
-    detail = `${pendingCount} ${lang === 'am' ? 'ሪከርድ' : 'record'}${pendingCount !== 1 ? 's' : ''}`;
+    label = tr('sync.pending-sync', lang);
+    detail = `${pendingCount} ${tr('sync.record', lang)}${pendingCount !== 1 ? 's' : ''}`;
   } else if (syncStatus === 'error') {
     tone = 'offline';
-    label = lang === 'am' ? 'ማመሳሰል አልተሳካም' : 'Sync failed';
+    label = tr('sync.sync-failed', lang);
     if (syncError) {
-      detail = (lang === 'am' ? 'ስህተት: ' : 'Error: ') + String(syncError).slice(0, 70);
+      detail = (tr('sync.error', lang)) + String(syncError).slice(0, 70);
     }
   } else if (!pwa?.isOnline) {
     tone = 'offline';
-    label = lang === 'am' ? 'ኔትወርክ የለም' : 'Offline';
-    detail = lang === 'am' ? 'በዚህ ስልክ ይቀመጣል' : 'saves on this phone';
+    label = tr('sync.offline', lang);
+    detail = tr('sync.saves-on-this-phone', lang);
   } else if (pendingTelegramCount > 0) {
     tone = 'waiting';
-    label = lang === 'am' ? 'ቴሌግራም ይጠብቃል' : 'Telegram waiting';
+    label = tr('sync.telegram-waiting', lang);
     detail = `${pendingTelegramCount}`;
     if (typeof onRetryTelegram === 'function') {
       action = (
@@ -54,14 +55,14 @@ export default function OfflineStatusStrip({
             cursor: retryingTelegram ? 'wait' : 'pointer',
           }}
         >
-          {retryingTelegram ? '...' : (lang === 'am' ? 'እንደገና' : 'Retry')}
+          {retryingTelegram ? '...' : (tr('sync.retry', lang))}
         </button>
       );
     }
   } else if (pwa?.updateReady) {
     tone = 'update';
-    label = lang === 'am' ? 'አዲስ ስሪት ዝግጁ ነው' : 'Update ready';
-    detail = lang === 'am' ? 'ለማደስ ይጫኑ' : 'tap to refresh';
+    label = tr('sync.update-ready', lang);
+    detail = tr('sync.tap-to-refresh', lang);
     action = (
       <button
         type="button"
@@ -69,13 +70,13 @@ export default function OfflineStatusStrip({
         className="press-scale"
         style={{ minHeight: 30, padding: '4px 10px', border: 'none', borderRadius: 8, background: 'var(--color-primary)', color: 'var(--color-bg-white)', fontSize: 11, fontWeight: 800 }}
       >
-        {lang === 'am' ? 'አድስ' : 'Update'}
+        {tr('sync.update', lang)}
       </button>
     );
   } else if (pwa?.offlineReady) {
     tone = 'ready';
-    label = lang === 'am' ? 'ከመስመር ውጭ ዝግጁ' : 'Offline ready';
-    detail = lang === 'am' ? 'ያለ ኢንተርኔት ይሰራል' : 'works without internet';
+    label = tr('sync.offline-ready', lang);
+    detail = tr('sync.works-without-internet', lang);
   }
 
   if (conflictWarning) {
@@ -97,7 +98,7 @@ export default function OfflineStatusStrip({
         style={{ minHeight: 36, padding: '7px 9px', borderRadius: 8, background: 'var(--color-warning-bg)', border: '1px solid var(--color-warning-border)', color: 'var(--color-warning)', fontSize: 12, fontWeight: 800 }}
       >
         <span className="truncate">
-          ⚠️ {lang === 'am' ? 'ሁከት ተፈጠረ' : 'Sync conflict'} · {conflictWarning}
+          ⚠️ {tr('sync.sync-conflict', lang)} · {conflictWarning}
         </span>
         {detailLines.length > 0 && (
           <span style={{ fontWeight: 600, fontSize: 11, opacity: 0.85 }}>

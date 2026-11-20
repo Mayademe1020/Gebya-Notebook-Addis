@@ -28,6 +28,22 @@ router.use(syncRateLimiter);
 interface ConflictRecord { table: string; localId: number; serverRecord: any; }
 interface MutationRecord { action: "CREATE" | "UPDATE" | "DELETE"; entityType: string; entityId: string; details?: string; }
 
+function isSameRecord(incoming: any, stored: any): boolean {
+  for (const [key, value] of Object.entries(incoming)) {
+    const other = stored[key];
+    if (value === undefined || value === null) {
+      if (other !== null && other !== undefined) return false;
+      continue;
+    }
+    if (typeof value === "object") {
+      if (JSON.stringify(value) !== JSON.stringify(other ?? null)) return false;
+      continue;
+    }
+    if (String(value) !== String(other)) return false;
+  }
+  return true;
+}
+
 async function pushTable(
   key: string, table: any, conflictTarget: any[], deviceId: string, rows: any[],
   mapper: (row: any) => any, localIdCol: any, deviceIdCol: any,
@@ -57,9 +73,16 @@ async function pushTable(
         // re-key to the original server row instead of creating a duplicate.
         const data = mapper({ ...row, device_id: row.device_id || deviceId });
         data.businessId = data.businessId ?? businessId;
+        // A row pulled from another phone keeps its origin device id, and the
+        // client re-keys the push to that origin (see syncEngine's
+        // remote_local_id handling). Key the lookup and the update by the row's
+        // own device, not the device sending the request: keying by the caller
+        // misses the row entirely and inserts a second copy under its owner's
+        // device id — or, once the unique pair exists, fails the whole push.
+        const rowDeviceId = data.deviceId || deviceId;
         const incomingVersion = data.syncVersion || 1;
         const incomingUpdatedAt = data.updatedAt || 0;
-        const existing = await d.select().from(table).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId))).limit(1);
+        const existing = await d.select().from(table).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId))).limit(1);
 
         if (existing.length === 0) {
           await d.insert(table).values({ ...data, syncVersion: 1 });
@@ -77,15 +100,22 @@ async function pushTable(
           const reconcileNote = isSettlementReconcile && data.reconciliationNote ? data.reconciliationNote : null;
 
           if (incomingVersion > storedVersion) {
-            await d.update(table).set({ ...data, syncVersion: incomingVersion + 1 }).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+            await d.update(table).set({ ...data, syncVersion: incomingVersion + 1 }).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId)));
             chunkCount++;
             const detail = reconcileNote ? `settlement reconciled: ${reconcileNote}` : undefined;
             chunkMutations.push({ action: isSoftDelete ? "DELETE" : "UPDATE", entityType: key, entityId: String(data.localId), details: detail });
           } else if (incomingVersion === storedVersion && incomingUpdatedAt > storedUpdatedAt) {
-            await d.update(table).set({ ...data, syncVersion: storedVersion + 1 }).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+            await d.update(table).set({ ...data, syncVersion: storedVersion + 1 }).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId)));
             chunkCount++;
             const detail = reconcileNote ? `settlement reconciled: ${reconcileNote}` : undefined;
             chunkMutations.push({ action: isSoftDelete ? "DELETE" : "UPDATE", entityType: key, entityId: String(data.localId), details: detail });
+          } else if (incomingVersion === storedVersion && incomingUpdatedAt === storedUpdatedAt && isSameRecord(data, stored)) {
+            // Same version, same timestamp, same values: the client is
+            // re-delivering a row this server already applied (its previous
+            // acknowledgement was lost). Acknowledge it as applied instead of
+            // reporting a conflict — otherwise the client retries it forever
+            // and the shop never leaves "Pending sync".
+            chunkCount++;
           } else {
             chunkConflicts.push({ table: key, localId: data.localId, serverRecord: stored });
           }

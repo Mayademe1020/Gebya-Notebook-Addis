@@ -18,6 +18,7 @@ import {
   isValidSubscriber,
   normalizeEthiopianPhone,
 } from '../utils/phoneNumber';
+import { label } from '../labels/index.js';
 
 function SupplierForm({ existing = null, onSave, onDone }) {
   const { t, lang } = useLang();
@@ -80,11 +81,11 @@ function SupplierForm({ existing = null, onSave, onDone }) {
             <div>
               <h2 className="text-xl font-black text-gray-900">
                 {editing
-                  ? (lang === 'am' ? 'አቅራቢ አስተካክል' : 'Edit supplier')
-                  : (lang === 'am' ? 'አቅራቢ አክል' : 'Add supplier')}
+                  ? (label('suppliers.edit-supplier-2', lang))
+                  : (label('suppliers.add-supplier', lang))}
               </h2>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'የምትገዙበት ሰው' : 'Someone you buy from on credit'}
+                {label('suppliers.someone-you-buy-from-on-credit', lang)}
               </p>
             </div>
             <button
@@ -140,16 +141,14 @@ function SupplierForm({ existing = null, onSave, onDone }) {
 
             {!photo && (
               <p style={{ fontSize: '0.7rem', color: 'var(--color-text-soft)', marginBottom: 8 }}>
-                {lang === 'am' ? 'ፎቶ ይውሰዱ (አማራጭ)' : 'Take a photo (optional)'}
+                {label('suppliers.take-a-photo-optional', lang)}
               </p>
             )}
 
             {photo ? (
               <div className="space-y-2 w-full">
                 <p style={{ fontSize: '0.7rem', color: 'var(--color-success-text)', fontWeight: 600, textAlign: 'center' }}>
-                  ✓ {lang === 'am'
-                    ? `ፎቶ ተጨምሯል · ~${photoKb} KB · በዚህ ስልክ ብቻ`
-                    : `Photo added · ~${photoKb} KB · on this phone only`}
+                  ✓ {label('suppliers.photo-added-kb-on-this-phone-only', lang, photoKb)}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -159,7 +158,7 @@ function SupplierForm({ existing = null, onSave, onDone }) {
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)', background: 'var(--color-surface)' }}
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    {lang === 'am' ? 'መልሰው ይውሰዱ' : 'Replace'}
+                    {label('suppliers.replace', lang)}
                   </button>
                   <button
                     type="button"
@@ -168,7 +167,7 @@ function SupplierForm({ existing = null, onSave, onDone }) {
                     style={{ borderColor: 'var(--color-danger-border)', color: 'var(--color-danger)', background: 'var(--color-surface)' }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    {lang === 'am' ? 'አስወግድ' : 'Remove'}
+                    {label('suppliers.remove', lang)}
                   </button>
                 </div>
               </div>
@@ -181,7 +180,7 @@ function SupplierForm({ existing = null, onSave, onDone }) {
                   style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)', background: 'var(--color-surface)' }}
                 >
                   <Camera className="w-4 h-4" />
-                  {lang === 'am' ? 'ፎቶ ይምረጡ' : 'Add Photo'}
+                  {label('suppliers.add-photo-2', lang)}
                 </button>
               </div>
             )}
@@ -194,13 +193,13 @@ function SupplierForm({ existing = null, onSave, onDone }) {
 
           <div>
             <label className="block text-gray-700 font-semibold mb-2">
-              {lang === 'am' ? 'የአቅራቢ ስም' : 'Supplier name'} <span className="text-red-500">*</span>
+              {label('suppliers.supplier-name', lang)} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder={lang === 'am' ? 'ለምሳሌ ቡና ቤት ኪሮስ' : 'e.g. Kiros Coffee Wholesale'}
+              placeholder={label('suppliers.e-g-kiros-coffee-wholesale', lang)}
               autoFocus={!editing}
               className="w-full p-4 border-2 focus:outline-none text-base min-h-[52px]"
               style={{ borderRadius: 'var(--radius-md)', borderColor: displayName.trim() ? 'var(--color-danger)' : 'var(--color-border)' }}
@@ -210,9 +209,9 @@ function SupplierForm({ existing = null, onSave, onDone }) {
           {/* Phone — Commit C.3: +251 prefix block + 7/9 validation */}
           <div>
             <label className="block text-gray-700 font-semibold mb-2 text-sm">
-              📞 {lang === 'am' ? 'ስልክ' : 'Phone'}
+              📞 {label('suppliers.phone', lang)}
               <span className="font-normal text-xs ml-1" style={{ color: 'var(--color-text-soft)' }}>
-                ({lang === 'am' ? 'አማራጭ' : 'optional'})
+                ({label('suppliers.optional', lang)})
               </span>
             </label>
             <div style={{ display: 'flex', gap: 0 }}>
@@ -258,21 +257,19 @@ function SupplierForm({ existing = null, onSave, onDone }) {
             </div>
             {phoneTouched && !phoneValid && phoneDigits.length > 0 && (
               <p className="text-xs font-medium mt-1" style={{ color: 'var(--color-danger)' }}>
-                {lang === 'am'
-                  ? 'ስልክ 9 ወይም 7 ይጀምር — 9 አኃዝ መሆን አለበት'
-                  : 'Phone must start with 9 or 7 — 9 digits total'}
+                {label('suppliers.phone-must-start-with-9-or-7-9-digits-total', lang)}
               </p>
             )}
           </div>
 
           <div>
             <label className="block text-gray-700 font-semibold mb-2 text-sm">
-              {lang === 'am' ? 'ማስታወሻ (አማራጭ)' : 'Note (optional)'}
+              {label('suppliers.note-optional', lang)}
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder={lang === 'am' ? 'ለምሳሌ ጥቅል ቡና አከፋፋይ' : 'e.g. wholesale coffee distributor'}
+              placeholder={label('suppliers.e-g-wholesale-coffee-distributor', lang)}
               rows={2}
               className="w-full p-3 border-2 focus:outline-none text-sm resize-none"
               style={{ borderRadius: 'var(--radius-md)', borderColor: 'var(--color-border)' }}
@@ -280,7 +277,7 @@ function SupplierForm({ existing = null, onSave, onDone }) {
           </div>
 
           <p className="text-[10px] text-center font-medium pt-1" style={{ color: 'var(--color-text-soft)' }}>
-            🔒 {lang === 'am' ? 'መረጃው በዚህ ስልክ ላይ ብቻ ይቀመጣል' : 'Stored on this phone only'}
+            🔒 {label('suppliers.stored-on-this-phone-only', lang)}
           </p>
         </div>
 
@@ -297,10 +294,10 @@ function SupplierForm({ existing = null, onSave, onDone }) {
           >
             <Save className="w-5 h-5" />
             {saving
-              ? (lang === 'am' ? 'እያስቀመጥኩ…' : 'Saving…')
+              ? (label('suppliers.saving', lang))
               : editing
-                ? (lang === 'am' ? 'አስተካክል' : 'Save changes')
-                : (lang === 'am' ? 'አስቀምጥ' : 'Save supplier')}
+                ? (label('suppliers.save-changes', lang))
+                : (label('suppliers.save-supplier', lang))}
           </button>
         </div>
       </div>

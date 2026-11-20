@@ -10,6 +10,7 @@ import {
 } from '../utils/paymentChannels';
 import { getAuthToken } from '../utils/syncEngine';
 import identityApi from '../api/identity';
+import { label } from '../labels/index.js';
 
 export function useShopOps({ shopProfile, setShopProfile, setEnabledProviders, setOnboardingType, setCatalogEntries, setCustomQuickAmounts, fireToast, lang }) {
 
@@ -44,7 +45,7 @@ export function useShopOps({ shopProfile, setShopProfile, setEnabledProviders, s
     const before = channels.length;
     const updated = addCustomChannel(channels, { kind, name });
     if (updated.length === before) {
-      fireToast(lang === 'am' ? 'ይህ አስቀድሞ አለ' : 'Already exists', 1800);
+      fireToast(label('common.already-exists', lang), 1800);
       return;
     }
     handleSavePaymentChannels(updated);
@@ -68,9 +69,7 @@ export function useShopOps({ shopProfile, setShopProfile, setEnabledProviders, s
   const handleRotateJoinCode = useCallback(async (shopId) => {
     try {
       const token = await getAuthToken();
-      if (!token) return { error: lang === 'am'
-        ? 'የመቀላቀል ኮድ ለማመንጨት መለያ መግባት ያስፈልጋል። እባክዎ እንደገና ይግቡ።'
-        : 'You need to be signed in & connected to the internet to create a join code. Please re-login and try again.' };
+      if (!token) return { error: label('common.you-need-to-be-signed-in-connected-to-the', lang) };
       const result = await identityApi.rotateJoinCode(shopId, token);
       const current = shopProfile || {};
       setShopProfile(current ? { ...current, join_code: result.join_code, join_url: result.join_url } : current);

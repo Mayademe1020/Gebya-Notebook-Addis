@@ -6,6 +6,7 @@ import { identityApi } from '../api/identity';
 import { setAuthToken } from '../utils/syncEngine';
 import { usePermissionsStore } from '../stores/permissionsStore';
 import { resolvePermissions } from '../utils/permissions';
+import { label } from '../labels/index.js';
 
 /**
  * Gate C: stamp the owner role + permissions into the permissions store the
@@ -42,7 +43,7 @@ function OnboardingScreen({ onComplete }) {
     t.onboardPromiseFast || 'Start with your name only',
     t.onboardPromisePrivate || 'Your records stay on this phone',
   ];
-   const onboardKicker = lang === 'am' ? 'ገበያን ለመጠቀም ሁለት መንገዶች' : 'Two ways to use Gebya';
+   const onboardKicker = label('onboarding.two-ways-to-use-gebya', lang);
 
    const handleNewShop = () => setMode('form');
   const handleJoinShop = () => onComplete({ __staff_join: true });
@@ -186,7 +187,7 @@ function OnboardingScreen({ onComplete }) {
        await db.settings.put({ key: 'intro_seen', value: 'yes' });
        await db.settings.put({ key: 'shop_name', value: name.trim() });
        await db.settings.put({ key: 'shop_phone', value: fullPhone });
-       fireToast(lang === 'am' ? 'በዚህ ስልክ ብቻ ተቀምጧል — ኢንተርኔት ሲገኝ ማገናኘት ይችላሉ' : 'Saved on this phone — connect to internet to enable sync', 5000);
+       fireToast(label('onboarding.saved-on-this-phone-connect-to-internet-to', lang), 5000);
        onComplete({ name: name.trim(), phone: fullPhone });
     } finally {
       setSaving(false);
@@ -217,9 +218,9 @@ function OnboardingScreen({ onComplete }) {
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
-              aria-label={lang === 'am' ? 'Switch to English' : 'ወደ አማርኛ ቀይር'}
+              aria-label={label('onboarding.copy', lang)}
             >
-              🌐 {lang === 'am' ? 'English' : 'አማርኛ'}
+              🌐 {label('onboarding.copy-2', lang)}
             </button>
           </div>
 
@@ -247,7 +248,7 @@ function OnboardingScreen({ onComplete }) {
               {onboardKicker}
             </p>
             <h2 className="text-2xl font-black text-gray-900 mb-2 font-sans">
-              {lang === 'am' ? 'የአጠቃቀም አይነት ይምረጡ' : 'Select Account Type'}
+              {label('onboarding.select-account-type', lang)}
             </h2>
 
             {lang === 'am' ? renderAmharicOptions() : renderEnglishOptions()}
@@ -285,7 +286,7 @@ function OnboardingScreen({ onComplete }) {
               cursor: 'pointer',
             }}
           >
-            ← {lang === 'am' ? 'ተመለስ' : 'Back'}
+            ← {label('onboarding.back', lang)}
           </button>
         </div>
 
@@ -306,13 +307,13 @@ function OnboardingScreen({ onComplete }) {
           style={{ borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)' }}
         >
           <h2 className="text-xl font-black text-gray-900 mb-4 font-sans">
-            {lang === 'am' ? 'የሱቅዎን ማስታወሻ ደብተር ያዘጋጁ' : 'Set up your notebook'}
+            {label('onboarding.set-up-your-notebook', lang)}
           </h2>
 
           {/* Name */}
           <div className="mb-4">
             <label className="block text-xs font-black uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ስም' : 'Your Name'} *
+              {label('onboarding.your-name', lang)} *
             </label>
             <input
               type="text"
@@ -330,7 +331,7 @@ function OnboardingScreen({ onComplete }) {
             />
             {touched.name && !nameValid && (
               <p className="text-xs font-medium mt-1" style={{ color: 'var(--color-danger)' }}>
-                {lang === 'am' ? 'እባክዎ ስም ያስገቡ' : 'Please enter your name'}
+                {label('onboarding.please-enter-your-name', lang)}
               </p>
             )}
           </div>
@@ -338,7 +339,7 @@ function OnboardingScreen({ onComplete }) {
           {/* Phone */}
           <div className="mb-4">
             <label className="block text-xs font-black uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'ስልክ ቁጥር' : 'Phone Number'} <span style={{ color: 'var(--color-text-soft)', fontWeight: 500 }}>{phoneOptionalLabel}</span>
+              {label('onboarding.phone-number', lang)} <span style={{ color: 'var(--color-text-soft)', fontWeight: 500 }}>{phoneOptionalLabel}</span>
             </label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold px-3 py-3 rounded-xl" style={{ background: 'var(--color-bg-hover)', color: 'var(--color-text-muted)' }}>+251</span>
@@ -359,7 +360,7 @@ function OnboardingScreen({ onComplete }) {
             </div>
             {touched.phone && phoneEntered && !phoneValid && (
               <p className="text-xs font-medium mt-1" style={{ color: 'var(--color-danger)' }}>
-                {lang === 'am' ? 'እባክዎ ትክክለኛ ስልክ ቁጥር ያስገቡ' : 'Enter a valid phone number'}
+                {label('onboarding.enter-a-valid-phone-number', lang)}
               </p>
             )}
             <p className="text-xs mt-1 font-medium" style={{ color: 'var(--color-text-soft)' }}>{phoneHelper}</p>
@@ -388,8 +389,8 @@ function OnboardingScreen({ onComplete }) {
             }}
           >
             {saving
-              ? (lang === 'am' ? 'በማስቀመጥ ላይ...' : 'Saving...')
-              : (lang === 'am' ? 'ጀምር' : 'Start')
+              ? (label('onboarding.saving', lang))
+              : (label('onboarding.start', lang))
             }
           </button>
         </div>

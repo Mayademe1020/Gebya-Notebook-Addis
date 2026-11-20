@@ -15,6 +15,7 @@
 // Privacy promise · visible at the bottom · no data leaves their phone.
 
 import { useEffect, useMemo, useState } from 'react';
+import { label } from '../labels/index.js';
 
 const SENSITIVE_KEYS = ['tb', 'cbe_p', 'cbe_a', 'aw_p', 'bk_n', 'bk_a', 'cbe', 'awash', 'phone', 'tg'];
 const SS_PREFIX = 'gebya_pay_';
@@ -470,9 +471,7 @@ function PayPage() {
               lineHeight: 1.55,
             }}
           >
-            ✓ {params.lang === 'am'
-              ? 'ሱቁ ተነገረ። ቀሪ ሂሳብዎ ሲረጋገጥ ይዘምናል።'
-              : 'Shop has been notified. Your balance will update once confirmed.'}
+            ✓ {label('common.shop-has-been-notified-your-balance-will', params.lang)}
           </div>
         )}
 

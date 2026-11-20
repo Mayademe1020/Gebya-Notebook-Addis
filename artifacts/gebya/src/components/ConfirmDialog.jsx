@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 /**
  * ConfirmDialog — reusable confirmation modal matching the app's design.
@@ -50,14 +51,14 @@ export default function ConfirmDialog({
             className="flex-1 py-3 rounded-xl text-sm font-bold min-h-[48px] press-scale"
             style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
           >
-            {cancelLabel || (lang === 'am' ? 'ሰርዝ' : 'Cancel')}
+            {cancelLabel || (label('common.cancel', lang))}
           </button>
           <button
             onClick={onConfirm}
             className="flex-1 py-3 rounded-xl text-sm font-bold text-white min-h-[48px] press-scale"
             style={{ background: confirmBg }}
           >
-            {confirmLabel || (lang === 'am' ? 'አረጋግጥ' : 'Confirm')}
+            {confirmLabel || (label('common.confirm-2', lang))}
           </button>
         </div>
       </div>

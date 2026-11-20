@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useMemo } from 'react';
 import { fmt } from '../../utils/numformat';
+import { label } from '../../labels/index.js';
 
 const StatCard = React.memo(function StatCard({ label, value, color }) {
   return (
@@ -86,7 +87,7 @@ export default function StaffPerformanceDashboard({
       
       return {
         id: staff.id,
-        name: staff.display_name || staff.name || (lang === 'am' ? 'ሰራተኛ' : 'Staff'),
+        name: staff.display_name || staff.name || (label('staff.staff', lang)),
         ...today,
         yesterdayTotal: yesterday.total,
         avgPerTx,
@@ -171,7 +172,7 @@ export default function StaffPerformanceDashboard({
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9 }}>
-                {lang === 'am' ? 'ረዢ ሰራተኛ' : 'Top Performer'}
+                {label('staff.top-performer', lang)}
               </div>
               <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>
                 {performanceData.topPerformer.name}

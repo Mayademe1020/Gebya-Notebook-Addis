@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { remindersApi } from '../api/reminders';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { formatDaysAgo } from '../utils/durationFormat';
+import { label } from '../labels/index.js';
 
 const STATUS_CONFIG = {
   sent:    { en: 'Sent',    am: 'ተልኳል',    bg: 'var(--color-success-bg)', border: 'var(--color-success-border)', color: 'var(--color-success-text)' },
@@ -20,7 +21,7 @@ const STATUS_CONFIG = {
 function formatDate(ts, lang) {
   if (!ts) return '—';
   const d = new Date(ts);
-  const dateStr = d.toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', {
+  const dateStr = d.toLocaleDateString(label('credit.en-us', lang), {
     month: 'short', day: 'numeric', year: 'numeric',
   });
   const timeStr = formatEthiopianTime(ts);
@@ -30,7 +31,7 @@ function formatDate(ts, lang) {
 function daysAgo(ts, lang) {
   if (!ts) return null;
   const days = Math.floor((Date.now() - Number(ts)) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return lang === 'am' ? 'ዛሬ' : 'today';
+  if (days <= 0) return label('credit.today', lang);
   return formatDaysAgo(days, lang);
 }
 
@@ -55,7 +56,7 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
       setEntries(data.entries || []);
       setTotal(data.total || 0);
     } catch (err) {
-      setError(err.message || (lang === 'am' ? 'ማስታወሻ ታሪክ መጫን አልተቻለም' : 'Failed to load reminder history'));
+      setError(err.message || (label('credit.failed-to-load-reminder-history', lang)));
     } finally {
       setLoading(false);
     }
@@ -76,10 +77,8 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
 
   // Summary line (always visible)
   const summaryText = total === 0
-    ? (lang === 'am' ? 'ምንም ማስታወሻ አልተላከም' : 'No reminders sent')
-    : lang === 'am'
-      ? `${total} ማስታወሻ ተልኳል${lastSentLabel ? ` · መጨረሻ: ${lastSentLabel}` : ''}`
-      : `${total} reminder${total !== 1 ? 's' : ''} sent${lastSentLabel ? ` · last: ${lastSentLabel}` : ''}`;
+    ? (label('credit.no-reminders-sent', lang))
+    : label('credit.reminder-sent', lang, () => total, () => total !== 1 ? 's' : '', () => lastSentLabel ? ` · last: ${lastSentLabel}` : '', () => lastSentLabel ? ` · መጨረሻ: ${lastSentLabel}` : '');
 
   // When empty and collapsed, render as a subtle muted line (not a card) so it
   // doesn't compete with the customer's financial activity.
@@ -104,7 +103,7 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        aria-label={lang === 'am' ? 'የማስታወሻ ታሪክ' : 'Reminder history'}
+        aria-label={label('credit.reminder-history', lang)}
         className="w-full text-left flex items-center justify-between gap-2 press-scale"
         style={{
           padding: '10px 14px',
@@ -155,12 +154,12 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
 
           {error && (
             <div style={{ margin: '0 14px', padding: '8px 12px', background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger-border)', borderRadius: 8, fontSize: 12, color: 'var(--color-danger-text)', fontWeight: 600 }}>
-              {lang === 'am' ? 'ስህተት፦ ' : 'Error: '}{error}
+              {label('credit.error', lang)}{error}
               <button
                 onClick={fetchHistory}
                 style={{ marginLeft: 8, color: 'var(--color-primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
               >
-                {lang === 'am' ? 'እንደገና ሞክር' : 'Retry'}
+                {label('credit.retry', lang)}
               </button>
             </div>
           )}
@@ -168,7 +167,7 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
           {!loading && !error && entries.length === 0 && (
             <div className="text-center py-4">
               <p style={{ fontSize: 12, color: 'var(--color-text-soft)' }}>
-                {lang === 'am' ? 'ምንም ማስታወሻ ታሪክ የለም' : 'No reminder history'}
+                {label('credit.no-reminder-history', lang)}
               </p>
             </div>
           )}
@@ -195,7 +194,7 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
                       </p>
                       {entry.failureReason && (
                         <p style={{ fontSize: 10, color: 'var(--color-danger)', marginTop: 1, wordBreak: 'break-word' }}>
-                          {lang === 'am' ? 'ስህተት፦ ' : 'Error: '}{entry.failureReason}
+                          {label('credit.error', lang)}{entry.failureReason}
                         </p>
                       )}
                     </div>
@@ -235,7 +234,7 @@ export default function CustomerReminderHistory({ customerId, shopId, lang, onRe
                   minHeight: 36,
                 }}
               >
-                🔔 {lang === 'am' ? 'ማስታወሻ ላክ' : 'Send reminder'}
+                🔔 {label('credit.send-reminder', lang)}
               </button>
             </div>
           )}

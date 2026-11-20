@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../context/LangContext';
 import { apiFetch } from '../utils/shared-ui.jsx';
+import { label } from '../labels/index.js';
 
 function fmt(n) { return n == null ? '0' : Number(n).toLocaleString('en-US'); }
 function fmtBirr(n) { return `${fmt(n)} ETB`; }
@@ -90,10 +91,10 @@ function ErrorCard({ msg, onRetry }) {
   const { lang } = useLang();
   return (
     <div className="rounded-2xl border p-6 text-center" style={{ borderColor: 'var(--color-border)' }}>
-      <p className="text-sm font-black mb-1" style={{ color: 'var(--color-danger-text)' }}>{lang === 'am' ? 'ስህተት' : 'Couldn’t load'}</p>
+      <p className="text-sm font-black mb-1" style={{ color: 'var(--color-danger-text)' }}>{label('admin.couldn-t-load', lang)}</p>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>{msg}</p>
       <button onClick={onRetry} className="px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: 'var(--color-primary)' }}>
-        {lang === 'am' ? 'እንደገና ሞክር' : 'Retry'}
+        {label('admin.retry', lang)}
       </button>
     </div>
   );
@@ -190,14 +191,14 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
     <div className="space-y-4 pb-8">
       {tab !== 'actions' && lastUpdated && (
         <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-          <span>{lang === 'am' ? `የተዘመነው ${relTime(lastUpdated, nowTick)}` : `Updated ${relTime(lastUpdated, nowTick)}`}</span>
-          <button onClick={() => ['overview', 'shops', 'features', 'frictions'].forEach((n) => loadSection(n))} className="underline font-bold">{lang === 'am' ? 'አዘምን' : 'Refresh'}</button>
+          <span>{label('admin.updated', lang, relTime(lastUpdated, nowTick))}</span>
+          <button onClick={() => ['overview', 'shops', 'features', 'frictions'].forEach((n) => loadSection(n))} className="underline font-bold">{label('admin.refresh', lang)}</button>
         </div>
       )}
 
       {tab === 'overview' && (
         errors.overview ? <ErrorCard msg={errors.overview} onRetry={() => loadSection('overview')} /> :
-        !data ? <SkeletonSection title={lang === 'am' ? 'አጠቃላይ' : 'Platform Numbers'} /> :
+        !data ? <SkeletonSection title={label('admin.platform-numbers', lang)} /> :
         (<>
           <Section title="Platform Numbers">
           <div className="grid grid-cols-3 gap-3">
@@ -233,7 +234,7 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
 
       {tab === 'shops' && (
         errors.shops ? <ErrorCard msg={errors.shops} onRetry={() => loadSection('shops')} /> :
-        !shops ? <SkeletonSection title={lang === 'am' ? 'የሱቅ ጤና' : 'Shop Health Table'} /> :
+        !shops ? <SkeletonSection title={label('admin.shop-health-table', lang)} /> :
         (<Section title="Shop Health Table">
            <div className="mb-2">
              <input
@@ -248,7 +249,7 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
                     fetchShops(v, 0, false);
                   }, 350);
                 }}
-               placeholder={lang === 'am' ? 'መፈላገት ሱቅ...' : 'Search shops...'}
+               placeholder={label('admin.search-shops', lang)}
                className="w-full px-3 py-2 rounded-xl text-xs border-2 focus:outline-none"
                style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
              />
@@ -269,13 +270,13 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
                            className="px-2 py-1 rounded-lg text-[10px] font-bold"
                            style={{ background: 'var(--color-primary)', color: 'var(--color-bg-white)' }}
                          >
-                           {lang === 'am' ? 'ክፈት' : 'Open'}
+                           {label('admin.open', lang)}
                          </button>
                        </td>
                      </tr>
                    ))}
                     {shops.shops.length === 0 && (
-                     <tr><td colSpan={6} className="py-3 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ምንም ሱቅ አልተገኘም' : 'No shops found'}</td></tr>
+                     <tr><td colSpan={6} className="py-3 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>{label('admin.no-shops-found', lang)}</td></tr>
                    )}
                  </tbody>
                  </table>
@@ -286,14 +287,14 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
                   className="mt-2 w-full py-2 rounded-xl text-xs font-bold"
                   style={{ background: 'var(--color-surface-subtle)', color: 'var(--color-text)' }}
                 >
-                  {lang === 'am' ? 'ተጨማሪ ጫን' : 'Load more'}
+                  {label('admin.load-more', lang)}
                 </button>
               )}
            </Section>
         ))}
       {tab === 'features' && (
         errors.features ? <ErrorCard msg={errors.features} onRetry={() => loadSection('features')} /> :
-        !features ? <SkeletonSection title={lang === 'am' ? 'ባህሪያት' : 'Feature Adoption'} /> :
+        !features ? <SkeletonSection title={label('admin.feature-adoption', lang)} /> :
         (<>
           <Section title="Feature Adoption">
         <StatRow label="Using Credit" value={`${features.features.shopsUsingCredit}/${d?.platformNumbers?.shops ?? 0}`} />
@@ -308,7 +309,7 @@ export default function AdminDashboard({ onShopSelect, tab = 'overview' }) {
       </>))}
       {tab === 'frictions' && (
         errors.frictions ? <ErrorCard msg={errors.frictions} onRetry={() => loadSection('frictions')} /> :
-        !frictions ? <SkeletonSection title={lang === 'am' ? 'ጥርጣሬዎች' : 'Friction Summary'} /> :
+        !frictions ? <SkeletonSection title={label('admin.friction-summary', lang)} /> :
         (<>
           <Section title="Friction Summary" subtitle="Shops that may need help">
           <div className="grid grid-cols-2 gap-2">

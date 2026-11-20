@@ -1,4 +1,17 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { label } from '../src/labels/index.js';
+
+// R2.1 pixel-proof helper: freeze animated state and wait for fonts so two
+// runs of the same code produce the same PNG. Used only before screenshots.
+async function settleForScreenshot(page: Page) {
+  await page.addStyleTag({
+    content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}',
+  });
+  await page.evaluate(async () => {
+    await document.fonts?.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+}
 
 async function resetFreshOrigin(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -205,44 +218,47 @@ test('design regression smoke protects core merchant surfaces', async ({ page },
   await expect(page.getByText('Gebya').first()).toBeVisible();
   await expect(page.locator('img[alt="Gebya"]')).toBeVisible();
   // Current onboarding copy (Two ways / Select Account Type)
-  await expect(page.getByText('Two ways to use Gebya')).toBeVisible();
+  await expect(page.getByText(label('onboarding.two-ways-to-use-gebya', 'en'))).toBeVisible();
   await expect(page.getByText('Shop Owner')).toBeVisible();
   await expect(page.getByText('Join a Shop')).toBeVisible();
   await expect(page.getByText('All data stays on your phone · Not connected with your bank · Free')).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '01-onboarding');
 
   await page.getByText('Shop Owner').click();
   await page.getByPlaceholder('Enter your name').fill('Design Smoke Shop');
-  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: label('onboarding.start', 'en'), exact: true }).click();
 
   await expect(page.getByText('Recording as')).toBeVisible();
   await expect(page.getByText('Design Smoke Shop').first()).toBeVisible();
   await expect(page.getByText(/TODAY\s+.*NET/i)).toBeVisible();
   // The scoreboard renders in compact one-line form (SaleWorkspace v1);
   // expand it to reach the trust line it now hides by default.
-  await page.getByRole('button', { name: 'Show details' }).click();
+  await page.getByRole('button', { name: label('today.show-details', 'en') }).click();
   await expect(page.getByText('Saved on this phone only.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Record a Sale' })).toBeVisible();
   await expect(page.locator('nav').getByRole('button', { name: 'Today' })).toBeVisible();
   await expect(page.locator('nav').getByRole('button', { name: 'Report' })).toBeVisible();
   await expect(page.locator('nav').getByRole('button', { name: 'More' })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '02-owner-home');
 
   await page.locator('nav').getByRole('button', { name: 'More' }).click();
   // Current settings layout: tabbed (Shop / Money / Data) with accordion cards
   // Settings tabs are real ARIA tabs (role="tab"), not plain buttons.
   await expect(page.getByRole('tab', { name: 'Shop' })).toBeVisible();
-  await expect(page.getByText('Shop Profile')).toBeVisible();
-  await expect(page.getByText('Items', { exact: true })).toBeVisible();
-  await expect(page.getByText('Recurring Expenses', { exact: true })).toBeVisible();
+  await expect(page.getByText(label('settings-shop.shop-profile', 'en'))).toBeVisible();
+  await expect(page.getByText(label('settings-shop.items', 'en'), { exact: true })).toBeVisible();
+  await expect(page.getByText(label('settings-shop.recurring-expenses', 'en'), { exact: true })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '03-settings-more');
 
   // R1 dedupe: reminder / notification / password panels are rendered ONCE,
   // at the top of the Data tab (no longer outside the tab panels).
   await page.getByRole('tab', { name: 'Data', exact: true }).click();
-  await expect(page.getByText('AUTO REMINDERS')).toBeVisible();
-  await expect(page.getByText('NOTIFICATION PREFERENCES')).toBeVisible();
-  await expect(page.getByText('PASSWORD LOGIN')).toBeVisible();
+  await expect(page.getByText(label('settings-data.auto-reminders', 'en'))).toBeVisible();
+  await expect(page.getByText(label('settings-data.notification-preferences', 'en'))).toBeVisible();
+  await expect(page.getByText(label('settings-data.password-login', 'en'))).toBeVisible();
 
   // Team & Staff lives on the dedicated Staff tab (owner tab bar + join code).
   // 'Team' is an ARIA tab in the staff surface, not a plain button.
@@ -253,6 +269,7 @@ test('design regression smoke protects core merchant surfaces', async ({ page },
   await expect(page.getByRole('button', { name: 'Copy' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset code' })).toBeVisible();
   await expect(page.getByText('Add Staff')).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '04-staff-team');
 
   await page.locator('nav').getByRole('button', { name: 'Report' }).click();
@@ -261,9 +278,10 @@ test('design regression smoke protects core merchant surfaces', async ({ page },
   await expect(page.getByRole('main').getByRole('button', { name: '📅 Week' })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: '🗓 Month' })).toBeVisible();
   // Empty shop renders the welcome/empty state (current ReportView copy)
-  await expect(page.getByText('Welcome to your shop')).toBeVisible();
-  await expect(page.getByText('Record your first sale today — your shop summary appears here instantly.')).toBeVisible();
+  await expect(page.getByText(label('reports.welcome-to-your-shop', 'en'))).toBeVisible();
+  await expect(page.getByText(label('reports.record-your-first-sale-today-your-shop', 'en'))).toBeVisible();
     await expect(page.getByRole('main').getByRole('button', { name: /Sale/ })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '05-report');
 });
 
@@ -294,6 +312,7 @@ test('design regression smoke — default Amharic (unpinned)', async ({ page }, 
   // LoadingScreen's <h1>, gone once seed glyphs are hydrated). Brand is English
   // by design — DO NOT localize it. See R2 dead-override note below.
   await expect(page.getByText('Gebya').first()).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '01-am-home');
 
   // Amharic nav labels (SideNav.jsx:9/8/7 TABS.am): 'ተጨማሪ' / 'ሰራተኞች' / 'ሪፖርት'.
@@ -307,7 +326,8 @@ test('design regression smoke — default Amharic (unpinned)', async ({ page }, 
   // tab strings. Verified Amharic headers live in the panels that open after the
   // tab is clicked.
   //   // mojibake tripwire: የሱቅ መገለጫ
-  await expect(page.getByText('የሱቅ መገለጫ', { exact: true })).toBeVisible();
+  await expect(page.getByText(label('settings-shop.shop-profile', 'am'), { exact: true })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '03-am-settings');
 
   // Data tab — STRUCTURAL click only (owner amendment #2): the Shop/Money/Data
@@ -315,13 +335,14 @@ test('design regression smoke — default Amharic (unpinned)', async ({ page }, 
   // for removal in R2, so they must NOT be name-pinned here. nth(2) = third tab
   // (fixed Shop → Money → Data order in SettingsPage TABS); label fidelity is
   // carried by the 04-am-data-tabs screenshot instead. ReminderSettings header =
-  // 'ራስ-ሰር ማስታወቂያ' (ReminderSettings.jsx:101).
-  // NotificationPreferences header = 'የማስጠንቂያ ምርጫ' (NotificationPreferences.jsx:227).
+  // label('settings-data.auto-reminders', 'am') (ReminderSettings.jsx:101).
+  // NotificationPreferences header = label('settings-data.notification-preferences', 'am') (NotificationPreferences.jsx:227).
   await page.getByRole('tab').nth(2).click();
   //   // mojibake tripwire: ራስ-ሰር ማስታወቂያ
-  await expect(page.getByText('ራስ-ሰር ማስታወቂያ', { exact: true })).toBeVisible();
+  await expect(page.getByText(label('settings-data.auto-reminders', 'am'), { exact: true })).toBeVisible();
   //   // mojibake tripwire: የማስጠንቂያ ምርጫ
-  await expect(page.getByText('የማስጠንቂያ ምርጫ', { exact: true })).toBeVisible();
+  await expect(page.getByText(label('settings-data.notification-preferences', 'am'), { exact: true })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '04-am-data-tabs');
 
   // Staff tab in Amharic. Nav button = 'ሰራተኞች' (SideNav.jsx:8 TABS.am). The
@@ -335,6 +356,7 @@ test('design regression smoke — default Amharic (unpinned)', async ({ page }, 
   await expect(page.getByRole('button', { name: 'ቅዳ', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'ኮድ ለአዲስ', exact: true })).toBeVisible();
   await expect(page.getByText('ሰራተኛ አክሙ', { exact: true })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '05-am-staff');
 
   // Report in Amharic. Nav button = 'ሪፖርት' (SideNav.jsx:9 TABS.am). Period
@@ -343,17 +365,18 @@ test('design regression smoke — default Amharic (unpinned)', async ({ page }, 
   //   // mojibake tripwire: ወደ ሱቅ ታሪክ እንኳን በደህና መጡ
   await page.locator('nav').getByRole('button', { name: 'ሪፖርት' }).click();
   await expect(page.getByRole('main').getByRole('heading', {
-    name: 'ወደ ሱቅ ታሪክ እንኳን በደህና መጡ',
+    name: label('reports.welcome-to-your-shop', 'am'),
     exact: true,
   })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: '🌅 ዛሬ', exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: '📅 ሳምንት', exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: '🗓 ወር', exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', { name: '✏️ ብጁ', exact: true })).toBeVisible();
-  await expect(page.getByText('ዛሬውን ሽያጭ ይመዝግቡ — ሱቅዎ ሁኔታ በፈጣን ይዘርጋል።', { exact: true })).toBeVisible();
+  await expect(page.getByText(label('reports.record-your-first-sale-today-your-shop', 'am'), { exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByRole('button', {
     name: '🛒 የመጀመሪያ ሽያጭ መዝግብ',
     exact: true,
   })).toBeVisible();
+  await settleForScreenshot(page);
   await attachScreenshot(page, testInfo, '06-am-report');
 });

@@ -1,5 +1,6 @@
 import { Download, RefreshCw, Signal, SignalHigh, Smartphone, WifiOff, X } from 'lucide-react';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 export function InstallGuideModal({ pwa }) {
   const { lang, t } = useLang();
@@ -130,7 +131,7 @@ export default function PwaInstallPanel({ pwa, variant = 'banner' }) {
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-gray-800">{t.installAlreadyInstalled}</div>
                 <div className="text-xs text-gray-500 mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am' ? 'ገበያ በስልክዎ ላይ ተጭኗል' : 'Gebya is installed on this device'}
+                  {label('pwa.gebya-is-installed-on-this-device', lang)}
                 </div>
               </div>
             </div>

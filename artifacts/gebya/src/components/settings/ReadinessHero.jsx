@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import { buildSetupSummary } from '../../utils/setupCompletion';
+import { label } from '../../labels/index.js';
 
 /**
  * Copy + navigation for each readiness check id. The *checks themselves*
@@ -87,10 +88,10 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
         >
           <div style={{ fontSize: '1.2rem' }}>✓</div>
           <div className="text-sm font-bold">
-            {lang === 'am' ? 'ሁሉም ተዋቅሯል' : 'All set up'}
+            {label('settings-shop.all-set-up', lang)}
           </div>
           <div className="text-xs ml-auto opacity-70">
-            {lang === 'am' ? 'ተጨማሪ' : 'Details'} ›
+            {label('settings-shop.details', lang)} ›
           </div>
         </div>
         {expanded && (
@@ -123,9 +124,9 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-black">{name || (lang === 'am' ? 'ሱቅ' : 'Shop')}</div>
+          <div className="text-sm font-black">{name || (label('settings-shop.shop', lang))}</div>
           <div className="text-xs mt-0.5" style={{ opacity: 0.7 }}>
-            {lang === 'am' ? `${doneCount} ከ ${totalCount} ተዋቅሯል` : `${doneCount} of ${totalCount} set up`}
+            {label('settings-shop.of-set-up', lang, doneCount, totalCount)}
           </div>
         </div>
         <div className="text-xs font-bold" style={{ opacity: 0.6 }}>

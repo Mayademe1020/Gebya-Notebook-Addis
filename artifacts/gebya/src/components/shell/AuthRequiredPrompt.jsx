@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { requestOtp, verifyOtp, loginWithPassword, setPassword } from '../../utils/authClient';
 import { setAuthToken, getAuthToken } from '../../utils/syncEngine';
 import { fireToast } from '../Toast';
+import { label } from '../../labels/index.js';
 
 export default function AuthRequiredPrompt({ lang, onClose, onStaffJoin }) {
   const [phone, setPhone] = useState('');
@@ -355,9 +356,7 @@ export default function AuthRequiredPrompt({ lang, onClose, onStaffJoin }) {
           <div className="space-y-3">
             <div className="text-center">
               <p className="text-sm text-gray-500">
-                {lang === 'am'
-                  ? 'OTP በተሳካ ሁኔታ ገብተዋል። የሚስጥር ቃል መዲዛ ይጨምሩ ለ ፍጥነታዊ መግቢያ?'
-                  : 'Signed in successfully! Set a password for faster logins?'}
+                {label('auth.signed-in-successfully-set-a-password-for', lang)}
               </p>
             </div>
             <div>

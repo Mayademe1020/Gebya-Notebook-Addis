@@ -12,6 +12,7 @@ import { fmt } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import db from '../db';
+import { label as tr } from '../labels/index.js';
 
 function timeAgo(dateStr, lang) {
   if (!dateStr) return '';
@@ -19,13 +20,13 @@ function timeAgo(dateStr, lang) {
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return lang === 'am' ? 'አሁን' : 'Just now';
-  if (mins < 60) return lang === 'am' ? `ከ ${mins} ደቂቃ በፊት` : `${mins}m ago`;
+  if (mins < 1) return tr('common.just-now', lang);
+  if (mins < 60) return tr('common.m-ago', lang, mins);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return lang === 'am' ? `ከ ${hours} ሰዓት በፊት` : `${hours}h ago`;
+  if (hours < 24) return tr('common.h-ago', lang, hours);
   const days = Math.floor(hours / 24);
-  if (days < 7) return lang === 'am' ? `ከ ${days} ቀን በፊት` : `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', { month: 'short', day: 'numeric' });
+  if (days < 7) return tr('common.d-ago', lang, days);
+  return new Date(dateStr).toLocaleDateString(tr('common.en-us', lang), { month: 'short', day: 'numeric' });
 }
 
 const TYPE_ICONS = {
@@ -168,11 +169,11 @@ export default function NotificationPanel({ onClose }) {
     yesterday.setDate(yesterday.getDate() - 1);
     let label;
     if (d.toDateString() === today.toDateString()) {
-      label = lang === 'am' ? 'ዛሬ' : 'Today';
+      label = tr('common.today', lang);
     } else if (d.toDateString() === yesterday.toDateString()) {
-      label = lang === 'am' ? 'ከትናንት' : 'Yesterday';
+      label = tr('common.yesterday', lang);
     } else {
-      label = d.toLocaleDateString(lang === 'am' ? 'am-ET' : 'en-US', { month: 'short', day: 'numeric' });
+      label = d.toLocaleDateString(tr('common.en-us', lang), { month: 'short', day: 'numeric' });
     }
     if (!currentGroup || currentGroup.label !== label) {
       currentGroup = { label, items: [] };
@@ -198,11 +199,11 @@ export default function NotificationPanel({ onClose }) {
         >
           <div className="min-w-0">
             <h2 className="text-base font-bold" style={{ color: 'var(--color-text)' }}>
-              {lang === 'am' ? 'ማስጠንቂቾች' : 'Notifications'}
+              {tr('common.notifications', lang)}
             </h2>
             {unreadCount > 0 && (
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                {unreadCount} {lang === 'am' ? 'አዲስ' : 'unread'}
+                {unreadCount} {tr('common.unread', lang)}
               </p>
             )}
           </div>
@@ -213,12 +214,12 @@ export default function NotificationPanel({ onClose }) {
                 className="text-[11px] font-bold px-3 py-1.5 press-scale"
                 style={{ color: 'var(--color-primary)', background: 'var(--color-success-bg)', borderRadius: 8 }}
               >
-                {lang === 'am' ? 'ሁሉንም አንብብ' : 'Mark all read'}
+                {tr('common.mark-all-read', lang)}
               </button>
             )}
             <button
               onClick={onClose}
-              aria-label={lang === 'am' ? 'ዝጋ' : 'Close'}
+              aria-label={tr('common.close', lang)}
               className="press-scale flex items-center justify-center"
               style={{ minWidth: '36px', minHeight: '36px' }}
             >
@@ -233,12 +234,10 @@ export default function NotificationPanel({ onClose }) {
             <span className="text-lg flex-shrink-0">🔔</span>
             <div className="flex-1 min-w-0">
               <p className="text-[12px] font-bold" style={{ color: 'var(--color-success-text)' }}>
-                {lang === 'am' ? 'የተሳሰሩ ማስጠንቂቾችን ያግኙ' : 'Get instant alerts'}
+                {tr('common.get-instant-alerts', lang)}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-success-text)' }}>
-                {lang === 'am'
-                  ? 'ሰራተኞች ሲያመለኩ በስልክዎ ላይ ይታያቸዋል'
-                  : 'Know when staff record sales, even when the app is closed'}
+                {tr('common.know-when-staff-record-sales-even-when-the', lang)}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <button
@@ -246,14 +245,14 @@ export default function NotificationPanel({ onClose }) {
                   className="text-[11px] font-bold px-3 py-1.5 press-scale"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-bg-white)', borderRadius: 6 }}
                 >
-                  {lang === 'am' ? 'አብራ' : 'Enable'}
+                  {tr('common.enable', lang)}
                 </button>
                 <button
                   onClick={handleDismissPush}
                   className="text-[11px] font-bold px-3 py-1.5"
                   style={{ color: 'var(--color-text-muted)', background: 'transparent', border: 'none' }}
                 >
-                  {lang === 'am' ? 'አይፈልግም' : 'No thanks'}
+                  {tr('common.no-thanks', lang)}
                 </button>
               </div>
             </div>
@@ -270,12 +269,10 @@ export default function NotificationPanel({ onClose }) {
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <span className="text-3xl mb-3">🔔</span>
               <p className="text-sm font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'ማስጠንቂቾች የሉዎትም' : 'No notifications yet'}
+                {tr('common.no-notifications-yet', lang)}
               </p>
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-soft)' }}>
-                {lang === 'am'
-                  ? 'ሰራተኞች ስለ ሽያጭ እና ክፍያ ሲያመለኩ እዚህ ይታያቸዋል'
-                  : "You'll see alerts when staff record sales and payments"}
+                {tr('common.you-ll-see-alerts-when-staff-record-sales', lang)}
               </p>
             </div>
           ) : (
@@ -321,7 +318,7 @@ export default function NotificationPanel({ onClose }) {
                       <div className="flex items-center gap-2 mt-1">
                         {notif.amount != null && (
                           <span className="text-[11px] font-bold" style={{ color: TYPE_TEXT[notif.type] || 'var(--color-text-muted)' }}>
-                            {fmt(notif.amount)} {lang === 'am' ? 'ብር' : 'birr'}
+                            {fmt(notif.amount)} {tr('common.birr', lang)}
                           </span>
                         )}
                         <span className="text-[10px]" style={{ color: 'var(--color-text-soft)' }}>

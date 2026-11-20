@@ -12,6 +12,7 @@
 // Templates use {name} {shop} {amount} variable substitution.
 
 import { formatDaysAgo } from './durationFormat';
+import { label } from '../labels/index.js';
 
 export const REMINDER_TEMPLATES = {
   gentle: {
@@ -49,7 +50,7 @@ function formatNumber(n) {
 
 export function buildReminderMessage({ template, lang, customer, shopName }) {
   const tpl = REMINDER_TEMPLATES[template] || REMINDER_TEMPLATES.gentle;
-  const text = tpl[lang === 'am' ? 'am' : 'en'];
+  const text = tpl[label('common.en', lang)];
   return text
     .replace('{name}', customer.display_name || 'customer')
     .replace('{shop}', shopName || 'the shop')
@@ -142,6 +143,6 @@ export function countCustomersWithBalance(customers = []) {
 export function daysAgoLabel(ts, lang) {
   if (!ts) return null;
   const days = Math.floor((Date.now() - Number(ts)) / (1000 * 60 * 60 * 24));
-  if (days <= 0) return lang === 'am' ? 'ዛሬ' : 'today';
+  if (days <= 0) return label('common.today-2', lang);
   return formatDaysAgo(days, lang);
 }

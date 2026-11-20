@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import OfflineStatusStrip from './OfflineStatusStrip';
 import SyncDiagnosticSheet from './SyncDiagnosticSheet';
 import BusinessSelector from './BusinessSelector';
+import { label } from '../labels/index.js';
 
 export default function AppHeader({
   shopProfile,
@@ -128,8 +129,8 @@ export default function AppHeader({
             padding: '3px 8px', borderRadius: '6px', fontSize: '11px', transition: 'all 0.18s',
           }}>EN</span>
           <span style={{
-            background: lang === 'am' ? 'var(--color-primary)' : 'transparent',
-            color: lang === 'am' ? 'var(--color-bg-white)' : 'var(--color-text-soft)',
+            background: label('nav.transparent', lang),
+            color: label('nav.var-color-text-soft', lang),
             fontWeight: lang === 'am' ? 700 : 600,
             padding: '3px 7px', borderRadius: '6px', fontSize: '11px', transition: 'all 0.18s',
           }}>አማ</span>
@@ -138,7 +139,7 @@ export default function AppHeader({
         <button
           onClick={onOpenNotifications}
           className="flex-shrink-0 press-scale flex items-center justify-center"
-          aria-label={lang === 'am' ? 'ማስጠንቂቾች' : 'Notifications'}
+          aria-label={label('nav.notifications', lang)}
           style={{ position: 'relative', minWidth: '44px', minHeight: '44px', padding: '8px' }}
         >
           <Bell className="w-5 h-5" style={{ color: unreadNotifCount > 0 ? 'var(--color-primary)' : 'var(--color-text-soft)' }} />

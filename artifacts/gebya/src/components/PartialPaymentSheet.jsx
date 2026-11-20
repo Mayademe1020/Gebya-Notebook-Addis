@@ -23,6 +23,7 @@ import { getDueDateOptions } from '../utils/ethiopianCalendar';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import PaymentTypeChips from './PaymentTypeChips';
 import AddProviderButton from './AddProviderButton';
+import { label } from '../labels/index.js';
 
 function PartialPaymentSheet({
   open,
@@ -115,11 +116,11 @@ function PartialPaymentSheet({
     <div className="fixed inset-0 z-50 flex flex-col bg-white max-w-md mx-auto">
       {/* Header */}
       <div className="flex-shrink-0 px-3 sm:px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <button onClick={() => { resetForm(); onClose(); }} aria-label={lang === 'am' ? 'ተመለስ' : 'Back'} className="press-scale flex items-center justify-center" style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}>
+        <button onClick={() => { resetForm(); onClose(); }} aria-label={label('credit.back', lang)} className="press-scale flex items-center justify-center" style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}>
           <ArrowLeft className="w-5 h-5" style={{ color: 'var(--color-text-muted)' }} />
         </button>
         <h2 className="text-base font-bold" style={{ color: 'var(--color-accent-amber)' }}>
-          {lang === 'am' ? '½ ከፊል ክፍያ' : '½ Partial Payment'}
+          {label('credit.partial-payment', lang)}
         </h2>
         <div style={{ width: '36px' }} />
       </div>
@@ -130,17 +131,17 @@ function PartialPaymentSheet({
         {/* Total amount display */}
         <div className="p-3" style={{ background: 'var(--color-success-bg)', border: '1px solid var(--color-success-border)', borderRadius: 'var(--radius-md)' }}>
           <p className="text-xs font-bold" style={{ color: 'var(--color-success-text)' }}>
-            {lang === 'am' ? 'ጠቅላላ መጠን' : 'Total Amount'}
+            {label('credit.total-amount', lang)}
           </p>
           <p className="text-xl font-black" style={{ color: 'var(--color-success-text)' }}>
-            {fmt(totalAmount)} {lang === 'am' ? 'ብር' : 'ETB'}
+            {fmt(totalAmount)} {label('credit.etb', lang)}
           </p>
         </div>
 
         {/* Amount Received */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'የተቀበሉት መጠን' : 'Amount Received'} <span style={{ color: 'var(--color-danger)' }}>*</span>
+            {label('credit.amount-received', lang)} <span style={{ color: 'var(--color-danger)' }}>*</span>
           </label>
           <div className="relative">
             <input
@@ -157,17 +158,17 @@ function PartialPaymentSheet({
               }}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'var(--color-text-soft)' }}>
-              {lang === 'am' ? 'ብር' : 'birr'}
+              {label('credit.birr', lang)}
             </span>
           </div>
           {receivedAmount > 0 && receivedAmount < totalAmount && (
             <p className="text-xs mt-1.5 font-semibold" style={{ color: 'var(--color-accent-amber)' }}>
-              {lang === 'am' ? 'ቀሪ ዱቤ' : 'Remaining Dubie'}: {fmt(creditAmount)} {lang === 'am' ? 'ብር' : 'birr'}
+              {label('credit.remaining-dubie', lang)}: {fmt(creditAmount)} {label('credit.birr', lang)}
             </p>
           )}
           {receivedAmount >= totalAmount && totalAmount > 0 && (
             <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--color-danger)' }}>
-              {lang === 'am' ? 'የተቀበሉት ሙሉ ነው — "ሙሉ" ይምረጡ' : 'Amount received equals total — use "Paid" instead.'}
+              {label('credit.amount-received-equals-total-use-paid', lang)}
             </p>
           )}
         </div>
@@ -175,7 +176,7 @@ function PartialPaymentSheet({
         {/* Payment method for collected amount */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'የተቀበሉት እንዴት ተከፈለ?' : 'How was the amount paid?'}
+            {label('credit.how-was-the-amount-paid', lang)}
           </label>
           <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar">
             <PaymentTypeChips
@@ -189,7 +190,7 @@ function PartialPaymentSheet({
           </div>
           {paymentType !== 'cash' && paymentProvider && (
             <p className="text-xs font-semibold mt-1" style={{ color: 'var(--color-success-text)' }}>
-              → {fmt(receivedAmount)} {lang === 'am' ? 'ብር' : 'ETB'} {lang === 'am' ? 'በ' : 'via'} {paymentProvider}
+              → {fmt(receivedAmount)} {label('credit.etb', lang)} {label('credit.via', lang)} {paymentProvider}
             </p>
           )}
         </div>
@@ -197,7 +198,7 @@ function PartialPaymentSheet({
         {/* Customer search */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'ደንበኛ (ለቀሪው ዱቤ)' : 'Customer (for remaining Dubie)'} <span style={{ color: 'var(--color-danger)' }}>*</span>
+            {label('credit.customer-for-remaining-dubie', lang)} <span style={{ color: 'var(--color-danger)' }}>*</span>
           </label>
           <div className="flex gap-1.5">
             <div className="relative flex-1">
@@ -205,7 +206,7 @@ function PartialPaymentSheet({
                 type="text"
                 value={customerQuery}
                 onChange={e => { setCustomerQuery(e.target.value); setCustomerMatch(null); }}
-                placeholder={lang === 'am' ? 'ስም ይተይቡ...' : 'Type customer name...'}
+                placeholder={label('credit.type-customer-name', lang)}
                 className="w-full px-2 py-1.5 text-[11px] border font-bold"
                 style={{ borderColor: customerQuery ? 'var(--color-success)' : 'var(--color-border-light)', borderRadius: 'var(--radius-sm)', minHeight: '38px' }}
               />
@@ -217,19 +218,19 @@ function PartialPaymentSheet({
                         <button key={c.id} type="button" onClick={() => { setCustomerMatch(c); setCustomerQuery(c.display_name || c.name || ''); }}
                           className="w-full px-2.5 py-2 text-left text-[11px] font-bold border-b flex items-center justify-between gap-2" style={{ borderColor: 'var(--color-border-light)', minHeight: '40px' }}>
                           <span>{c.display_name || c.name}</span>
-                          {c.balance > 0 && <span className="text-[10px] font-bold" style={{ color: 'var(--color-accent-amber)' }}>{lang === 'am' ? 'ዱቤ' : 'BAL'} {fmt(c.balance)}</span>}
+                          {c.balance > 0 && <span className="text-[10px] font-bold" style={{ color: 'var(--color-accent-amber)' }}>{label('credit.bal', lang)} {fmt(c.balance)}</span>}
                         </button>
                       ))}
                       {onAddCustomerInline && (
                         <button type="button" onClick={async () => { const name = customerQuery.trim(); if (!name) return; const saved = await onAddCustomerInline({ display_name: name }); if (saved?.id) { setCustomerMatch(saved); setCustomerQuery(saved.display_name || saved.name || ''); } }}
                           className="w-full px-2.5 py-2 text-left text-[11px] font-bold border-t border-dashed" style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)', minHeight: '40px' }}>
-                          + {lang === 'am' ? 'እንደ አዲስ ደንበኛ አክል' : 'Add as new customer'}
+                          + {label('credit.add-as-new-customer', lang)}
                         </button>
                       )}
                     </>
                   ) : (
                     <div className="px-2.5 py-2.5 text-[11px]" style={{ color: 'var(--color-text-soft)' }}>
-                      {lang === 'am' ? 'ደንበኛ አልተገኘም' : 'No customer found'}
+                      {label('credit.no-customer-found', lang)}
                     </div>
                   )}
                 </div>
@@ -238,7 +239,7 @@ function PartialPaymentSheet({
             <button type="button" onClick={async () => { const name = customerQuery.trim(); if (!name) return; if (!onAddCustomerInline) return; const saved = await onAddCustomerInline({ display_name: name }); if (saved?.id) { setCustomerMatch(saved); setCustomerQuery(saved.display_name || saved.name || ''); } }}
               className="flex-shrink-0 px-3 text-[11px] font-bold border press-scale"
               style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)', borderRadius: 'var(--radius-sm)', minHeight: '38px', background: 'rgba(22,163,74,0.06)' }}>
-              <span className="text-[14px] mr-1">+</span>{lang === 'am' ? 'አክል' : 'Add'}
+              <span className="text-[14px] mr-1">+</span>{label('credit.add', lang)}
             </button>
           </div>
 
@@ -259,7 +260,7 @@ function PartialPaymentSheet({
             <div className="flex items-center gap-2 px-2.5 py-2 mt-2" style={{ background: 'rgba(22,163,74,0.06)', borderRadius: 'var(--radius-sm)', minHeight: '42px' }}>
               <span className="text-[13px] font-bold flex-1">{customerMatch.display_name || customerMatch.name}</span>
               <span className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'ዱቤ' : 'BAL'} {fmt(customerMatch.balance || 0)}
+                {label('credit.bal', lang)} {fmt(customerMatch.balance || 0)}
               </span>
               <button type="button" onClick={() => { setCustomerMatch(null); setCustomerQuery(''); }} className="text-[12px] font-bold press-scale px-1" style={{ color: 'var(--color-text-soft)', minHeight: '30px' }}>✕</button>
             </div>
@@ -269,7 +270,7 @@ function PartialPaymentSheet({
         {/* Due date */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'የቀሪው መክፈያ ቀን' : 'Remaining Due Date'} <span style={{ color: 'var(--color-text-soft)', fontWeight: 600 }}>({lang === 'am' ? 'አማራጭ' : 'optional'})</span>
+            {label('credit.remaining-due-date', lang)} <span style={{ color: 'var(--color-text-soft)', fontWeight: 600 }}>({label('credit.optional', lang)})</span>
           </label>
           <div className="flex gap-2 mb-2">
             {dueDateOptions.map(opt => {
@@ -302,7 +303,7 @@ function PartialPaymentSheet({
                 cursor: 'pointer', flexShrink: 0,
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
-              📅 <span>{lang === 'am' ? 'ምረጥ' : 'Pick'}</span>
+              📅 <span>{label('credit.pick', lang)}</span>
             </button>
           </div>
         </div>
@@ -314,7 +315,7 @@ function PartialPaymentSheet({
       <div className="flex-shrink-0 px-3 sm:px-4 py-3" style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
         {!isPartialValid && receivedAmount > 0 && !customerMatch && (
           <p className="text-xs font-semibold text-center mb-2" style={{ color: 'var(--color-warning)' }}>
-            {lang === 'am' ? 'ከላይ ደንበኛ ይምረጡ ወይም ያክሉ' : 'Select or add a customer above'}
+            {label('credit.select-or-add-a-customer-above', lang)}
           </p>
         )}
         <button
@@ -330,8 +331,8 @@ function PartialPaymentSheet({
           }}
         >
           {isSaving
-            ? (lang === 'am' ? 'በማስቀመጥ ላይ...' : 'Saving...')
-            : <><Save className="w-5 h-5" />{lang === 'am' ? 'ከፊል ክፍያ አስቀምጥ' : 'Save Partial Payment'}</>
+            ? (label('credit.saving', lang))
+            : <><Save className="w-5 h-5" />{label('credit.save-partial-payment', lang)}</>
           }
         </button>
       </div>

@@ -4,6 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/shared-ui.jsx';
+import { label } from '../labels/index.js';
 
 const BANKS = [
   { id: 'cbe', name: 'Commercial Bank of Ethiopia', nameAm: 'የኢትዮጵያ ንግድ ባንክ' },
@@ -56,7 +57,7 @@ export default function BankDataSharing({ shopId, lang }) {
   };
 
   const handleRevoke = async (shareId) => {
-    if (!confirm(lang === 'am' ? 'ይህን ባንክ ይቀሩ?' : 'Revoke access for this bank?')) return;
+    if (!confirm(label('common.revoke-access-for-this-bank', lang))) return;
     try {
       await apiFetch(`/analytics/share/${shareId}`, { method: 'DELETE' });
       setShares((prev) => prev.filter((s) => s.id !== shareId));
@@ -66,24 +67,20 @@ export default function BankDataSharing({ shopId, lang }) {
   };
 
   const t = {
-    title: lang === 'am' ? 'የባንክ ውሂብ ማጋራት' : 'Bank Data Sharing',
-    subtitle: lang === 'am'
-      ? 'ንግድ መረጃዎን ከባንኮች ጋር ያጋሩ'
-      : 'Share your business data with banks for credit scoring',
-    noShares: lang === 'am'
-      ? 'ምንም ባንክ አልተጋራም'
-      : 'No banks have access yet',
-    grantAccess: lang === 'am' ? 'ባንክ ያክሉ' : 'Grant Access',
-    revoke: lang === 'am' ? 'ይቀሩ' : 'Revoke',
-    active: lang === 'am' ? 'ንቁ' : 'Active',
-    selectBank: lang === 'am' ? 'ባንክ ይምረጡ' : 'Select a bank',
-    shareOptions: lang === 'am' ? 'የማጋራት ምርጫዎች' : 'What to share',
-    salesData: lang === 'am' ? 'የሽያጭ መረጃ' : 'Sales data',
-    creditData: lang === 'am' ? 'የዱቤ መረጃ' : 'Credit (dubie) data',
-    customerData: lang === 'am' ? 'የደንበኛ መረጃ (ስም፣ ስልክ)' : 'Customer info (name, phone)',
-    customerDataHint: lang === 'am' ? '⚠️ ስም እና ስልክ ብቻ' : '⚠️ Includes PII — opt-in only',
-    confirm: lang === 'am' ? 'ያረጋግጡ' : 'Confirm',
-    cancel: lang === 'am' ? 'ሰርዝ' : 'Cancel',
+    title: label('common.bank-data-sharing', lang),
+    subtitle: label('common.share-your-business-data-with-banks-for', lang),
+    noShares: label('common.no-banks-have-access-yet', lang),
+    grantAccess: label('common.grant-access', lang),
+    revoke: label('common.revoke', lang),
+    active: label('common.active', lang),
+    selectBank: label('common.select-a-bank', lang),
+    shareOptions: label('common.what-to-share', lang),
+    salesData: label('common.sales-data', lang),
+    creditData: label('common.credit-dubie-data', lang),
+    customerData: label('common.customer-info-name-phone', lang),
+    customerDataHint: label('common.includes-pii-opt-in-only', lang),
+    confirm: label('common.confirm', lang),
+    cancel: label('common.cancel', lang),
   };
 
   return (

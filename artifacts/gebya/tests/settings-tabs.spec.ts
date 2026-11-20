@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { label } from '../src/labels/index.js';
 
 const OWNER_PERMISSIONS = {
   can_manage_team: true,
@@ -110,7 +111,7 @@ test.describe('SettingsPage tab navigation persistence', () => {
     // no-op). Return to Today afterwards so each test keeps its original
     // starting state.
     await page.locator('nav').getByRole('button', { name: 'More' }).click();
-    await expect(page.getByText('Owner', { exact: true })).toBeVisible();
+    await expect(page.getByText(label('nav.owner', 'en'), { exact: true })).toBeVisible();
     await page.locator('nav').getByRole('button', { name: 'Today' }).click();
   });
 

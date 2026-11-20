@@ -15,6 +15,7 @@
 // Output: structured objects ready for rendering.
 
 import { amountOf, isTransferPayment } from './reportSelectors.js';
+import { label } from '../labels/index.js';
 
 const DAY_MS = 86400000;
 
@@ -30,7 +31,7 @@ export function computeSalesSummary(metrics, lang = 'en') {
   // Top items by revenue
   const byItem = new Map();
   for (const row of saleRows) {
-    const name = row.item_name || row.item_note || (lang === 'am' ? 'ልዩ' : 'Other');
+    const name = row.item_name || row.item_note || (label('common.other', lang));
     const existing = byItem.get(name) || { name, revenue: 0, quantity: 0, count: 0 };
     existing.revenue += amountOf(row);
     existing.quantity += Number(row.quantity) || 0;
@@ -138,24 +139,22 @@ export function computeAttentionItems({
     items.push({
       type: 'cash_pending',
       severity: 'urgent',
-      message: lang === 'am' ? 'ገንዘብ ገና አልተጠቀሰም' : 'Cash not counted yet',
-      detail: lang === 'am'
-        ? `የሚጠበቅ: ${fmt(cashExpected)} ETB`
-        : `Expected: ${fmt(cashExpected)} ETB`,
-      action: lang === 'am' ? 'ገንዘብ ቅጠል' : 'Count Cash',
+      message: label('common.cash-not-counted-yet', lang),
+      detail: label('common.expected-etb', lang, fmt(cashExpected)),
+      action: label('common.count-cash', lang),
       actionType: 'count_cash',
     });
   }
 
   // Cash mismatch
   if (closingDone && Math.abs(cashVariance) > cashExpected * 0.05) {
-    const direction = cashVariance > 0 ? (lang === 'am' ? 'በዚህ ብዛት ተጨማሪ ነው' : 'more than expected') : (lang === 'am' ? 'በዚህ ብዛት ያነሰ ነው' : 'less than expected');
+    const direction = cashVariance > 0 ? (label('common.more-than-expected', lang)) : (label('common.less-than-expected', lang));
     items.push({
       type: 'cash_mismatch',
       severity: 'urgent',
-      message: lang === 'am' ? 'ገንዘብ አይዛመድም' : 'Cash does not match',
+      message: label('common.cash-does-not-match', lang),
       detail: `${fmt(Math.abs(cashVariance))} ETB ${direction}`,
-      action: lang === 'am' ? '🔍 መመርመር' : 'Review',
+      action: label('common.review', lang),
       actionType: 'review',
     });
   }
@@ -165,13 +164,9 @@ export function computeAttentionItems({
     items.push({
       type: 'overdue_customers',
       severity: 'warning',
-      message: lang === 'am'
-        ? `${overdueCount} ደንበኛ ይሄዳቸዋል`
-        : `${overdueCount} customer${overdueCount !== 1 ? 's' : ''} owe you`,
-      detail: lang === 'am'
-        ? `ጠቅላላ: ${fmt(overdueAmount)} ETB`
-        : `Total: ${fmt(overdueAmount)} ETB · Oldest: ${largestOverdueDays} days`,
-      action: lang === 'am' ? 'ያስታውሱ' : 'Remind',
+      message: label('common.customer-owe-you', lang, () => overdueCount, () => overdueCount !== 1 ? 's' : ''),
+      detail: label('common.total-etb-oldest-days', lang, () => fmt(overdueAmount), () => largestOverdueDays),
+      action: label('common.remind', lang),
       actionType: 'overdue',
     });
   }
@@ -181,10 +176,8 @@ export function computeAttentionItems({
     items.push({
       type: 'low_sales',
       severity: 'warning',
-      message: lang === 'am' ? 'ሽያጭ ከመደበኛው ዝቅተኛ ነው' : 'Sales are lower than usual',
-      detail: lang === 'am'
-        ? `በአጠቃላይ ${avgSalesCount} ሽያጭ ይሆናል · ${salesCount} ብቻ`
-        : `Usually ${avgSalesCount} sales by now · Only ${salesCount} today`,
+      message: label('common.sales-are-lower-than-usual', lang),
+      detail: label('common.usually-sales-by-now-only-today', lang, avgSalesCount, salesCount),
       action: null,
       actionType: null,
     });
@@ -195,10 +188,8 @@ export function computeAttentionItems({
     items.push({
       type: 'high_expenses',
       severity: 'warning',
-      message: lang === 'am' ? 'ወጪ ከመደበኛው ከፍተኛ ነው' : 'Expenses are higher than usual',
-      detail: lang === 'am'
-        ? `በአጠቃላይ ${fmt(avgExpenses)} ETB · ዛሬ ${fmt(expenses)} ETB`
-        : `Usually ${fmt(avgExpenses)} ETB · Today ${fmt(expenses)} ETB`,
+      message: label('common.expenses-are-higher-than-usual', lang),
+      detail: label('common.usually-etb-today-etb', lang, fmt(avgExpenses), fmt(expenses)),
       action: null,
       actionType: null,
     });
@@ -223,15 +214,13 @@ export function computePeriodVerdict({ current = null, previous = null, lang = '
   if (prev <= 0 && cur <= 0) {
     return {
       tone: 'neutral',
-      text: lang === 'am' ? 'በዚህ ጊዜ ምንም ሽያጭ አልነበረም' : 'No sales in this period.',
+      text: label('common.no-sales-in-this-period', lang),
     };
   }
   if (prev <= 0) {
     return {
       tone: 'positive',
-      text: lang === 'am'
-        ? `${fmt(cur)} ETB ሽያጭ — ከቀዳሚ ጊዜ ጋር ለማነጻጸር አዲስ ነው`
-        : `${fmt(cur)} ETB in sales — nothing to compare with yet.`,
+      text: label('common.etb-in-sales-nothing-to-compare-with-yet', lang, fmt(cur)),
     };
   }
 
@@ -239,24 +228,18 @@ export function computePeriodVerdict({ current = null, previous = null, lang = '
   if (pct > 10) {
     return {
       tone: 'positive',
-      text: lang === 'am'
-        ? `${fmt(cur)} ETB — ከቀዳሚ ጊዜ ${pct}% ጨምሯል 📈`
-        : `${fmt(cur)} ETB — ${pct}% more than last period 📈`,
+      text: label('common.etb-more-than-last-period', lang, fmt(cur), pct),
     };
   }
   if (pct < -10) {
     return {
       tone: 'warning',
-      text: lang === 'am'
-        ? `${fmt(cur)} ETB — ከቀዳሚ ጊዜ ${Math.abs(pct)}% ቀንሷል 📉`
-        : `${fmt(cur)} ETB — ${Math.abs(pct)}% less than last period 📉`,
+      text: label('common.etb-less-than-last-period', lang, fmt(cur), Math.abs(pct)),
     };
   }
   return {
     tone: 'neutral',
-    text: lang === 'am'
-      ? `${fmt(cur)} ETB — ከቀዳሚ ጊዜ ጋር ተመሳሳይ ነው`
-      : `${fmt(cur)} ETB — about the same as last period.`,
+    text: label('common.etb-about-the-same-as-last-period', lang, fmt(cur)),
   };
 }
 
@@ -280,63 +263,49 @@ export function computeHeroStatus({
 
   if (!closingDone && (period === 'evening' || period === 'night')) {
     return {
-      sentence: lang === 'am'
-        ? 'አንድ ቀሪ ሥራ፦ ገንዘብህን ቆጥር'
-        : 'One thing left: Count your cash.',
-      cta: lang === 'am' ? '💰 ገንዘብ ቆጠራ' : '💰 Count Cash →',
+      sentence: label('common.one-thing-left-count-your-cash', lang),
+      cta: label('common.count-cash-2', lang),
       actionType: 'count_cash',
     };
   }
   if (!closingDone) {
     return {
-      sentence: lang === 'am'
-        ? 'ዛሬ የሱቅህ ቀን አሁንም አልተዘጋም'
-        : 'Your day isn\'t closed yet.',
-      cta: lang === 'am' ? '💰 ገንዘብ ቆጠራ' : '💰 Count Cash →',
+      sentence: label('common.your-day-isn-t-closed-yet', lang),
+      cta: label('common.count-cash-2', lang),
       actionType: 'count_cash',
     };
   }
   if (cashMismatch) {
     return {
-      sentence: lang === 'am'
-        ? `ገንዘብ አይዛመድም፦ ልዩነቱ ${fmt(Math.abs(cashVariance))} ETB`
-        : `Cash doesn\'t match — off by ${fmt(Math.abs(cashVariance))} ETB.`,
-      cta: lang === 'am' ? '📋 መረምር' : '📋 Review',
+      sentence: label('common.cash-doesn-t-match-off-by-etb', lang, fmt(Math.abs(cashVariance))),
+      cta: label('common.review-2', lang),
       actionType: 'review',
     };
   }
   if (unconfirmedStaff.length > 0) {
     return {
-      sentence: lang === 'am'
-        ? `${unconfirmedStaff.length} ሰራተኛ ገንዘብ አላስረከበም`
-        : `${unconfirmedStaff.length} staff haven\'t reported cash.`,
-      cta: lang === 'am' ? '👥 ሰብስብ' : '👥 Collect →',
+      sentence: label('common.staff-haven-t-reported-cash', lang, unconfirmedStaff.length),
+      cta: label('common.collect', lang),
       actionType: 'collect_staff',
     };
   }
   if (hasOverdue) {
     return {
-      sentence: lang === 'am'
-        ? `${overdueCount} ደንበኛ ዕዳ አለባቸው`
-        : `${overdueCount} customer${overdueCount !== 1 ? 's' : ''} still owe you.`,
-      cta: lang === 'am' ? '🔔 አስታውስ' : '🔔 Remind →',
+      sentence: label('common.customer-still-owe-you', lang, () => overdueCount, () => overdueCount !== 1 ? 's' : ''),
+      cta: label('common.remind-2', lang),
       actionType: 'overdue',
     };
   }
   if (salesCount === 0) {
     return {
-      sentence: lang === 'am'
-        ? 'ዛሬ ገና ምንም ሽያጭ የለም'
-        : 'No sales yet today.',
-      cta: lang === 'am' ? '🛒 ሽያጭ መዝግብ' : '🛒 Record Sale →',
+      sentence: label('common.no-sales-yet-today', lang),
+      cta: label('common.record-sale', lang),
       actionType: 'sale',
     };
   }
   return {
-    sentence: lang === 'am'
-      ? `ሁሉም ደህና ነው፦ ${salesCount} ሽያጮች፣ ${fmt(cashExpected)} ETB ጥሬ ገንዘብ`
-      : `All good — ${salesCount} sale${salesCount !== 1 ? 's' : ''}, ${fmt(cashExpected)} ETB cash.`,
-    cta: lang === 'am' ? '📒 ዝርዝር ይመልከቱ' : '📒 View Details',
+    sentence: label('common.all-good-sale-etb-cash', lang, () => salesCount, () => salesCount !== 1 ? 's' : '', () => fmt(cashExpected)),
+    cta: label('common.view-details', lang),
     actionType: 'view_details',
   };
 }
@@ -453,23 +422,17 @@ export function computeRecommendations({
     if (pct > 20) {
       recs.push({
         tone: 'positive',
-        text: lang === 'am'
-          ? `ሽያጭ ከትናንት ${pct}% ጨምሯል`
-          : `Sales are ${pct}% higher than yesterday.`,
+        text: label('common.sales-are-higher-than-yesterday', lang, pct),
       });
     } else if (pct < -20) {
       recs.push({
         tone: 'warning',
-        text: lang === 'am'
-          ? `ሽያጭ ከትናንት ${Math.abs(pct)}% ቀንሷል`
-          : `Sales are ${Math.abs(pct)}% lower than yesterday.`,
+        text: label('common.sales-are-lower-than-yesterday', lang, Math.abs(pct)),
       });
     } else {
       recs.push({
         tone: 'neutral',
-        text: lang === 'am'
-          ? `ሽያጭ ከትናንት ጋር ሲነጻጸር የተረጋጋ ነው`
-          : `Sales are stable compared to yesterday.`,
+        text: label('common.sales-are-stable-compared-to-yesterday', lang),
       });
     }
   }
@@ -486,9 +449,7 @@ export function computeRecommendations({
     const [topName, topAmount] = topItems[0];
     recs.push({
       tone: 'positive',
-      text: lang === 'am'
-        ? `${topName} በብዛት ተሽጧል፦ ${fmt(topAmount)} ETB`
-        : `${topName} sold the most: ${fmt(topAmount)} ETB.`,
+      text: label('common.sold-the-most-etb', lang, topName, fmt(topAmount)),
     });
   }
 
@@ -497,9 +458,7 @@ export function computeRecommendations({
     const top = staffSummary.staff[0];
     recs.push({
       tone: 'neutral',
-      text: lang === 'am'
-        ? `${top.name} ${top.sold} ETB ሸጠዋል — ከፍተኛ ሻጭ`
-        : `${top.name} sold ${fmt(top.sold)} ETB — top seller today.`,
+      text: label('common.sold-etb-top-seller-today', lang, () => top.name, () => fmt(top.sold), () => top.sold),
     });
   }
 
@@ -507,16 +466,12 @@ export function computeRecommendations({
   if (creditCollected > 0) {
     recs.push({
       tone: 'positive',
-      text: lang === 'am'
-        ? `${fmt(creditCollected)} ETB ዕዳ ሰብስበሃል`
-        : `You collected ${fmt(creditCollected)} ETB in old debts. Good job!`,
+      text: label('common.you-collected-etb-in-old-debts-good-job', lang, fmt(creditCollected)),
     });
   } else if (overdueCount > 0) {
     recs.push({
       tone: 'warning',
-      text: lang === 'am'
-        ? `${overdueCount} ደንበኛ ዕዳ አለባቸው — ማስታወስ ያስፈልጋል`
-        : `${overdueCount} customer${overdueCount !== 1 ? 's' : ''} still owe — send reminders.`,
+      text: label('common.customer-still-owe-send-reminders', lang, () => overdueCount, () => overdueCount !== 1 ? 's' : ''),
     });
   }
 
@@ -524,9 +479,7 @@ export function computeRecommendations({
   if (recs.length === 0) {
     recs.push({
       tone: 'neutral',
-      text: lang === 'am'
-        ? 'ዛሬ ምንም ልዩ ነገር አልተስተዋለም'
-        : 'Nothing unusual to report today.',
+      text: label('common.nothing-unusual-to-report-today', lang),
     });
   }
 

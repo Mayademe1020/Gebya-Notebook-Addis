@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { computeImpactMetrics } from '../utils/entitlements';
 import { getTrustScores } from '../utils/trustScore';
+import { label } from '../labels/index.js';
 
 function fmtBirr(n) {
   if (n == null) return '0';
@@ -39,23 +40,23 @@ export default function AdminMetricsView({ shopId }) {
   if (!metrics) return null;
 
   const rows = [
-    { label: lang === 'am' ? '\u1265\u1228\u1275\u1295\u1235 \u1260\u1233\u1295\u129B' : 'Shops onboarded', value: metrics.shops_onboarded },
-    { label: lang === 'am' ? '\u1260\u12AB\u1295\u1295 \u1230\u1276\u128A\u1276' : 'Months active', value: metrics.months_active },
-    { label: lang === 'am' ? '\u1240\u1295\u12F5 \u1230\u1276\u128A\u1276' : 'Total transactions', value: fmtBirr(metrics.total_transactions) },
-    { label: lang === 'am' ? '\u1228\u1275\u1235 \u1230\u1276\u128A\u1276/\u1263\u1229' : 'Monthly transaction rate', value: `${fmtBirr(metrics.monthly_transaction_rate)}/mo` },
-    { label: lang === 'am' ? '\u1230\u1228\u1273 \u1230\u1276\u128A\u1276 (\u1265\u122A)' : 'Total sales (birr)', value: `${fmtBirr(metrics.total_sales_birr)} ETB` },
-    { label: lang === 'am' ? '\u1233\u1228\u129B \u1230\u1276\u128A\u1276 (\u1265\u122A)' : 'Total expenses (birr)', value: `${fmtBirr(metrics.total_expenses_birr)} ETB` },
-    { label: lang === 'am' ? '\u12AE\u1273\u1295 \u1230\u1276\u128A\u1276 (\u1265\u122A)' : 'Credit extended (birr)', value: `${fmtBirr(metrics.total_credit_extended_birr)} ETB` },
-    { label: lang === 'am' ? '\u12AE\u1273\u1295 \u122A\u1275\u129B (\u1265\u122A)' : 'Credit repaid (birr)', value: `${fmtBirr(metrics.total_credit_repaid_birr)} ETB` },
-    { label: lang === 'am' ? '\u12AE\u1273\u1295 \u122A\u1275\u129B \u1270\u12A8\u1295\u1295' : 'Credit recovery rate', value: `${metrics.credit_recovery_rate}%` },
-    { label: lang === 'am' ? '\u12E8\u121A\u130D\u1295\u1233\u1295\u1289' : 'Unique customers', value: metrics.unique_customers },
-    { label: lang === 'am' ? '\u1245\u1295\u1297\u1287\u1293 \u1270\u1268\u1276\u1295\u1233' : 'Active staff', value: metrics.active_staff },
+    { label: label('admin.shops-onboarded', lang), value: metrics.shops_onboarded },
+    { label: label('admin.months-active', lang), value: metrics.months_active },
+    { label: label('admin.total-transactions', lang), value: fmtBirr(metrics.total_transactions) },
+    { label: label('admin.monthly-transaction-rate', lang), value: `${fmtBirr(metrics.monthly_transaction_rate)}/mo` },
+    { label: label('admin.total-sales-birr', lang), value: `${fmtBirr(metrics.total_sales_birr)} ETB` },
+    { label: label('admin.total-expenses-birr', lang), value: `${fmtBirr(metrics.total_expenses_birr)} ETB` },
+    { label: label('admin.credit-extended-birr', lang), value: `${fmtBirr(metrics.total_credit_extended_birr)} ETB` },
+    { label: label('admin.credit-repaid-birr', lang), value: `${fmtBirr(metrics.total_credit_repaid_birr)} ETB` },
+    { label: label('admin.credit-recovery-rate', lang), value: `${metrics.credit_recovery_rate}%` },
+    { label: label('admin.unique-customers', lang), value: metrics.unique_customers },
+    { label: label('admin.active-staff', lang), value: metrics.active_staff },
   ];
 
   return (
     <div className="space-y-3">
       <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? '\u1218\u1295\u130D\u1295\u1233 \u1230\u1276\u128A\u1276' : 'Impact Metrics'}
+        {label('admin.impact-metrics', lang)}
       </p>
       <p className="text-[10px] italic" style={{ color: 'var(--color-text-soft)' }}>
         Behavioral consistency signal, unvalidated
@@ -71,7 +72,7 @@ export default function AdminMetricsView({ shopId }) {
       {trustScores && (
         <div className="border p-3" style={{ borderColor: 'var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
           <p className="text-[11px] font-black uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? '\u1233\u1295\u1293 \u12E8\u121A\u130D\u1295\u1233' : 'Trust Scores'}
+            {label('admin.trust-scores', lang)}
           </p>
           <div className="flex gap-4">
             <div>

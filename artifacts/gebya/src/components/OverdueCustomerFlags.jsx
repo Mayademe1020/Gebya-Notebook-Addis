@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { getOverdueCustomerFlags } from '../utils/trustScore';
+import { label } from '../labels/index.js';
 
 function fmtBirr(n) {
   if (n == null) return '0';
@@ -45,14 +46,14 @@ export default function OverdueCustomerFlags() {
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: 'var(--color-danger-text)' }}>
-          {lang === 'am' ? '\u1240\u1273\u1293 \u12A0\u1295\u12F3 \u1233\u1276\u128B\u1276\u1289\u1289' : 'Overdue Customers'}
+          {label('credit.overdue-customers', lang)}
         </p>
         <button
           onClick={() => setDismissed(true)}
           className="text-[10px] font-bold"
           style={{ color: 'var(--color-text-soft)', background: 'none', border: 'none', cursor: 'pointer' }}
         >
-          {lang === 'am' ? '\u12AB\u1295\u12F3' : 'Dismiss'}
+          {label('credit.dismiss', lang)}
         </button>
       </div>
       <div className="space-y-1.5">
@@ -80,7 +81,7 @@ export default function OverdueCustomerFlags() {
         ))}
         {flags.length > 5 && (
           <p className="text-[10px]" style={{ color: 'var(--color-text-soft)' }}>
-            +{flags.length - 5} {lang === 'am' ? '\u12E8\u121A\u130D\u1295\u1233' : 'more'}
+            +{flags.length - 5} {label('credit.more', lang)}
           </p>
         )}
       </div>

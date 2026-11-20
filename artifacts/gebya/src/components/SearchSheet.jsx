@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, Clock } from 'lucide-react';
 import { useLang } from '../context/LangContext';
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index.js';
 
 const EXAMPLE_PROMPTS = [
   { en: "Where is Abebe's credit?", am: 'የአበበ ዱቤ የት አለ?' },
@@ -125,19 +126,19 @@ export default function SearchSheet({
   }, [results, activeFilter, timeScope]);
 
   const filters = [
-    { id: 'all', label: lang === 'am' ? 'ሁሉም' : 'All' },
-    { id: 'sale', label: lang === 'am' ? 'ሽያጭ' : 'Sales' },
-    { id: 'expense', label: lang === 'am' ? 'ወጪ' : 'Expenses' },
-    { id: 'credit', label: lang === 'am' ? 'ዱቤ' : 'Credit' },
-    { id: 'collection', label: lang === 'am' ? 'መሰብሰብ' : 'Collections' },
-    { id: 'customer', label: lang === 'am' ? 'ደንበኛ' : 'Customers' },
-    { id: 'item', label: lang === 'am' ? 'እቃ' : 'Items' },
+    { id: 'all', label: label('customers.all', lang) },
+    { id: 'sale', label: label('customers.sales', lang) },
+    { id: 'expense', label: label('customers.expenses', lang) },
+    { id: 'credit', label: label('customers.credit', lang) },
+    { id: 'collection', label: label('customers.collections', lang) },
+    { id: 'customer', label: label('customers.customers', lang) },
+    { id: 'item', label: label('customers.items-2', lang) },
   ];
 
   const scopes = [
-    { id: 'any', label: lang === 'am' ? 'በሙሉ ጊዜ' : 'Any time' },
-    { id: 'week', label: lang === 'am' ? 'በዚህ ሳምንት' : 'This week' },
-    { id: 'month', label: lang === 'am' ? 'በዚህ ወር' : 'This month' },
+    { id: 'any', label: label('customers.any-time', lang) },
+    { id: 'week', label: label('customers.this-week', lang) },
+    { id: 'month', label: label('customers.this-month', lang) },
   ];
 
   return (
@@ -179,7 +180,7 @@ export default function SearchSheet({
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder={lang === 'am' ? 'ማስታወሻ ደብተርዎን ይጠይቁ...' : 'Ask your notebook...'}
+              placeholder={label('customers.ask-your-notebook', lang)}
               style={{
                 flex: 1,
                 border: 'none',
@@ -198,14 +199,14 @@ export default function SearchSheet({
             )}
           </div>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'ዝጋ' : 'Cancel'}
+            {label('customers.cancel-2', lang)}
           </button>
         </div>
 
         {!query ? (
           <div>
             <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-soft)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
-              {lang === 'am' ? 'ለምሳሌ' : 'Try asking'}
+              {label('customers.try-asking', lang)}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {EXAMPLE_PROMPTS.map((prompt, i) => (
@@ -289,7 +290,7 @@ export default function SearchSheet({
             {/* Results */}
             {query && filteredResults.length > 0 && (
               <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-text-soft)', margin: '0 0 4px' }}>
-                {filteredResults.length} {lang === 'am' ? 'ተገኝተዋል' : 'found'}
+                {filteredResults.length} {label('customers.found', lang)}
               </p>
             )}
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -297,10 +298,10 @@ export default function SearchSheet({
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <p style={{ fontSize: 24, marginBottom: 8 }}>🔍</p>
                   <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                    {lang === 'am' ? 'ምንም አልተገኘም' : 'No results found'}
+                    {label('customers.no-results-found', lang)}
                   </p>
                   <p style={{ fontSize: 11, color: 'var(--color-text-soft)', marginTop: 4 }}>
-                    {lang === 'am' ? 'በሌላ ቃል ይሞክሩ' : 'Try a different search term'}
+                    {label('customers.try-a-different-search-term', lang)}
                   </p>
                 </div>
               ) : (
@@ -340,7 +341,7 @@ export default function SearchSheet({
                       )}
                       {r.balance != null && (
                         <p style={{ fontSize: 12, fontWeight: 700, color: r.balance > 0 ? 'var(--color-accent-amber)' : 'var(--color-text-soft)' }}>
-                          {fmt(r.balance)} {lang === 'am' ? 'ብር' : 'ETB'}
+                          {fmt(r.balance)} {label('customers.etb', lang)}
                         </p>
                       )}
                     </div>

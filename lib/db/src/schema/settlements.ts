@@ -1,7 +1,7 @@
-import { pgTable, integer, jsonb, varchar, bigint } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, integer, jsonb, varchar, bigint, unique } from "drizzle-orm/pg-core";
 
 export const settlements = pgTable("settlements", {
-  id: bigint("id", { mode: "number" }).primaryKey(),
+  id: bigserial("id", { mode: "number" }).primaryKey(),
   localId: bigint("local_id", { mode: "number" }),
   deviceId: varchar("device_id", { length: 128 }).notNull(),
   settlementId: varchar("settlement_id", { length: 128 }).notNull(),
@@ -60,7 +60,9 @@ export const settlements = pgTable("settlements", {
   updatedAt: bigint("updated_at", { mode: "number" }),
   syncVersion: integer("sync_version").notNull().default(1),
   schemaVersion: integer("schema_version").notNull().default(1),
-});
+}, (t) => [
+  unique("settlements_device_local").on(t.deviceId, t.localId),
+]);
 
 export type Settlement = typeof settlements.$inferSelect;
 export type InsertSettlement = typeof settlements.$inferInsert;

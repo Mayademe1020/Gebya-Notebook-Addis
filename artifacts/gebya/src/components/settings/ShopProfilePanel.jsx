@@ -3,6 +3,7 @@ import { Store, Phone, MessageCircle, Check } from 'lucide-react';
 import { useLang } from '../../context/LangContext';
 import { normalizeTelegram } from '../../utils/customerTelegram';
 import { isValidSubscriber, extractSubscriberDigits } from '../../utils/phoneNumber';
+import { label } from '../../labels/index.js';
 
 export default function ShopProfilePanel({ shopProfile, onProfileSave }) {
   const { lang, t } = useLang();
@@ -52,9 +53,7 @@ export default function ShopProfilePanel({ shopProfile, onProfileSave }) {
     <div className="bg-white rounded-2xl border border-green-100/50 overflow-hidden">
       <div className="px-5 pt-5 pb-4 space-y-3">
         <div className="rounded-xl px-4 py-3 text-xs font-medium" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
-          {lang === 'am'
-            ? 'ይህ የዚህ ስልክ ዋና ባለቤት መለያ ነው። እዚህ የሚደረጉ ለውጦች መላውን ሱቅ ማስታወሻ ይነካሉ።'
-            : "This profile is the main owner identity for this phone's notebook. Changes here affect the whole shop notebook."}
+          {label('settings-shop.this-profile-is-the-main-owner-identity-for', lang)}
         </div>
         <div>
           <label className="block text-xs font-bold text-gray-500 mb-1.5 flex items-center gap-1">
