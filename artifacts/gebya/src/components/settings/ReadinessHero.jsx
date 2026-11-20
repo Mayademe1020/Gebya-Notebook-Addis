@@ -1,5 +1,51 @@
 import { useState } from 'react';
 import { useLang } from '../../context/LangContext';
+import { buildSetupSummary } from '../../utils/setupCompletion';
+
+/**
+ * Copy + navigation for each readiness check id. The *checks themselves*
+ * (what counts as done) live in utils/setupCompletion.js — the same definition
+ * behind the `setup_completed_at` metric — so labels can move but the metric
+ * cannot silently change meaning.
+ */
+const CHECK_COPY = {
+  name: {
+    action: 'profile',
+    en: 'Set shop name',
+    am: 'የሱቅ ስም ያስገቡ',
+    ctaEn: 'Add ›',
+    ctaAm: 'ያስገቡ ›',
+  },
+  phone: {
+    action: 'profile',
+    en: 'Add shop phone number',
+    am: 'የስልክ ቁጥር ያስገቡ',
+    ctaEn: 'Add ›',
+    ctaAm: 'ያስገቡ ›',
+  },
+  channels: {
+    action: 'channels',
+    tab: 'money',
+    en: 'Set up a payment channel',
+    am: 'የክፍያ መንገድ ያዋቅሩ',
+    ctaEn: 'Setup ›',
+    ctaAm: 'ያዋቅሩ ›',
+  },
+  items: {
+    action: 'items',
+    en: 'Add items to catalog',
+    am: 'እቃዎች ያስገቡ',
+    ctaEn: 'Add ›',
+    ctaAm: 'ያስገቡ ›',
+  },
+  recurring: {
+    action: 'recurring',
+    en: 'Add recurring expenses',
+    am: 'ወርሃዊ ወጪ ይመዝግቡ',
+    ctaEn: 'Add ›',
+    ctaAm: 'ይመዝግቡ ›',
+  },
+};
 
 export default function ReadinessHero({ shopProfile, paymentChannels = [], catalogEntries = [], recurring = [], lang, onAction }) {
   const [expanded, setExpanded] = useState(true);
@@ -11,43 +57,23 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
     return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
   })();
 
-  const checks = [
-    {
-      key: 'profile',
-      done: !!shopProfile?.name,
-      label: lang === 'am' ? 'የሱቅ ስም ያስገቡ' : 'Set shop name',
-      cta: lang === 'am' ? 'ያስገቡ ›' : 'Add ›',
-    },
-    {
-      key: 'profile',
-      done: !!shopProfile?.phone,
-      label: lang === 'am' ? 'የስልክ ቁጥር ያስገቡ' : 'Add shop phone number',
-      cta: lang === 'am' ? 'ያስገቡ ›' : 'Add ›',
-    },
-    {
-      key: 'channels',
-      done: (paymentChannels || []).some(c => c.enabled && (c.usePhoneFromShop || c.phone || c.account)),
-      label: lang === 'am' ? 'የክፍያ መንገድ ያዋቅሩ' : 'Set up a payment channel',
-      cta: lang === 'am' ? 'ያዋቅሩ ›' : 'Setup ›',
-      tab: 'money',
-    },
-    {
-      key: 'items',
-      done: (catalogEntries || []).filter(e => e.active !== false).length > 0,
-      label: lang === 'am' ? 'እቃዎች ያስገቡ' : 'Add items to catalog',
-      cta: lang === 'am' ? 'ያስገቡ ›' : 'Add ›',
-    },
-    {
-      key: 'recurring',
-      done: (recurring || []).length > 0,
-      label: lang === 'am' ? 'ወርሃዊ ወጪ ይመዝግቡ' : 'Add recurring expenses',
-      cta: lang === 'am' ? 'ይመዝግቡ ›' : 'Add ›',
-    },
-  ];
+  const { checks: rawChecks, doneCount, totalCount, allDone } = buildSetupSummary({
+    shopProfile,
+    paymentChannels,
+    catalogEntries,
+    recurring,
+  });
 
-  const doneCount = checks.filter(c => c.done).length;
-  const totalCount = checks.length;
-  const allDone = doneCount === totalCount;
+  const checks = rawChecks.map((check) => {
+    const copy = CHECK_COPY[check.id] || {};
+    return {
+      ...check,
+      action: copy.action,
+      tab: copy.tab,
+      label: lang === 'am' ? copy.am : copy.en,
+      cta: lang === 'am' ? copy.ctaAm : copy.ctaEn,
+    };
+  });
 
   if (allDone) {
     return (
@@ -70,7 +96,7 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
         {expanded && (
           <div className="px-4 pb-3 space-y-1.5">
             {checks.map((check, idx) => (
-              <div key={`done-${check.key}-${idx}`} className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--color-success-text)' }}>
+              <div key={`done-${check.id}-${idx}`} className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--color-success-text)' }}>
                 <span style={{ fontSize: '0.8rem' }}>✓</span>
                 <span className="flex-1">{check.label}</span>
               </div>
@@ -111,7 +137,7 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
         <div className="px-4 pb-4 space-y-1.5">
           {checks.filter(c => !c.done).map((check, idx) => (
             <div
-              key={`${check.key}-${idx}`}
+              key={`${check.id}-${idx}`}
               className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
               style={{ background: 'rgba(255,255,255,0.08)' }}
             >
@@ -120,7 +146,7 @@ export default function ReadinessHero({ shopProfile, paymentChannels = [], catal
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAction?.(check.key, check.tab);
+                  onAction?.(check.action, check.tab);
                 }}
                 className="text-xs font-black px-2.5 py-1 rounded-full"
                 style={{ background: 'var(--color-warning-border)', color: 'var(--color-primary)', border: 'none', cursor: 'pointer' }}
