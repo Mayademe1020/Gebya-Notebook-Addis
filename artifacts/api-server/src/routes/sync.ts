@@ -28,6 +28,22 @@ router.use(syncRateLimiter);
 interface ConflictRecord { table: string; localId: number; serverRecord: any; }
 interface MutationRecord { action: "CREATE" | "UPDATE" | "DELETE"; entityType: string; entityId: string; details?: string; }
 
+function isSameRecord(incoming: any, stored: any): boolean {
+  for (const [key, value] of Object.entries(incoming)) {
+    const other = stored[key];
+    if (value === undefined || value === null) {
+      if (other !== null && other !== undefined) return false;
+      continue;
+    }
+    if (typeof value === "object") {
+      if (JSON.stringify(value) !== JSON.stringify(other ?? null)) return false;
+      continue;
+    }
+    if (String(value) !== String(other)) return false;
+  }
+  return true;
+}
+
 async function pushTable(
   key: string, table: any, conflictTarget: any[], deviceId: string, rows: any[],
   mapper: (row: any) => any, localIdCol: any, deviceIdCol: any,
@@ -86,6 +102,13 @@ async function pushTable(
             chunkCount++;
             const detail = reconcileNote ? `settlement reconciled: ${reconcileNote}` : undefined;
             chunkMutations.push({ action: isSoftDelete ? "DELETE" : "UPDATE", entityType: key, entityId: String(data.localId), details: detail });
+          } else if (incomingVersion === storedVersion && incomingUpdatedAt === storedUpdatedAt && isSameRecord(data, stored)) {
+            // Same version, same timestamp, same values: the client is
+            // re-delivering a row this server already applied (its previous
+            // acknowledgement was lost). Acknowledge it as applied instead of
+            // reporting a conflict — otherwise the client retries it forever
+            // and the shop never leaves "Pending sync".
+            chunkCount++;
           } else {
             chunkConflicts.push({ table: key, localId: data.localId, serverRecord: stored });
           }

@@ -170,6 +170,13 @@ export function mapSettlement(body: any) {
     status: body.status || "checked", notes: body.notes || null,
     settledAt: body.settled_at, settledBy: body.settled_by,
     reconciledAt: body.reconciled_at || null, reconciledBy: body.reconciled_by || null, reconciliationNote: body.reconciliation_note || null,
+    reconciliationStatus: body.reconciliation_status || "checked",
+    staffReportedCash: body.staff_reported_cash ?? null, staffReportedTransfer: body.staff_reported_transfer ?? null,
+    staffSubmittedAt: body.staff_submitted_at ?? null, staffNote: body.staff_note ?? null,
+    ownerConfirmedCash: body.owner_confirmed_cash ?? null, ownerConfirmedTransfer: body.owner_confirmed_transfer ?? null,
+    ownerNote: body.owner_note ?? null,
+    reconciliationLog: body.reconciliation_log ?? [],
+    carryForward: body.carry_forward ?? null,
     createdAt: body.created_at, updatedAt: body.updated_at, schemaVersion: body.schema_version || 1, syncVersion: body.sync_version || 1,
   };
 }
