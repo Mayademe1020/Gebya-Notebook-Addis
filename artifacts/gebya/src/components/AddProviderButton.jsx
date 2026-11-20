@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLang } from '../context/LangContext';
 import { DEFAULT_CHANNEL_DEFINITIONS } from '../utils/paymentChannels';
+import { label } from '../labels/index.js';
 
 const CHANNEL_SUGGESTIONS = DEFAULT_CHANNEL_DEFINITIONS.map(d => ({
   kind: d.kind,
@@ -99,7 +100,7 @@ export default function AddProviderButton({ onAddProvider, existingNames = [] })
           whiteSpace: 'nowrap',
           minHeight: 38,
         }}
-        aria-label={lang === 'am' ? 'መክፈያ ዘዴ ጨምር' : 'Add payment method'}
+        aria-label={label('settings-money.add-payment-method', lang)}
       >
         +
       </button>
@@ -139,7 +140,7 @@ export default function AddProviderButton({ onAddProvider, existingNames = [] })
                 color: kind === 'bank' ? 'var(--color-primary)' : 'var(--color-text-soft)',
               }}
             >
-              🏦 {lang === 'am' ? 'ባንክ' : 'Bank'}
+              🏦 {label('settings-money.bank', lang)}
             </button>
             <button
               type="button"
@@ -153,7 +154,7 @@ export default function AddProviderButton({ onAddProvider, existingNames = [] })
                 color: kind === 'wallet' ? 'var(--color-primary)' : 'var(--color-text-soft)',
               }}
             >
-              📱 {lang === 'am' ? 'ዋሌት' : 'Wallet'}
+              📱 {label('settings-money.wallet', lang)}
             </button>
           </div>
           <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -163,7 +164,7 @@ export default function AddProviderButton({ onAddProvider, existingNames = [] })
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={lang === 'am' ? 'ስም ያስገቡ...' : 'e.g. Zemen Bank'}
+              placeholder={label('settings-money.e-g-zemen-bank', lang)}
               style={{
                 width: '100%', padding: '8px 10px', fontSize: 12,
                 border: '1px solid var(--color-border-light)', borderRadius: 6,
@@ -220,7 +221,7 @@ export default function AddProviderButton({ onAddProvider, existingNames = [] })
               flexShrink: 0,
             }}
           >
-            {lang === 'am' ? 'ጨምር' : 'Add'}
+            {label('settings-money.add', lang)}
           </button>
         </div>
       )}

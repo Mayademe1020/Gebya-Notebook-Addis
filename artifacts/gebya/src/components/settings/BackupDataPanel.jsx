@@ -5,6 +5,7 @@ import DangerZoneSection from './backup/DangerZoneSection';
 import { exportToCSV } from './backup/useBackupData';
 import { createCloudSnapshot } from '../../utils/useAutoBackup';
 import { fireToast } from '../Toast';
+import { label } from '../../labels/index.js';
 
 export default function BackupDataPanel({ transactions, customerSummaries }) {
   const { lang, t } = useLang();
@@ -23,7 +24,7 @@ export default function BackupDataPanel({ transactions, customerSummaries }) {
         <div className="flex-1">
           <div className="font-bold text-gray-800">{t.storedOnDevice}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {totalEntries} {lang === 'am' ? 'መዝገብ' : 'entries'} · {totalCustomers} {lang === 'am' ? 'ደንበኞች' : 'customers in dubie'}
+            {totalEntries} {label('settings-data.entries', lang)} · {totalCustomers} {label('settings-data.customers-in-dubie', lang)}
           </div>
         </div>
       </div>
@@ -38,9 +39,9 @@ export default function BackupDataPanel({ transactions, customerSummaries }) {
           <Download className="w-5 h-5 text-gray-600" />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-gray-800">{lang === 'am' ? 'CSV አውጣ (ለሂሳብ ቤት)' : 'Export CSV (for accountant)'}</div>
+          <div className="font-bold text-gray-800">{label('settings-data.export-csv-for-accountant', lang)}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {lang === 'am' ? 'ጠፍጣፋ ስፕሬድሺት · ፎቶ የለም' : 'Flat spreadsheet · no photos'}
+            {label('settings-data.flat-spreadsheet-no-photos', lang)}
           </div>
         </div>
       </button>
@@ -52,12 +53,12 @@ export default function BackupDataPanel({ transactions, customerSummaries }) {
           try {
             const result = await createCloudSnapshot();
             if (result.ok) {
-              fireToast(lang === 'am' ? '✓ መደቃቀፋ ተሳክቷል' : '✓ Backup completed', 1800);
+              fireToast(label('settings-data.backup-completed', lang), 1800);
             } else {
-              fireToast(lang === 'am' ? 'መደቃቀፋ አልተሳከም' : 'Backup failed', 2600);
+              fireToast(label('settings-data.backup-failed', lang), 2600);
             }
           } catch (err) {
-            fireToast(lang === 'am' ? 'መደቃቀፋ አልተሳከም' : 'Backup failed', 2600);
+            fireToast(label('settings-data.backup-failed', lang), 2600);
           } finally {
             setManualBackupLoading(false);
           }
@@ -69,8 +70,8 @@ export default function BackupDataPanel({ transactions, customerSummaries }) {
           <Upload className="w-5 h-5 text-green-700" />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-gray-800">{lang === 'am' ? 'ወደ ደረጃ መደቃቀፍ' : 'Back up to cloud'}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{lang === 'am' ? 'የሚታወቀውን ቴሌግራምና ወይም ኢሜይል ያስፈልጋል' : 'Requires sign-in · encrypted in transit'}</div>
+          <div className="font-bold text-gray-800">{label('settings-data.back-up-to-cloud', lang)}</div>
+          <div className="text-xs text-gray-500 mt-0.5">{label('settings-data.requires-sign-in-encrypted-in-transit', lang)}</div>
         </div>
         {manualBackupLoading && (
           <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />

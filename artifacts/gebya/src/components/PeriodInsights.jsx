@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index.js';
 
 // PeriodInsights — "How was this period?" for Week / Month / Custom views.
 //
@@ -100,7 +101,7 @@ export default function PeriodInsights({
             fontSize: 10, fontWeight: 900, color: 'var(--color-text-soft)',
             textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
           }}>
-            🏅 {lang === 'am' ? 'ብዙ የተሸጡ' : 'TOP SELLERS'}
+            🏅 {label('today.top-sellers', lang)}
           </p>
           {topItems.map((item, i) => (
             <div key={`${item.name}-${i}`} style={{

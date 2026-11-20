@@ -10,6 +10,7 @@ import { DailySuggestions, LearningInsights, SaleWorkspace } from '../utils/lazy
 import RunningTotalPill from './RunningTotalPill';
 import { computeStaffTodayTotals, computeTodayTotalsByStaff } from '../utils/staffTodayTotals';
 import { fmt } from '../utils/numformat';
+import { label } from '../labels/index.js';
 
 export default function TodayTab({
   transactions,
@@ -122,18 +123,18 @@ export default function TodayTab({
       <div>
         <div className="flex items-center justify-between pb-1.5">
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 font-sans">
-            {lang === 'am' ? 'ምዝገባዎች' : 'ENTRIES'}
+            {label('today.entries', lang)}
             <span className="ml-2 text-[11px] font-semibold text-gray-400 tracking-normal normal-case">{todayTransactions.length}</span>
           </h3>
-          <button onClick={onShareReport} className="p-1.5 press-scale" aria-label={lang === 'am' ? 'አጋራ' : 'Share'}>
+          <button onClick={onShareReport} className="p-1.5 press-scale" aria-label={label('today.share', lang)}>
             <Share2 className="w-4 h-4 text-gray-400" />
           </button>
         </div>
 
         {todayTransactions.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ገና ምንም ምዝገባ የለም' : 'No entries yet'}</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-soft)' }}>{lang === 'am' ? 'ለመጀመር ከላይ ይጫኑ' : 'Tap above to start'}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>{label('today.no-entries-yet', lang)}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-soft)' }}>{label('today.tap-above-to-start', lang)}</p>
             {transactions.length === 0 && ledgerTransactions.length === 0 && (
               <TrustCard
                 totalEntries={0}

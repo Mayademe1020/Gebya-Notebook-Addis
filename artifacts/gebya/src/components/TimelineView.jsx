@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
+import { label } from '../labels/index.js';
 
 const FILTERS = ['all', 'sale', 'expense', 'collection', 'credit'];
 
@@ -20,11 +21,11 @@ export default function TimelineView({
   }, [reportRows, activeFilter]);
 
   const filterLabels = {
-    all: lang === 'am' ? 'ሁሉም' : 'All',
-    sale: lang === 'am' ? 'ሽያጭ' : 'Sales',
-    expense: lang === 'am' ? 'ወጪ' : 'Expenses',
-    collection: lang === 'am' ? 'መሰብሰብ' : 'Collections',
-    credit: lang === 'am' ? 'ዱቤ' : 'Credit',
+    all: label('history.all', lang),
+    sale: label('history.sales', lang),
+    expense: label('history.expenses', lang),
+    collection: label('history.collections', lang),
+    credit: label('history.credit', lang),
   };
 
   const kindEmoji = {
@@ -36,11 +37,11 @@ export default function TimelineView({
 
   const paymentLabel = (row) => {
     const method = row.payment_type || (row.report_kind === 'collection' ? 'cash' : 'cash');
-    if (method === 'partial') return `${lang === 'am' ? '½ ከፊል' : '½ Partial'}${row.payment_provider ? ` · ${row.payment_provider}` : ''}`;
+    if (method === 'partial') return `${label('history.partial', lang)}${row.payment_provider ? ` · ${row.payment_provider}` : ''}`;
     if (method === 'telebirr') return 'Telebirr';
     if (method === 'cbe' || method === 'cbebirr') return 'CBE';
     if (method === 'bank') return 'Bank';
-    return lang === 'am' ? 'ጥሬ' : 'Cash';
+    return label('history.cash', lang);
   };
 
   return (
@@ -58,7 +59,7 @@ export default function TimelineView({
             color: 'var(--color-text-muted)', cursor: 'pointer',
           }}
         >
-          {lang === 'am' ? 'ላክ' : 'Export'}
+          {label('history.export', lang)}
         </button>
       </div>
 
@@ -95,7 +96,7 @@ export default function TimelineView({
       {/* Entries */}
       {filtered.length === 0 ? (
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-soft)', textAlign: 'center', padding: '20px 0' }}>
-          {lang === 'am' ? 'ምንም እንቅስቃሴ የለም' : 'No entries yet'}
+          {label('history.no-entries-yet', lang)}
         </p>
       ) : (
         <div style={{ background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)', overflow: 'hidden' }}>
@@ -124,7 +125,7 @@ export default function TimelineView({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}>
-                  {row.title || row.item_name || row.customer_name || (lang === 'am' ? 'መዝገብ' : 'Record')}
+                  {row.title || row.item_name || row.customer_name || (label('history.record', lang))}
                 </p>
                 <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-soft)', marginTop: 1 }}>
                   {row.created_at ? formatEthiopianTime(row.created_at) : ''}

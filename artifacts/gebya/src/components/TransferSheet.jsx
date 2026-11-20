@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { X, Search, ArrowRightLeft } from 'lucide-react';
 import { fmt, fmtInput, parseInput } from '../utils/numformat';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 export default function TransferSheet({
   sourceCustomer,
@@ -77,7 +78,7 @@ export default function TransferSheet({
         }}>
           <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
             <ArrowRightLeft className="w-4 h-4" style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle', color: 'var(--color-accent-amber)' }} />
-            {lang === 'am' ? 'ዱቤ ማስተላለፍ' : 'Transfer Credit'}
+            {label('sales.transfer-credit', lang)}
           </p>
           <button
             type="button"
@@ -97,7 +98,7 @@ export default function TransferSheet({
           {/* Source customer */}
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--color-text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-              {lang === 'am' ? 'ከ' : 'From'}
+              {label('sales.from', lang)}
             </p>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -117,7 +118,7 @@ export default function TransferSheet({
                   {sourceCustomer?.display_name || sourceCustomer?.name}
                 </p>
                 <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                  {lang === 'am' ? 'የአሁን ዱቤ' : 'Current balance'}: {fmt(sourceBalance)} {lang === 'am' ? 'ብር' : 'birr'}
+                  {label('sales.current-balance', lang)}: {fmt(sourceBalance)} {label('sales.birr', lang)}
                 </p>
               </div>
             </div>
@@ -126,7 +127,7 @@ export default function TransferSheet({
           {/* Target customer search */}
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--color-text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-              {lang === 'am' ? 'ለማን' : 'To'}
+              {label('sales.to', lang)}
             </p>
             {targetCustomer ? (
               <div style={{
@@ -165,7 +166,7 @@ export default function TransferSheet({
                     type="text"
                     value={targetQuery}
                     onChange={e => setTargetQuery(e.target.value)}
-                    placeholder={lang === 'am' ? 'የደንበኛ ስም ይተይቡ...' : 'Type customer name...'}
+                    placeholder={label('sales.type-customer-name-2', lang)}
                     style={{
                       flex: 1, border: 'none', outline: 'none', fontSize: '0.8rem',
                       fontWeight: 600, color: 'var(--color-text)',
@@ -204,7 +205,7 @@ export default function TransferSheet({
           {/* Amount */}
           <div style={{ marginBottom: 24 }}>
             <p style={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--color-text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-              {lang === 'am' ? 'መጠን' : 'Amount'}
+              {label('sales.amount', lang)}
             </p>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -212,7 +213,7 @@ export default function TransferSheet({
               borderRadius: 10, padding: '6px 12px', minHeight: 44,
             }}>
               <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'ብር' : 'birr'}
+                {label('sales.birr', lang)}
               </span>
               <input
                 type="text"
@@ -249,7 +250,7 @@ export default function TransferSheet({
             )}
             {rawAmount > sourceBalance && (
               <p style={{ fontSize: '0.7rem', color: 'var(--color-danger)', marginTop: 4 }}>
-                {lang === 'am' ? 'መጠኑ ከዱቤው ይበልጣል' : 'Amount exceeds available balance'}
+                {label('sales.amount-exceeds-available-balance', lang)}
               </p>
             )}
           </div>
@@ -269,10 +270,10 @@ export default function TransferSheet({
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {saving ? (lang === 'am' ? 'በማስተላለፍ ላይ...' : 'Transferring...') : (
+            {saving ? (label('sales.transferring', lang)) : (
               <>
                 <ArrowRightLeft className="w-4 h-4" />
-                {lang === 'am' ? 'ዱቤ አስተላልፍ' : 'Transfer Credit'}
+                {label('sales.transfer-credit-2', lang)}
               </>
             )}
           </button>

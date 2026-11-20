@@ -19,6 +19,7 @@ import { fmt } from '../utils/numformat';
 import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { SUPPLIER_TRANSACTION_TYPES } from '../utils/supplierLedger';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ function SupplierDetail({
             }}
           >
             <ArrowLeft className="w-5 h-5" />
-            {lang === 'am' ? 'ተመለስ' : 'Back'}
+            {label('suppliers.back', lang)}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -120,7 +121,7 @@ function SupplierDetail({
                 fontSize: '0.62rem', fontWeight: 800,
                 letterSpacing: '0.04em', flexShrink: 0,
               }}>
-                {daysOldest}d {lang === 'am' ? 'ቆይቷል' : 'OPEN'}
+                {daysOldest}d {label('suppliers.open', lang)}
               </span>
             )}
 
@@ -130,7 +131,7 @@ function SupplierDetail({
                 type="button"
                 onClick={() => onEditSupplier(supplier)}
                 className="press-scale"
-                aria-label={lang === 'am' ? 'አስተካክል' : 'Edit supplier'}
+                aria-label={label('suppliers.edit-supplier', lang)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 30, height: 30,
@@ -163,7 +164,7 @@ function SupplierDetail({
             <button
               type="button"
               onClick={() => onEditSupplier?.(supplier)}
-              aria-label={lang === 'am' ? 'ፎቶ ይጨምሩ' : 'Add photo'}
+              aria-label={label('suppliers.add-photo', lang)}
               className="press-scale"
               style={{
                 width: 44, height: 44, borderRadius: '50%',
@@ -204,7 +205,7 @@ function SupplierDetail({
                 </a>
               ) : (
                 <span style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                  {lang === 'am' ? 'ስልክ የለም' : 'No phone'}
+                  {label('suppliers.no-phone', lang)}
                 </span>
               )}
               {supplier.note && (
@@ -240,14 +241,14 @@ function SupplierDetail({
                 marginBottom: 5,
               }}
             >
-              ⏰ {daysOldest}d {lang === 'am' ? 'ቆይቷል' : 'open'}
+              ⏰ {daysOldest}d {label('suppliers.open-2', lang)}
             </span>
           )}
           <p style={{
             fontSize: '0.6rem', fontWeight: 800,
             color: 'var(--color-text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase',
           }}>
-            {lang === 'am' ? 'ለመክፈል' : 'I owe'}
+            {label('suppliers.i-owe', lang)}
           </p>
           <p style={{
             fontFamily: 'Manrope, system-ui, sans-serif',
@@ -259,7 +260,7 @@ function SupplierDetail({
           }}>
             {fmt(balance)}
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-soft)', marginLeft: 4 }}>
-              {lang === 'am' ? 'ብር' : 'birr'}
+              {label('suppliers.birr', lang)}
             </span>
           </p>
         </div>
@@ -269,11 +270,11 @@ function SupplierDetail({
         }}>
           <span>
             <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>{supplier.transaction_count || 0}</strong>{' '}
-            {lang === 'am' ? 'መዝገብ' : 'entries'}
+            {label('suppliers.entries', lang)}
           </span>
           {oldestPurchase && (
             <span>
-              {lang === 'am' ? 'የመጀመሪያ ግዢ' : 'First purchase'}:{' '}
+              {label('suppliers.first-purchase', lang)}:{' '}
               <strong style={{ color: 'var(--color-text)', fontWeight: 700 }}>
                 {formatEthiopian(oldestPurchase.created_at)}
               </strong>
@@ -294,7 +295,7 @@ function SupplierDetail({
             fontSize: '0.65rem', fontWeight: 800,
             color: 'var(--color-text-soft)', letterSpacing: '0.12em', textTransform: 'uppercase',
           }}>
-            {lang === 'am' ? 'መዝገብ' : 'History'} · {historyRows.length} {lang === 'am' ? 'መዝገብ' : 'entries'}
+            {label('suppliers.history', lang)} · {historyRows.length} {label('suppliers.entries', lang)}
           </h3>
         </div>
 
@@ -302,12 +303,10 @@ function SupplierDetail({
           <div style={{ textAlign: 'center', padding: '16px 8px' }}>
             <Truck className="w-7 h-7 mx-auto mb-2" style={{ color: 'var(--color-text-soft)' }} />
             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-soft)', fontWeight: 600 }}>
-              {lang === 'am' ? 'መዝገብ የለም' : 'No entries yet'}
+              {label('suppliers.no-entries-yet', lang)}
             </p>
             <p style={{ fontSize: '0.7rem', color: 'var(--color-text-soft)', marginTop: 4 }}>
-              {lang === 'am'
-                ? 'ከዚህ አቅራቢ ግዢዎችን ይመዝግቡ።'
-                : 'Record what you buy on credit from this supplier.'}
+              {label('suppliers.record-what-you-buy-on-credit-from-this', lang)}
             </p>
           </div>
         ) : (
@@ -345,7 +344,7 @@ function SupplierDetail({
                       <span>📅 {txDate}</span>
                       {sameDayCount > 1 && (
                         <span style={{ color: 'var(--color-text-soft)', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
-                          {sameDayCount} {lang === 'am' ? 'መዝገብ' : 'entries'}
+                          {sameDayCount} {label('suppliers.entries', lang)}
                         </span>
                       )}
                     </div>
@@ -383,7 +382,7 @@ function SupplierDetail({
         >
           <CreditCard className="w-4 h-4" style={{ color: 'var(--color-bg-white)', strokeWidth: 2.5 }} />
           <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-bg-white)' }}>
-            {lang === 'am' ? 'ግዢ ጨምር (+)' : 'PURCHASE (+)'}
+            {label('suppliers.purchase', lang)}
           </span>
         </button>
         <button
@@ -401,13 +400,13 @@ function SupplierDetail({
         >
           <Wallet className="w-4 h-4" style={{ color: 'var(--color-bg-white)', strokeWidth: 2.5 }} />
           <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-bg-white)' }}>
-            {lang === 'am' ? 'ክፍያ (-)' : 'PAY (-)'}
+            {label('suppliers.pay', lang)}
           </span>
         </button>
       </div>
 
       <p style={{ fontSize: '0.65rem', color: 'var(--color-text-soft)', textAlign: 'center', fontStyle: 'italic', padding: '4px 0' }}>
-        🔒 {lang === 'am' ? 'መረጃው በዚህ ስልክ ብቻ ይቀመጣል' : 'Saved on this phone only'}
+        🔒 {label('suppliers.saved-on-this-phone-only', lang)}
       </p>
     </div>
   );
@@ -455,8 +454,8 @@ function HistoryRow({ tx, isLast, lang, onSelectTransaction }) {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {tx.item_name || tx.item_note || (isPayment
-            ? (lang === 'am' ? 'ክፍያ' : 'Payment')
-            : (lang === 'am' ? 'ግዢ' : 'Purchase'))}
+            ? (label('suppliers.payment', lang))
+            : (label('suppliers.purchase-2', lang)))}
         </span>
       </div>
 

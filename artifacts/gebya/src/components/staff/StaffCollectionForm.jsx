@@ -6,6 +6,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useTranslation } from '../../hooks/useTranslation';
 import ReconStatusBadge from './ReconStatusBadge';
 import { fireToast } from '../Toast';
+import { label } from '../../labels/index.js';
 
 function CollectionFormFields({ variant, myTodaySales, store, alreadySubmitted, myLastSettlement, t, lang, activeStaffMemberId, lastSettlementPerStaff, setOpenCollectionSheet }) {
   const handleUpdateSubmission = () => {
@@ -160,17 +161,17 @@ function StaffCollectionForm({
 
     if (prevStatus === 'staff_submitted' && currentStatus === 'finalized') {
       fireToast(
-        lang === 'am' ? '✅ ባለቤት ተቀባው አደረገ! ስብስብ ተስርቷል' : '✅ Owner accepted! Collection settled',
+        label('staff.owner-accepted-collection-settled', lang),
         4000
       );
     } else if (prevStatus === 'staff_submitted' && currentStatus === 'disputed') {
       fireToast(
-        lang === 'am' ? '⚠️ ባለቤት ልዩነት አስተዋውሏል' : '⚠️ Owner flagged a difference',
+        label('staff.owner-flagged-a-difference', lang),
         4000
       );
     } else if (prevStatus === 'staff_submitted' && currentStatus === 'owner_reviewed') {
       fireToast(
-        lang === 'am' ? '👀 ባለቤት ስብስብ አድርጓል' : '👀 Owner reviewed your submission',
+        label('staff.owner-reviewed-your-submission', lang),
         3000
       );
     }

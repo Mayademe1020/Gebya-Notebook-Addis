@@ -17,6 +17,7 @@ import { fmt } from '../utils/numformat';
 import { formatEthiopian, formatEthiopianTime } from '../utils/ethiopianCalendar';
 import { CUSTOMER_TRANSACTION_TYPES } from '../utils/customerTransactionTypes';
 import { useLang } from '../context/LangContext';
+import { label } from '../labels/index.js';
 
 function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp, onClose, onEdit, onDelete, customerBalance }) {
   const { lang } = useLang();
@@ -45,8 +46,8 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
   const hasQuantity = !isPayment && tx.quantity > 0;
 
   const typeLabel = isPayment
-    ? (currentLang === 'am' ? 'ክፍያ' : 'PAYMENT')
-    : (currentLang === 'am' ? 'ዱቤ' : 'CREDIT');
+    ? (label('sales.payment', currentLang))
+    : (label('sales.credit', currentLang));
   const typeColor = isPayment ? 'var(--color-success-text)' : 'var(--color-accent-amber)';
   const amountColor = isPayment ? 'var(--color-success-text)' : 'var(--color-accent-amber)';
   const sign = isPayment ? '−' : '+';
@@ -83,7 +84,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
           flexShrink: 0,
         }}>
           <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
-            {currentLang === 'am' ? 'የግብይት ዝርዝር' : 'Transaction Detail'}
+            {label('sales.transaction-detail', currentLang)}
           </p>
           <button
             type="button"
@@ -125,7 +126,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
               {sign}{fmt(tx.amount || 0)}
             </p>
             <p style={{ fontSize: '0.75rem', color: 'var(--color-text-soft)', marginTop: 4 }}>
-              {currentLang === 'am' ? 'ብር' : 'birr'}
+              {label('sales.birr', currentLang)}
             </p>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -150,7 +151,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
                 background: 'var(--color-surface-subtle)', border: '1px solid var(--color-bg-hover)', borderRadius: 10,
               }}>
                 <p style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--color-text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-                  {currentLang === 'am' ? 'ማስታወሻ / ዝርዝር' : 'Description / Note'}
+                  {label('sales.description-note', currentLang)}
                 </p>
                 <p style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.4, margin: 0 }}>
                   {tx.item_note}
@@ -162,7 +163,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             {!isPayment && tx.due_date && (
               <DetailRow
                 icon={<Calendar className="w-4 h-4" style={{ color: 'var(--color-accent-amber)' }} />}
-                label={currentLang === 'am' ? 'የመጨረሻ ቀን' : 'Due Date'}
+                label={label('sales.due-date', currentLang)}
                 value={formatEthiopian(tx.due_date)}
                 lang={currentLang}
               />
@@ -172,12 +173,12 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             {settlementMode && (
               <DetailRow
                 icon={<span style={{ fontSize: '0.9rem' }}>🏷️</span>}
-                label={currentLang === 'am' ? 'የመፈetrize ዘይቤ' : 'Settlement Mode'}
+                label={label('sales.settlement-mode', currentLang)}
                 value={
                   settlementMode === 'partial'
-                    ? (currentLang === 'am' ? 'ከሽያጭ' : 'from sale')
+                    ? (label('sales.from-sale', currentLang))
                     : settlementMode === 'later'
-                      ? (currentLang === 'am' ? 'ኋላ ይከፍላል' : 'pay-later')
+                      ? (label('sales.pay-later', currentLang))
                       : settlementMode
                 }
                 lang={currentLang}
@@ -188,8 +189,8 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             {hasQuantity && (
               <DetailRow
                 icon={<span style={{ fontSize: '0.9rem' }}>📦</span>}
-                label={currentLang === 'am' ? 'ብዛት' : 'Quantity'}
-                value={`${tx.quantity} ${currentLang === 'am' ? 'ዕቃ' : 'pcs'}`}
+                label={label('sales.quantity', currentLang)}
+                value={`${tx.quantity} ${label('sales.pcs', currentLang)}`}
                 lang={currentLang}
               />
             )}
@@ -198,7 +199,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             {tx.actor_name_snapshot && (
               <DetailRow
                 icon={<User className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />}
-                label={currentLang === 'am' ? 'የተመዘገበው' : 'Recorded by'}
+                label={label('sales.recorded-by', currentLang)}
                 value={tx.actor_name_snapshot}
                 lang={currentLang}
               />
@@ -214,7 +215,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Wallet className="w-4 h-4" style={{ color: 'var(--color-text)' }} />
                   <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text)' }}>
-                    {currentLang === 'am' ? 'ቀሪ ቀሪ' : 'Balance After'}
+                    {label('sales.balance-after', currentLang)}
                   </span>
                 </div>
                 <span style={{
@@ -243,7 +244,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
               >
                 <span style={{ fontSize: '0.85rem' }}>🧺</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text)' }}>
-                  {items.length} {currentLang === 'am' ? 'ዕቃዎች' : 'items'}
+                  {items.length} {label('sales.items', currentLang)}
                 </span>
                 {expandedItems
                   ? <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--color-text-soft)', marginLeft: 'auto' }} />
@@ -286,10 +287,10 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Image className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
                 <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                  {currentLang === 'am' ? 'የዕቃ ፎቶ' : 'Photo proof'}
+                  {label('sales.photo-proof', currentLang)}
                 </span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--color-text-soft)', marginLeft: 'auto' }}>
-                  {photoList.length} {currentLang === 'am' ? 'ፎቶ' : 'photo(s)'}
+                  {photoList.length} {label('sales.photo-s', currentLang)}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
@@ -375,7 +376,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             }}
           >
             <Pencil className="w-4 h-4" />
-            {currentLang === 'am' ? 'አስተካክል' : 'Edit Transaction'}
+            {label('sales.edit-transaction', currentLang)}
           </button>
 
           {/* Delete button — full width */}
@@ -392,7 +393,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
             }}
           >
             <Trash2 className="w-4 h-4" />
-            {currentLang === 'am' ? 'ሰርዝ' : 'Delete'}
+            {label('sales.delete', currentLang)}
           </button>
         </div>
 
@@ -419,7 +420,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
               <Trash2 className="w-7 h-7" style={{ color: 'var(--color-danger)' }} />
             </div>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-text)', margin: '0 0 6px' }}>
-              {currentLang === 'am' ? 'ይህን ግብይት ሰርዝ?' : 'Delete this transaction?'}
+              {label('sales.delete-this-transaction', currentLang)}
             </h3>
             <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', margin: '0 0 24px', maxWidth: 260, lineHeight: 1.4 }}>
               {currentLang === 'am'
@@ -445,7 +446,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
                 minHeight: 48,
               }}
             >
-              {currentLang === 'am' ? 'አጥፋ' : 'Delete Forever'}
+              {label('sales.delete-forever', currentLang)}
             </button>
             <button
               type="button"
@@ -459,7 +460,7 @@ function TransactionDetailSheet({ transaction, type = 'customer', lang: langProp
                 minHeight: 48,
               }}
             >
-              {currentLang === 'am' ? 'አይስረዝም' : 'No, Keep It'}
+              {label('sales.no-keep-it', currentLang)}
             </button>
           </div>
         )}

@@ -18,6 +18,7 @@ import { useLang } from '../context/LangContext';
 import { photoSizeBytes } from '../utils/photoCapture';
 import { buildPhotoFields, createPhotoProof, normalizePhotos, MAX_PROOF_PHOTOS } from '../utils/photoProof';
 import AddProviderButton from './AddProviderButton';
+import { label } from '../labels/index.js';
 
 function handleNumericInput(e, setter) {
   let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -191,13 +192,13 @@ function CustomerTransactionSheet({
         ? (isPayment ? '✏️ ክፍያ ማስተካከያ' : '✏️ ዱቤ ማስተካከያ')
         : (isPayment ? '✏️ Edit payment' : '✏️ Edit credit'))
     : isPayment
-      ? (lang === 'am' ? '− ክፍያ' : '− Payment')
-      : (lang === 'am' ? '+ ዱቤ' : '+ Credit');
+      ? (label('customers.payment-2', lang))
+      : (label('customers.credit-2', lang));
   const saveButtonText = isEditing
-    ? (lang === 'am' ? 'አስተካክል' : 'Update')
+    ? (label('customers.update', lang))
     : isPayment
-      ? (lang === 'am' ? 'ክፍያ አስቀምጥ' : 'Save Payment')
-      : (lang === 'am' ? 'ዱቤ አስቀምጥ' : 'Save Credit');
+      ? (label('customers.save-payment', lang))
+      : (label('customers.save-credit', lang));
 
   const topCatalogItems = catalogEntries
     .filter(e => e && e.active !== false && e.name)
@@ -306,7 +307,7 @@ function CustomerTransactionSheet({
       >
         <button
           onClick={onDone}
-          aria-label={lang === 'am' ? 'ተመለስ' : 'Back'}
+          aria-label={label('customers.back', lang)}
           className="press-scale flex items-center justify-center"
           style={{ minWidth: '36px', minHeight: '36px', padding: '4px' }}
         >
@@ -407,7 +408,7 @@ function CustomerTransactionSheet({
         {isPayment && (
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              {lang === 'am' ? 'የክፍያ ዘዴ' : 'Payment Method'}
+              {label('customers.payment-method', lang)}
             </label>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {paymentOptions.map(opt => {
@@ -469,7 +470,7 @@ function CustomerTransactionSheet({
                   opacity: photos.length > 0 ? 0.55 : 1,
                   position: 'relative',
                 }}
-                aria-label={lang === 'am' ? '\u134E\u1276 \u12EB\u1295\u1231 \u12C8\u12ED\u121D \u12ED\u121D\u1228\u1321' : 'Take or choose photo'}
+                aria-label={label('customers.take-or-choose-photo', lang)}
               >
                 {photoLoading
                   ? <span className="text-sm">...</span>
@@ -508,10 +509,10 @@ function CustomerTransactionSheet({
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
-                  {lang === 'am' ? '\u134E\u1276' : 'Proof photos'}
+                  {label('customers.proof-photos', lang)}
                 </p>
                 <p className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                  {photos.length} {lang === 'am' ? 'ፎቶዎች' : 'photos'}
+                  {photos.length} {label('customers.photos', lang)}
                 </p>
               </div>
               <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
@@ -522,7 +523,7 @@ function CustomerTransactionSheet({
                       onClick={() => openPhotoCapture(entry.id)}
                       className="press-scale block"
                       style={{ padding: 0, border: 'none', background: 'transparent' }}
-                      aria-label={lang === 'am' ? '\u134E\u1276 \u1240\u12ED\u122D' : `Replace photo ${index + 1}`}
+                      aria-label={label('customers.replace-photo', lang, () => index + 1)}
                     >
                       <img src={entry.dataUrl} alt="" className="w-14 h-14 object-cover" style={{ borderRadius: 6 }} />
                     </button>
@@ -540,7 +541,7 @@ function CustomerTransactionSheet({
                         border: '1px solid var(--color-border)',
                         background: 'var(--color-surface)',
                       }}
-                      aria-label={lang === 'am' ? '\u134E\u1276 \u12A0\u1235\u12C8\u130D\u12F5' : `Remove photo ${index + 1}`}
+                      aria-label={label('customers.remove-photo', lang, () => index + 1)}
                     >
                       <X className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
                     </button>
@@ -562,7 +563,7 @@ function CustomerTransactionSheet({
           {!isPayment && topCatalogItems.length > 0 && (
             <div className="mt-2">
               <p className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                {lang === 'am' ? 'ፈጣን ዕቃዎች:' : 'Quick items:'}
+                {label('customers.quick-items', lang)}
               </p>
               <div className="flex gap-1.5 overflow-x-auto pb-1 items-center">
                 {topCatalogItems.map(entry => (
@@ -597,8 +598,8 @@ function CustomerTransactionSheet({
             >
               {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               {validLineItems.length > 0
-                ? (lang === 'am' ? `🧺 ${validLineItems.length} ዕቃዎች` : `🧺 ${validLineItems.length} items`)
-                : (lang === 'am' ? '🧺 ብዙ ዕቃዎች ይከፋፍሉ' : '🧺 Break down into items')}
+                ? (label('customers.items', lang, validLineItems.length))
+                : (label('customers.break-down-into-items', lang))}
             </button>
 
             {showBreakdown && (
@@ -610,7 +611,7 @@ function CustomerTransactionSheet({
                 {topCatalogItems.length > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                      {lang === 'am' ? 'ለማከል ይጫኑ' : 'Tap saved item to add'}
+                      {label('customers.tap-saved-item-to-add', lang)}
                     </p>
                     <div className="flex gap-1.5 overflow-x-auto pb-1">
                       {topCatalogItems.map(entry => (
@@ -648,7 +649,7 @@ function CustomerTransactionSheet({
                           type="text"
                           value={line.name}
                           onChange={e => updateLineItem(line.id, 'name', e.target.value)}
-                          placeholder={lang === 'am' ? `ዕቃ ${idx + 1}` : `item ${idx + 1}`}
+                          placeholder={label('customers.item', lang, idx + 1)}
                           className="flex-1 min-w-0 px-2 py-2 border focus:outline-none text-sm"
                           style={{ borderRadius: 'var(--radius-sm)', borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
                         />
@@ -666,7 +667,7 @@ function CustomerTransactionSheet({
                           onClick={() => removeLineItem(line.id)}
                           className="press-scale flex items-center justify-center flex-shrink-0"
                           style={{ minWidth: '32px', minHeight: '32px' }}
-                          aria-label={lang === 'am' ? 'አስወግድ' : 'Remove'}
+                          aria-label={label('customers.remove', lang)}
                         >
                           <X className="w-4 h-4" style={{ color: 'var(--color-text-soft)' }} />
                         </button>
@@ -689,16 +690,16 @@ function CustomerTransactionSheet({
                 >
                   <Plus className="w-4 h-4" />
                   {lineItems.length === 0
-                    ? (lang === 'am' ? 'የመጀመሪያ ዕቃ ጨምር' : 'Add first item')
-                    : (lang === 'am' ? 'ሌላ ዕቃ ጨምር' : 'Add another item')}
+                    ? (label('customers.add-first-item', lang))
+                    : (label('customers.add-another-item', lang))}
                 </button>
 
                 {/* Totals · sync-to-sum button */}
                 {validLineItems.length > 0 && (
                   <div className="text-xs pt-2 space-y-1" style={{ borderTop: '1px solid var(--color-border)' }}>
                     <div className="flex justify-between" style={{ color: 'var(--color-text)' }}>
-                      <span>{lang === 'am' ? 'የዕቃዎች ድምር' : 'Items total'}:</span>
-                      <span className="font-bold">{fmt(lineItemsTotal)} {lang === 'am' ? 'ብር' : 'birr'}</span>
+                      <span>{label('customers.items-total', lang)}:</span>
+                      <span className="font-bold">{fmt(lineItemsTotal)} {label('customers.birr', lang)}</span>
                     </div>
                     {parsedAmount > 0 && Math.abs(breakdownDelta) > 0.01 && (
                       <button
@@ -711,7 +712,7 @@ function CustomerTransactionSheet({
                           borderRadius: 'var(--radius-sm)',
                         }}
                       >
-                        <span>{breakdownDelta > 0 ? (lang === 'am' ? 'ቀሪ' : 'Unaccounted') : (lang === 'am' ? 'በላይ' : 'Items exceed')}:</span>
+                        <span>{breakdownDelta > 0 ? (label('customers.unaccounted', lang)) : (label('customers.items-exceed', lang))}:</span>
                         <span className="font-bold">{fmt(Math.abs(breakdownDelta))} ⤴</span>
                       </button>
                     )}
@@ -726,7 +727,7 @@ function CustomerTransactionSheet({
                           borderRadius: 'var(--radius-sm)',
                         }}
                       >
-                        <span>{lang === 'am' ? 'መጠን ከድምር ጋር ይሞላ' : 'Use items sum as total'}</span>
+                        <span>{label('customers.use-items-sum-as-total', lang)}</span>
                         <span className="font-bold">⤴</span>
                       </button>
                     )}
@@ -773,7 +774,7 @@ function CustomerTransactionSheet({
                   cursor: 'pointer', flexShrink: 0,
                   display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                📅 <span>{lang === 'am' ? 'ምረጥ' : 'Pick'}</span>
+                📅 <span>{label('customers.pick', lang)}</span>
               </button>
             </div>
             <InlineDatePicker
@@ -824,12 +825,10 @@ function CustomerTransactionSheet({
               </div>
               <div>
                 <h3 className="text-base font-bold" style={{ color: 'var(--color-text)' }}>
-                  {lang === 'am' ? 'የጨረ ክፍያ' : 'Overpayment'}
+                  {label('customers.overpayment', lang)}
                 </h3>
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am'
-                    ? `እርስዎ ክፍያ ከዚህ በላይ ይኸውና የሚከፈለው መጠን ከ${fmt(currentBalance)} ዱቤ በላይ ነው።`
-                    : `Your payment exceeds the current balance of ${fmt(currentBalance)} birr.`}
+                  {label('customers.your-payment-exceeds-the-current-balance-of', lang, fmt(currentBalance))}
                 </p>
               </div>
             </div>
@@ -844,7 +843,7 @@ function CustomerTransactionSheet({
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am' ? 'የክፍያ መጠን' : 'Payment amount'}
+                  {label('customers.payment-amount', lang)}
                 </span>
                 <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
                   {fmt(parsedAmount)} {t.birr}
@@ -852,7 +851,7 @@ function CustomerTransactionSheet({
               </div>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  {lang === 'am' ? 'የተከፈለ ድምር' : 'Current balance'}
+                  {label('customers.current-balance', lang)}
                 </span>
                 <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
                   {fmt(currentBalance)} {t.birr}
@@ -860,7 +859,7 @@ function CustomerTransactionSheet({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold" style={{ color: 'var(--color-accent-amber)' }}>
-                  {lang === 'am' ? 'ትርፍ' : 'Excess'}
+                  {label('customers.excess', lang)}
                 </span>
                 <span className="text-sm font-black" style={{ color: 'var(--color-accent-amber)' }}>
                   {fmt(Math.max(0, parsedAmount - currentBalance))} {t.birr}
@@ -875,7 +874,7 @@ function CustomerTransactionSheet({
                 className="flex-1 py-2.5 border-2 text-sm font-bold press-scale"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
               >
-                {lang === 'am' ? 'ሰርዝ' : 'Cancel'}
+                {label('customers.cancel', lang)}
               </button>
               <button
                 type="button"
@@ -883,7 +882,7 @@ function CustomerTransactionSheet({
                 className="flex-1 py-2.5 border-2 text-sm font-black press-scale"
                 style={{ borderRadius: 'var(--radius-md)', borderColor: 'var(--color-primary)', background: 'var(--color-primary)', color: 'var(--color-bg-white)' }}
               >
-                {lang === 'am' ? 'ቀጥል' : 'Continue'}
+                {label('customers.continue', lang)}
               </button>
             </div>
           </div>

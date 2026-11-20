@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useLang } from '../context/LangContext';
 import { listAdminLogs } from '../api/admin.js';
+import { label } from '../labels/index.js';
 
 const TYPE_LABEL = {
   note: 'Note',
@@ -53,7 +54,7 @@ export default function ActivityPanel() {
   if (loading) {
     return (
       <div className="text-xs text-center py-10" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? 'በመጫን ላይ...' : 'Loading activity...'}
+        {label('history.loading-activity', lang)}
       </div>
     );
   }
@@ -62,7 +63,7 @@ export default function ActivityPanel() {
     return (
       <div className="rounded-2xl border p-6 text-center" style={{ borderColor: 'var(--color-border)' }}>
         <p className="text-sm font-black mb-1" style={{ color: 'var(--color-danger-text)' }}>
-          {lang === 'am' ? 'ስህተት' : 'Could not load activity'}
+          {label('history.could-not-load-activity', lang)}
         </p>
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{error}</p>
       </div>
@@ -73,10 +74,10 @@ export default function ActivityPanel() {
     return (
       <div className="rounded-2xl border p-6 text-center" style={{ borderColor: 'var(--color-border)' }}>
         <p className="text-sm font-black mb-1">
-          {lang === 'am' ? 'ምንም እርምጃ የለም' : 'No admin actions yet'}
+          {label('history.no-admin-actions-yet', lang)}
         </p>
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {lang === 'am' ? 'የቡድን እርምጃዎች እዚህ ይታያሉ።' : 'Team actions across all shops will appear here.'}
+          {label('history.team-actions-across-all-shops-will-appear', lang)}
         </p>
       </div>
     );
@@ -85,7 +86,7 @@ export default function ActivityPanel() {
   return (
     <div className="space-y-2">
       <p className="text-xs font-bold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? 'የቡድን እርምጃ (አድሚን ሾፕ ሎግ)' : 'Team activity (admin shop logs)'}
+        {label('history.team-activity-admin-shop-logs', lang)}
       </p>
       <ul className="space-y-2">
         {logs.map((log) => (

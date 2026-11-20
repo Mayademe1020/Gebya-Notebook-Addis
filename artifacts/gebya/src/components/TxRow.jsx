@@ -3,6 +3,7 @@ import { Pencil, Trash2, MoreVertical, ChevronUp, ChevronDown } from 'lucide-rea
 import PhotoAttachment from './PhotoAttachment';
 import { usePermissionsStore } from '../stores/permissionsStore';
 import { formatEthiopianTime } from '../utils/ethiopianCalendar';
+import { label } from '../labels/index.js';
 
 export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,7 +23,7 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
   const amountColor = isExpense ? 'var(--color-danger)' : isCredit ? 'var(--color-info)' : 'var(--color-success)';
   const sign = isExpense ? '−' : '+';
   const method = isCredit
-    ? (lang === 'am' ? 'ዱቤ' : 'credit')
+    ? (label('history.credit-2', lang))
     : tx.payment_type === 'cash' ? 'cash' : (tx.payment_provider || tx.payment_type || 'cash');
   const time = formatEthiopianTime(tx.created_at);
   const hasBreakdown = Array.isArray(tx.items) && tx.items.length > 0;
@@ -33,13 +34,13 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
       <div className="flex items-center gap-2">
         <button onClick={onTap} className="flex-1 min-w-0 text-left flex items-baseline gap-2 press-scale">
           <span className="font-bold text-sm flex-shrink-0" style={{ color: amountColor }}>
-            {isCredit && '↻ '}{sign}{fmt(tx.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+            {isCredit && '↻ '}{sign}{fmt(tx.amount || 0)} {label('history.birr', lang)}
           </span>
           {hasDiscount && !isCredit && !isExpense && (
             <span className="text-[9px] font-bold flex-shrink-0 px-1 py-[2px] rounded-sm"
               style={{ background: 'var(--color-warning-bg)', color: 'var(--color-warning-text)', border: '1px solid var(--color-warning-border)' }}
             >
-              −{fmt(tx.discount)} {lang === 'am' ? 'ቅናሽ' : 'disc'}
+              −{fmt(tx.discount)} {label('history.disc', lang)}
             </span>
           )}
           <span className="text-sm text-gray-600 truncate min-w-0">
@@ -52,7 +53,7 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
             photo={tx.photo}
             photos={tx.photos}
             lang={lang}
-            label={lang === 'am' ? 'የግብይት ፎቶ ይመልከቱ' : 'View transaction photo'}
+            label={label('history.view-transaction-photo', lang)}
           />
         )}
         {hasBreakdown && (
@@ -61,7 +62,7 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
             onClick={(e) => { e.stopPropagation(); setBreakdownOpen(v => !v); }}
             className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold border press-scale flex items-center gap-0.5"
             style={{ borderColor: breakdownOpen ? 'var(--color-primary)' : 'var(--color-border)', borderRadius: '999px', background: breakdownOpen ? 'rgba(27,67,50,0.08)' : 'var(--color-bg-white)', color: breakdownOpen ? 'var(--color-primary)' : 'var(--color-text-muted)' }}
-            aria-label={lang === 'am' ? 'እቃዎችን አሳይ' : 'Show items'}
+            aria-label={label('history.show-items', lang)}
           >
             🧺{tx.items.length}
             {breakdownOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -69,17 +70,17 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
         )}
         <span className="text-xs text-gray-400 flex-shrink-0">{time}</span>
         <div className="relative" ref={menuRef}>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 press-scale min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label={lang === 'am' ? 'ተጨማሪ' : 'More'}>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 press-scale min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label={label('history.more', lang)}>
             <MoreVertical className="w-4 h-4 text-gray-400" />
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-full mt-1 bg-white z-20 min-w-[130px]" style={{ border: '1px solid var(--color-bg-disabled)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
               <button onClick={() => { onEdit(); setMenuOpen(false); }} className="w-full px-3 py-2 text-left flex items-center gap-2 text-sm hover:bg-gray-50">
-                <Pencil className="w-3.5 h-3.5" /> {lang === 'am' ? 'አርትዕ' : 'Edit'}
+                <Pencil className="w-3.5 h-3.5" /> {label('history.edit', lang)}
               </button>
               {canDelete && (
                 <button onClick={() => { onDelete(); setMenuOpen(false); }} className="w-full px-3 py-2 text-left flex items-center gap-2 text-sm text-red-600 hover:bg-red-50">
-                  <Trash2 className="w-3.5 h-3.5" /> {lang === 'am' ? 'ሰርዝ' : 'Delete'}
+                  <Trash2 className="w-3.5 h-3.5" /> {label('history.delete', lang)}
                 </button>
               )}
             </div>
@@ -93,7 +94,7 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
             <div key={i} className="flex justify-between items-baseline text-xs">
               <span className="truncate min-w-0" style={{ color: 'var(--color-text)' }}>• {it.name}</span>
               <span className="font-semibold flex-shrink-0 ml-2" style={{ color: amountColor }}>
-                {fmt(it.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+                {fmt(it.amount || 0)} {label('history.birr', lang)}
               </span>
             </div>
           ))}
@@ -105,16 +106,16 @@ export default function TxRow({ tx, onTap, onEdit, onDelete, t, lang, fmt }) {
             if (hasDisc && Math.abs(delta + Number(tx.discount)) < 0.01) {
               return (
                 <div className="flex justify-between items-baseline text-[10px] pt-1 mt-1" style={{ borderTop: '1px dashed rgba(0,0,0,0.08)', color: 'var(--color-accent-amber)' }}>
-                  <span>{lang === 'am' ? 'ቅናሽ' : 'Discount'}</span>
-                  <span className="font-semibold">−{fmt(tx.discount)} {lang === 'am' ? 'ብር' : 'birr'}</span>
+                  <span>{label('history.discount', lang)}</span>
+                  <span className="font-semibold">−{fmt(tx.discount)} {label('history.birr', lang)}</span>
                 </div>
               );
             }
             if (Math.abs(delta) < 0.01) return null;
             return (
               <div className="flex justify-between items-baseline text-[10px] pt-1 mt-1" style={{ borderTop: '1px dashed rgba(0,0,0,0.08)', color: 'var(--color-accent-amber)' }}>
-                <span>{delta > 0 ? (lang === 'am' ? 'ቀሪ' : 'Unaccounted') : (lang === 'am' ? 'በላይ' : 'Excess')}</span>
-                <span className="font-semibold">{fmt(Math.abs(delta))} {lang === 'am' ? 'ብር' : 'birr'}</span>
+                <span>{delta > 0 ? (label('history.unaccounted', lang)) : (label('history.excess', lang))}</span>
+                <span className="font-semibold">{fmt(Math.abs(delta))} {label('history.birr', lang)}</span>
               </div>
             );
           })()}

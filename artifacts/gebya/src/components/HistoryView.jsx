@@ -5,6 +5,7 @@ import { formatEthiopian } from '../utils/ethiopianCalendar';
 import { fmt } from '../utils/numformat';
 import PhotoAttachment from './PhotoAttachment';
 import { TransactionRow } from './TransactionRow';
+import { label as tr } from '../labels/index.js';
 
 function groupByDay(transactions) {
   const groups = {};
@@ -331,7 +332,7 @@ function TxRow({ tx, onEdit, t, lang }) {
             photo={tx.photo}
             photos={tx.photos}
             lang={lang}
-            label={lang === 'am' ? 'የግብይት ፎቶ ይመልከቱ' : 'View transaction photo'}
+            label={tr('history.view-transaction-photo', lang)}
           />
         )}
         {hasBreakdown && (
@@ -382,7 +383,7 @@ function TxRow({ tx, onEdit, t, lang }) {
             <div key={i} className="flex justify-between items-baseline text-xs">
               <span className="truncate min-w-0" style={{ color: 'var(--color-text)' }}>• {it.name}</span>
               <span className="font-semibold flex-shrink-0 ml-2" style={{ color: amountColor }}>
-                {fmt(it.amount || 0)} {lang === 'am' ? 'ብር' : 'birr'}
+                {fmt(it.amount || 0)} {tr('history.birr', lang)}
               </span>
             </div>
           ))}
@@ -392,8 +393,8 @@ function TxRow({ tx, onEdit, t, lang }) {
             if (Math.abs(delta) < 0.01) return null;
             return (
               <div className="flex justify-between items-baseline text-[10px] pt-1 mt-1" style={{ borderTop: '1px dashed rgba(0,0,0,0.08)', color: 'var(--color-accent-amber)' }}>
-                <span>{delta > 0 ? (lang === 'am' ? 'ቀሪ' : 'Unaccounted') : (lang === 'am' ? 'በላይ' : 'Excess')}</span>
-                <span className="font-semibold">{fmt(Math.abs(delta))} {lang === 'am' ? 'ብር' : 'birr'}</span>
+                <span>{delta > 0 ? (tr('history.unaccounted', lang)) : (tr('history.excess', lang))}</span>
+                <span className="font-semibold">{fmt(Math.abs(delta))} {tr('history.birr', lang)}</span>
               </div>
             );
           })()}
@@ -437,7 +438,7 @@ function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, 
                   {bucket.transactions.length} {t.entries}
                   {isCurrentMonth && (
                     <span style={{ marginLeft: 6 }}>
-                      · {lang === 'am' ? 'አሁን' : 'current'}
+                      · {tr('history.current', lang)}
                     </span>
                   )}
                 </div>
@@ -493,7 +494,7 @@ function MonthBucketedDayList({ dayGroups, onEdit, expandedGroups, toggleGroup, 
             background: 'rgba(196,136,58,0.04)',
           }}
         >
-          {lang === 'am' ? 'ተጨማሪ ወራት አሳይ' : 'Load more months'}
+          {tr('history.load-more-months', lang)}
         </button>
       )}
     </div>
@@ -617,7 +618,7 @@ function WeekGroupList({ groups: allGroups, onEdit, expandedGroups, toggleGroup,
             background: 'rgba(196,136,58,0.04)',
           }}
         >
-          {lang === 'am' ? 'ተጨማሪ ሳምንታት አሳይ' : 'Load more weeks'}
+          {tr('history.load-more-weeks', lang)}
         </button>
       )}
     </div>

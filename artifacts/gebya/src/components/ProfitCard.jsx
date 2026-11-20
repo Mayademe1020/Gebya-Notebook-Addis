@@ -18,6 +18,7 @@ import { usePrivacy } from '../context/PrivacyContext';
 import { fmt } from '../utils/numformat';
 import { getCurrentEthiopianDate } from '../utils/ethiopianCalendar';
 import { heroFontSize } from '../utils/todaySummary';
+import { label } from '../labels/index.js';
 
 function ProfitCard({ transactions, yesterdayNet, compact = false }) {
   const { lang } = useLang();
@@ -72,10 +73,10 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
         }}
       >
         <span className="text-[10px] font-bold uppercase tracking-widest flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
-          {lang === 'am' ? 'ዛሬ · ቀሪ' : 'TODAY · NET'}
+          {label('today.today-net', lang)}
         </span>
         <span className="text-base font-bold flex-shrink-0" style={{ color: netColor }}>
-          {display} {hidden ? '' : (lang === 'am' ? 'ብር' : 'birr')}
+          {display} {hidden ? '' : (label('today.birr', lang))}
         </span>
         {trend && !hidden && (
           <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: trend.color }}>
@@ -85,7 +86,7 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
         <span className="ml-auto flex items-center gap-1 flex-shrink-0">
           <button
             onClick={toggle}
-            aria-label={lang === 'am' ? 'ቁጥሮችን ደብቅ/አሳይ' : 'Toggle privacy'}
+            aria-label={label('today.toggle-privacy', lang)}
             className="press-scale flex items-center justify-center"
             style={{ minWidth: '32px', minHeight: '32px', color: hidden ? 'var(--color-warning)' : 'var(--color-text-soft)' }}
           >
@@ -93,7 +94,7 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
           </button>
           <button
             onClick={() => setExpanded(true)}
-            aria-label={lang === 'am' ? 'ዝርዝር አሳይ' : 'Show details'}
+            aria-label={label('today.show-details', lang)}
             className="press-scale flex items-center justify-center"
             style={{ minWidth: '32px', minHeight: '32px', color: 'var(--color-text-soft)' }}
           >
@@ -117,14 +118,14 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
       {/* Eyebrow + privacy toggle */}
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
-          {lang === 'am' ? 'ዛሬ · ቀሪ' : 'TODAY · NET'}
+          {label('today.today-net', lang)}
           <span className="ml-2 font-normal normal-case tracking-normal" style={{ color: 'var(--color-text-soft)' }}>
             {getCurrentEthiopianDate()} · {todayDateShort}
           </span>
         </p>
         <button
           onClick={toggle}
-          aria-label={lang === 'am' ? 'ቁጥሮችን ደብቅ/አሳይ' : 'Toggle privacy'}
+          aria-label={label('today.toggle-privacy', lang)}
           className="press-scale flex items-center gap-1 px-2"
           style={{
             minHeight: '32px',
@@ -140,13 +141,13 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
             ? <EyeOff className="w-4 h-4" />
             : <Eye className="w-4 h-4" />}
           {hidden && (
-            <span>{lang === 'am' ? 'አሳይ' : 'Reveal'}</span>
+            <span>{label('today.reveal', lang)}</span>
           )}
         </button>
         {compact && (
           <button
             onClick={() => setExpanded(false)}
-            aria-label={lang === 'am' ? 'አጥራ' : 'Collapse'}
+            aria-label={label('today.collapse', lang)}
             className="press-scale flex items-center justify-center"
             style={{ minWidth: '32px', minHeight: '32px', color: 'var(--color-text-soft)' }}
           >
@@ -169,7 +170,7 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
         </span>
         {!hidden && (
           <span className="text-base font-semibold" style={{ color: netColor }}>
-            {lang === 'am' ? 'ብር' : 'birr'}
+            {label('today.birr', lang)}
           </span>
         )}
       </div>
@@ -177,26 +178,24 @@ function ProfitCard({ transactions, yesterdayNet, compact = false }) {
       {/* Trend indicator */}
       {trend && !hidden && (
         <p className="text-xs font-medium mb-2" style={{ color: trend.color }}>
-          {trend.arrow} {trend.sign}{trend.pct}% {lang === 'am' ? 'ካለፈው ቀን' : 'vs yesterday'}
+          {trend.arrow} {trend.sign}{trend.pct}% {label('today.vs-yesterday', lang)}
         </p>
       )}
 
       {/* Sales + Spent chips */}
       <div className="flex gap-4 text-sm font-semibold mt-1.5">
         <span style={{ color: 'var(--color-success)' }}>
-          {lang === 'am' ? 'ሽያጭ' : 'Sales'} {hidden ? '••••' : fmt(salesTotal)}
+          {label('today.sales', lang)} {hidden ? '••••' : fmt(salesTotal)}
         </span>
         <span style={{ color: 'var(--color-danger)' }}>
-          {lang === 'am' ? 'ወጪ' : 'Spent'} {hidden ? '••••' : fmt(expensesTotal)}
+          {label('today.spent', lang)} {hidden ? '••••' : fmt(expensesTotal)}
         </span>
       </div>
 
       {/* Trust line — explicit, professional: data is YOURS, not ours.
           Tax filing is the shopkeeper's choice, not the app's job. */}
       <p className="text-[10px] mt-2 pt-2 border-t" style={{ color: 'var(--color-text-soft)', borderColor: 'rgba(0,0,0,0.05)' }}>
-        🔒 {lang === 'am'
-          ? 'በዚህ ስልክ ብቻ ይቀመጣል። ለማንም አንልክም።'
-          : 'Saved on this phone only. We never send your numbers anywhere.'}
+        🔒 {label('today.saved-on-this-phone-only-we-never-send-your', lang)}
       </p>
     </div>
   );

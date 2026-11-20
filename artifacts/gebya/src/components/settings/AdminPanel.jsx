@@ -2,6 +2,7 @@ import { Suspense, lazy, useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import AdminMetricsView from '../AdminMetricsView';
 import CrossShopCurationQueue from '../CrossShopCurationQueue';
+import { label } from '../../labels/index.js';
 
 const AdminDashboard = lazy(() => import('../AdminDashboard.jsx'));
 const AdminShopDetail = lazy(() => import('../AdminShopDetail.jsx'));
@@ -39,35 +40,35 @@ function AdminPanel({
         style={{ color: 'var(--color-warning)' }}
       >
         {showPlatformAdmin
-          ? (lang === 'am' ? 'ፕላትፎርም አስተዳዳሪ' : 'Platform Admin')
-          : (lang === 'am' ? 'የሱቅ አስተዳዳሪ' : 'Shop Admin')}
+          ? (label('settings-shop.platform-admin', lang))
+          : (label('settings-shop.shop-admin', lang))}
       </div>
 
       <div className="flex flex-wrap gap-2 px-4 pb-3">
         <AdminTabButton
-          label={lang === 'am' ? 'ሜትሪክስ' : 'Metrics'}
+          label={label('settings-shop.metrics', lang)}
           isActive={adminSection === 'metrics'}
           onClick={() => toggleSection('metrics')}
         />
         <AdminTabButton
-          label={lang === 'am' ? 'ትንተና' : 'Analytics'}
+          label={label('settings-shop.analytics', lang)}
           isActive={adminSection === 'analytics'}
           onClick={() => toggleSection('analytics')}
         />
         {(isOwner || isPlatformAdmin) && (
           <AdminTabButton
-            label={lang === 'am' ? 'ማስተካከያ ወረፍ' : 'Curation'}
+            label={label('settings-shop.curation', lang)}
             isActive={adminSection === 'curation'}
             onClick={() => toggleSection('curation')}
           />
         )}
         <AdminTabButton
-          label={lang === 'am' ? 'እንቅስቃሴ' : 'Activity'}
+          label={label('settings-shop.activity', lang)}
           isActive={adminSection === 'activity'}
           onClick={() => toggleSection('activity')}
         />
         <AdminTabButton
-          label={lang === 'am' ? 'ድጋፍ' : 'Support'}
+          label={label('settings-shop.support', lang)}
           isActive={adminSection === 'support'}
           onClick={() => toggleSection('support')}
         />
@@ -87,13 +88,13 @@ function AdminPanel({
             className="block w-full py-2.5 rounded-xl text-xs font-bold text-center text-white"
             style={{ background: 'var(--color-primary)' }}
           >
-            {lang === 'am' ? 'የመሣሪያ ስርዓት ማዕከል ክፈት' : 'Open Command Center'}
+            {label('settings-shop.open-command-center', lang)}
           </a>
           <p
             className="text-[10px] mt-1.5 text-center"
             style={{ color: 'var(--color-text-soft)' }}
           >
-            {lang === 'am' ? 'ለቡድኑ ተጋሩ፡ /admin' : 'Share with your team: /admin'}
+            {label('settings-shop.share-with-your-team-admin', lang)}
           </p>
         </div>
       )}

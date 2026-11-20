@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../context/LangContext';
 import { generateInsights } from '../utils/learningEngine';
+import { label } from '../labels/index.js';
 
 export default function LearningInsights() {
   const { lang } = useLang();
@@ -40,7 +41,7 @@ export default function LearningInsights() {
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? '\u1348\u1275\u1295\u1235 \u12A0\u1295\u12F3' : 'Insights'}
+        {label('today.insights', lang)}
       </p>
       {insights.map((insight, i) => (
         <div

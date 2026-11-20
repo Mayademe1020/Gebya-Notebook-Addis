@@ -14,6 +14,7 @@ import { useAuthStore } from '../stores/authStore';
 import MembersPanel from './MembersPanel.jsx';
 import ActivityPanel from './ActivityPanel.jsx';
 import AuthGate from './AuthGate.jsx';
+import { label } from '../labels/index.js';
 
 const AdminDashboard = lazy(() => import('./AdminDashboard.jsx'));
 const AdminShopDetail = lazy(() => import('./AdminShopDetail.jsx'));
@@ -45,12 +46,12 @@ function Header() {
         <div>
           <p className="text-sm font-black leading-tight">Command Center</p>
           <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-            {lang === 'am' ? 'የመሣሪያ ስርዓት አስተዳደር' : 'Platform admin · shops · frictions · comms'}
+            {label('admin.platform-admin-shops-frictions-comms', lang)}
           </p>
         </div>
       </div>
       <a href="/" className="text-xs font-bold px-3 py-2 rounded-xl transition-colors" style={{ background: 'var(--color-bg-hover)', color: 'var(--color-text)' }}>
-        {lang === 'am' ? 'ወደ መተግበሪያው' : 'Open app'}
+        {label('admin.open-app', lang)}
       </a>
     </header>
   );
@@ -110,7 +111,7 @@ function GoogleAdminSignIn() {
   if (!clientId) {
     return (
       <p className="text-[11px] text-center mt-3" style={{ color: 'var(--color-text-muted)' }}>
-        {lang === 'am' ? 'የ Google መግቢያ አይተዋወቅም' : 'Google sign-in not configured'}
+        {label('admin.google-sign-in-not-configured', lang)}
       </p>
     );
   }
@@ -123,7 +124,7 @@ function GoogleAdminSignIn() {
         className="w-full py-2.5 rounded-xl text-xs font-bold disabled:opacity-50"
         style={{ background: 'var(--color-bg-hover)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
       >
-        {loading ? '...' : (lang === 'am' ? 'በ Google ይግቡ' : 'Sign in with Google')}
+        {loading ? '...' : (label('admin.sign-in-with-google', lang))}
       </button>
       {error && (
         <p className="text-[11px] mt-2 text-center font-bold" style={{ color: 'var(--color-danger-text)' }}>{error}</p>
@@ -167,14 +168,14 @@ function AdminPortalInner() {
           <AuthGate lang={lang} onAuthenticated={() => { useAuthStore.getState().init(); }} />
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
-            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{lang === 'am' ? 'ወይም' : 'or'}</span>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{label('admin.or', lang)}</span>
             <div className="flex-1 h-px" style={{ background: 'var(--color-border)' }} />
           </div>
           <GoogleAdminSignIn />
         </div>
       ) : !isPlatformAdmin ? (
         <Notice
-          title={lang === 'am' ? 'የአስተዳደሪ መዳረሻ የለም' : 'Admin access required'}
+          title={label('admin.admin-access-required', lang)}
           hint="Your phone/email is not on the platform-admin allowlist (PLATFORM_ADMIN_PHONES / PLATFORM_ADMIN_EMAILS)."
         />
       ) : (

@@ -14,6 +14,7 @@ import { InstallGuideModal } from './PwaInstallPanel';
 import AdminPanel from './settings/AdminPanel';
 import SettingsPanelFallback from './settings/SettingsPanelFallback';
 import ErrorBoundary from './ErrorBoundary';
+import { label } from '../labels/index.js';
 
 const TABS = [
   { id: 'shop', labelEn: 'Shop', labelAm: 'ሱቅ' },
@@ -52,9 +53,9 @@ function SettingsPage({
 
   const roleBadge = (() => {
     if (!role) return null;
-    if (role === ROLES.OWNER) return lang === 'am' ? 'ባለቤት' : 'Owner';
-    if (role === ROLES.MANAGER) return lang === 'am' ? 'ሥራ አስኪያጅ' : 'Manager';
-    return lang === 'am' ? 'ሰራተኛ' : 'Staff';
+    if (role === ROLES.OWNER) return label('nav.owner', lang);
+    if (role === ROLES.MANAGER) return label('nav.manager', lang);
+    return label('nav.staff', lang);
   })();
 
   const [activeTab, setActiveTabState] = useState(() => {
@@ -118,9 +119,7 @@ function SettingsPage({
 
     if (count >= DEV_MODE_UNLOCK_TAPS && (now - (aboutTapStart || now) <= DEV_MODE_UNLOCK_WINDOW_MS)) {
       const confirmed = confirm(
-        lang === 'am'
-          ? 'የልማት ሁነታ እንደገና ያንብት? ይህ ለመጠበቅ ይፈልጋል'
-          : 'Enable dev mode? This reveals shop-level diagnostics for this session.'
+        label('nav.enable-dev-mode-this-reveals-shop-level', lang)
       );
       if (!confirmed) {
         setAboutTapCount(0);
@@ -150,9 +149,7 @@ function SettingsPage({
       setAboutTapCount(0);
       setAboutTapStart(null);
       fireToast(
-        lang === 'am'
-          ? '🛠 የልማት ሁነታ ተከፍቷል (ለዚህ ክፍለ ጊዜ ብቻ)'
-          : '🛠 Dev mode unlocked (this session only)',
+        label('nav.dev-mode-unlocked-this-session-only', lang),
         1800
       );
     }
@@ -182,7 +179,7 @@ function SettingsPage({
           </div>
           <div>
             <div className="text-sm font-black text-gray-900 flex items-center gap-1.5">
-              {name || (lang === 'am' ? 'ሱቅ' : 'Shop')}
+              {name || (label('nav.shop', lang))}
               {roleBadge && (
                 <span className="text-[0.55rem] font-black uppercase px-1.5 py-0.5 rounded" style={{ background: 'var(--color-warning-border)', color: 'var(--color-primary)' }}>
                   {roleBadge}
@@ -190,7 +187,7 @@ function SettingsPage({
               )}
             </div>
             <div className="text-[0.68rem]" style={{ color: 'var(--color-text-muted)' }}>
-              {shopProfile?.phone || (lang === 'am' ? 'ስልክ አልተጨመረም' : 'No phone added')}
+              {shopProfile?.phone || (label('nav.no-phone-added', lang))}
             </div>
           </div>
         </div>
@@ -206,8 +203,8 @@ function SettingsPage({
           </button>
           <button
             onClick={() => lang !== 'am' && toggleLang()}
-            className={`lang-toggle__btn ${lang === 'am' ? 'lang-toggle__btn--active' : 'lang-toggle__btn--inactive'}`}
-            aria-label={lang === 'am' ? 'አማር\u{200c}ኛ በመረጡት' : 'Switch to አማር\u{200c}ኛ'}
+            className={`lang-toggle__btn ${label('nav.lang-toggle-btn-inactive', lang)}`}
+            aria-label={label('nav.switch-to', lang)}
           >
             አማ
           </button>
@@ -340,14 +337,14 @@ function SettingsPage({
           onClick={handleAboutTap}
           className="text-center py-3 text-xs select-none"
           style={{ color: 'var(--color-text-muted)' }}
-          aria-label={lang === 'am' ? 'መስመርቻ መረጃ' : 'App info'}
+          aria-label={label('nav.app-info', lang)}
         >
           <span>
             Gebya · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'}
           </span>
           {aboutTapCount > 0 && aboutTapCount < DEV_MODE_UNLOCK_TAPS && !devModeRevealed && (
             <span className="ml-2" style={{ color: 'var(--color-accent-amber)' }}>
-              · {DEV_MODE_UNLOCK_TAPS - aboutTapCount} {lang === 'am' ? 'ተጨማሪ መታ' : 'more taps'}
+              · {DEV_MODE_UNLOCK_TAPS - aboutTapCount} {label('nav.more-taps', lang)}
             </span>
           )}
         </div>

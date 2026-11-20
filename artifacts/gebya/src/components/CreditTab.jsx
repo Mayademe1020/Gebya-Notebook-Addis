@@ -9,6 +9,7 @@ import { buildCreditReport, exportCreditReportCsv, exportCreditReportPdf } from 
 import { fireToast } from './Toast';
 import DownloadMenuSheet from './DownloadMenuSheet';
 import OverdueCustomerFlags from './OverdueCustomerFlags';
+import { label } from '../labels/index.js';
 
 export default function CreditTab({
   selectedCustomer,
@@ -52,14 +53,12 @@ export default function CreditTab({
     const skipped = overdueCustomers.length - remindable.length;
     if (remindable.length === 0) {
       fireToast(skipped > 0
-        ? (lang === 'am' ? `${skipped} የዘገዩ ደንበኞች አሏቸው ግን ስልክ ወይም ቴሌግራም የላቸውም` : `${skipped} overdue — no contact info to remind`)
-        : (lang === 'am' ? 'ምንም የዘገዩ ደንበኞች የሉም' : 'No overdue customers'), 3000);
+        ? (label('credit.overdue-no-contact-info-to-remind', lang, skipped))
+        : (label('credit.no-overdue-customers', lang)), 3000);
       return;
     }
     if (skipped > 0) {
-      fireToast(lang === 'am'
-        ? `${remindable.length} እያስታወስን · ${skipped} ተዘለለ (ስልክ የለም)`
-        : `Reminding ${remindable.length} · ${skipped} skipped (no contact)`, 3000);
+      fireToast(label('credit.reminding-skipped-no-contact', lang, remindable.length, skipped), 3000);
     }
     const queue = remindable.map((c) => c.id);
     setBulkReminderQueue(queue.slice(1));

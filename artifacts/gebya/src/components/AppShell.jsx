@@ -69,6 +69,7 @@ import { lazyWithRetry, isBrowserOnline, runAfterFirstPaint, buildSavedOnDeviceM
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useStaffOps } from '../hooks/useStaffOps';
 import { useShopOps } from '../hooks/useShopOps';
+import { label } from '../labels/index.js';
 
 const DEFAULT_PROVIDERS = {
   banks: [],
@@ -900,9 +901,7 @@ export default function AppShell() {
           // that same evening. Warn and continue; the Plan panel (Settings →
           // Money) carries the upgrade path. Also fixes the old bug of calling
           // fireToast with an object (it renders "[object Object]").
-          fireToast(lang === 'am'
-            ? `የዚህ ወር ${entitlements.max_transactions_per_month} ግብይቶች ተደርሰዋል። Plus ለማግኘት ቅንብሮች → ገንዘብ ይመልከቱ።`
-            : `Free plan limit (${entitlements.max_transactions_per_month}/month) reached — see Plus in Settings → Money.`, 5000);
+          fireToast(label('shell.free-plan-limit-month-reached-see-plus-in', lang, entitlements.max_transactions_per_month), 5000);
         }
       }
 
@@ -1172,7 +1171,7 @@ export default function AppShell() {
         await clearLastSavedSnapshot();
       }
       setDeleteTarget(null);
-      fireToast(lang === 'am' ? 'ተሰርዟል' : 'Entry deleted', 8000, async () => {
+      fireToast(label('shell.entry-deleted', lang), 8000, async () => {
         try {
           const restored = { ...victim, deleted_at: null, updated_at: Date.now() };
           await db.transactions.put(restored);
@@ -1180,7 +1179,7 @@ export default function AppShell() {
             const without = prev.filter(t2 => t2.id !== id);
             return [...without, restored].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
           });
-          fireToast(lang === 'am' ? 'ተመልሷል ✓' : 'Restored ✓', 1800);
+          fireToast(label('shell.restored', lang), 1800);
         } catch (err) {
           if (import.meta.env.DEV) console.error('Undo delete transaction failed:', err);
         }
@@ -1454,7 +1453,7 @@ export default function AppShell() {
       setBulkReminderQueue(rest);
     } else {
       // Queue exhausted — notify user
-      fireToast(lang === 'am' ? 'ሁሉም ማሳሰቢያዎች ተልከዋል' : 'All reminders sent', 2500);
+      fireToast(label('shell.all-reminders-sent', lang), 2500);
     }
   };
 

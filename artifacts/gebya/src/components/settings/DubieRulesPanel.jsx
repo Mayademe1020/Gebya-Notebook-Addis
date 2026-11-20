@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../../context/LangContext';
 import db from '../../db';
+import { label } from '../../labels/index.js';
 
 export default function DubieRulesPanel({ onChange, onNavigate }) {
   const { lang, t } = useLang();
@@ -30,7 +31,7 @@ export default function DubieRulesPanel({ onChange, onNavigate }) {
       <div className="px-5 pt-4 pb-4 space-y-4">
         <div>
           <label className="block text-xs font-bold text-gray-500 mb-1.5">
-            {lang === 'am' ? 'ዱቤ ጊዜ ማብቂያ (ቀናት)' : 'Dubie overdue threshold (days)'}
+            {label('settings-money.dubie-overdue-threshold-days', lang)}
           </label>
           <div className="flex gap-2">
             {[0, 3, 7, 14, 30].map(d => (
@@ -44,7 +45,7 @@ export default function DubieRulesPanel({ onChange, onNavigate }) {
                   color: overdueDays === d ? 'var(--color-bg-white)' : 'var(--color-text-muted)',
                 }}
               >
-                {d === 0 ? (lang === 'am' ? 'ምንም' : 'None') : `${d} ${lang === 'am' ? 'ቀን' : 'days'}`}
+                {d === 0 ? (label('settings-money.none', lang)) : `${d} ${label('settings-money.days', lang)}`}
               </button>
             ))}
           </div>
@@ -55,7 +56,7 @@ export default function DubieRulesPanel({ onChange, onNavigate }) {
             onClick={save}
             className="w-full py-2.5 rounded-xl text-sm font-bold text-white bg-green-700 min-h-[44px]"
           >
-            {lang === 'am' ? 'አስቀምጥ' : 'Save'}
+            {label('settings-money.save', lang)}
           </button>
         )}
 
@@ -67,9 +68,7 @@ export default function DubieRulesPanel({ onChange, onNavigate }) {
           className="text-[0.7rem] leading-snug text-left underline underline-offset-2"
           style={{ color: 'var(--color-primary)', background: 'transparent', border: 'none', padding: 0 }}
         >
-          {lang === 'am'
-            ? 'ራስ-ሰር ማስታወቂያ በቅንብሮች → ውሂብ ይተዳደራል።'
-            : 'Automatic reminders are managed in Settings → Data.'}
+          {label('settings-money.automatic-reminders-are-managed-in-settings', lang)}
         </button>
       </div>
     </div>

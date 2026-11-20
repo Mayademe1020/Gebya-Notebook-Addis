@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { normalizePhotos } from '../utils/photoProof';
+import { label } from '../labels/index.js';
 
 export default function PhotoAttachment({ photo, photos, lang = 'en', label, size = 46 }) {
   const [open, setOpen] = useState(false);
@@ -8,8 +9,8 @@ export default function PhotoAttachment({ photo, photos, lang = 'en', label, siz
   const normalizedPhotos = normalizePhotos(Array.isArray(photos) && photos.length > 0 ? { photos } : { photo });
   if (normalizedPhotos.length === 0) return null;
 
-  const viewLabel = label || (lang === 'am' ? 'ፎቶ ይመልከቱ' : 'View photo');
-  const closeLabel = lang === 'am' ? 'ዝጋ' : 'Close';
+  const viewLabel = label || (label('sales.view-photo', lang));
+  const closeLabel = label('sales.close', lang);
   const activePhoto = normalizedPhotos[index] || normalizedPhotos[0];
   const extraCount = normalizedPhotos.length - 1;
   const showCarouselControls = normalizedPhotos.length > 1;
@@ -137,7 +138,7 @@ export default function PhotoAttachment({ photo, photos, lang = 'en', label, siz
               <button
                 type="button"
                 onClick={goPrevious}
-                aria-label={lang === 'am' ? 'ያለፈው ፎቶ' : 'Previous photo'}
+                aria-label={label('sales.previous-photo', lang)}
                 className="press-scale"
                 style={{
                   position: 'absolute',
@@ -161,7 +162,7 @@ export default function PhotoAttachment({ photo, photos, lang = 'en', label, siz
               <button
                 type="button"
                 onClick={goNext}
-                aria-label={lang === 'am' ? 'ቀጣዩ ፎቶ' : 'Next photo'}
+                aria-label={label('sales.next-photo', lang)}
                 className="press-scale"
                 style={{
                   position: 'absolute',

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { usePrivacy } from '../context/PrivacyContext';
 import { computeHeroStatus } from '../utils/shopStory';
+import { label } from '../labels/index.js';
 
 export default function HeroStatus({
   metrics,
@@ -18,10 +19,8 @@ export default function HeroStatus({
   const status = useMemo(() => {
     if (isPast && !closingDone) {
       return {
-        sentence: lang === 'am'
-          ? 'ይህ ቀን ገና አልተዘጋም'
-          : 'This day hasn\'t been closed yet.',
-        cta: lang === 'am' ? '✅ ዝጋ' : '✅ Close this day',
+        sentence: label('today.this-day-hasn-t-been-closed-yet', lang),
+        cta: label('today.close-this-day', lang),
         actionType: 'retro_close',
       };
     }
