@@ -499,6 +499,65 @@ describe("push authentication", () => {
   });
 });
 
+// ─── Cross-device writes (P0-1) ─────────────────────────────────────────────
+
+async function pushAs(deviceId: string, rows: any[]) {
+  const handler = findHandler("post", "/push");
+  const req = makeReq({ body: { device_id: deviceId, tables: rows.length ? { settlements: rows } : {} } });
+  const res = makeRes();
+  await handler(req, res, () => {});
+  return res;
+}
+
+describe("a row pushed from a second device", () => {
+  const OTHER_DEVICE = "device-b";
+
+  it("updates the row under its origin device instead of inserting a second copy", async () => {
+    await push([SETTLEMENT_ROW]);
+
+    // The owner reviews the same settlement on a second phone. The client
+    // re-keys the row to the origin device (device-a) and bumps the version.
+    const res = await pushAs(OTHER_DEVICE, [
+      { ...SETTLEMENT_ROW, owner_note: "cash verified", sync_version: 2, updated_at: 1763700900000 },
+    ]);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.results?.settlements?.count).toBe(1);
+    expect(res.body.conflicts ?? []).toHaveLength(0);
+    const rows = settlementRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].device_id).toBe(DEVICE_ID);
+    expect(rows[0].owner_note).toBe("cash verified");
+  });
+
+  it("does not roll the rest of the push back when the row belongs to another device", async () => {
+    await push([SETTLEMENT_ROW]);
+
+    const handler = findHandler("post", "/push");
+    const req = makeReq({
+      body: {
+        device_id: OTHER_DEVICE,
+        tables: {
+          transactions: [{
+            id: 1, transaction_id: "txn-1", type: "sale", amount: 120, item_name: "Sugar",
+            quantity: 1, created_at: 1763700100000, updated_at: 1763700100000,
+            sync_version: 1, schema_version: 1, device_id: OTHER_DEVICE, business_id: 1,
+          }],
+          settlements: [{ ...SETTLEMENT_ROW, owner_note: "cash verified", sync_version: 2, updated_at: 1763700900000 }],
+        },
+      },
+    });
+    const res = makeRes();
+    await handler(req, res, () => {});
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.results?.transactions?.count).toBe(1);
+    expect(res.body.results?.settlements?.count).toBe(1);
+    expect((state.rows.get("transactions") || [])).toHaveLength(1);
+    expect(settlementRows()).toHaveLength(1);
+  });
+});
+
 // Keep the imported tables referenced so a schema rename fails here loudly.
 void devices;
 void businessMembers;

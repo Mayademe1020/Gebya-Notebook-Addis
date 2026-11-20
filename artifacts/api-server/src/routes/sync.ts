@@ -73,9 +73,16 @@ async function pushTable(
         // re-key to the original server row instead of creating a duplicate.
         const data = mapper({ ...row, device_id: row.device_id || deviceId });
         data.businessId = data.businessId ?? businessId;
+        // A row pulled from another phone keeps its origin device id, and the
+        // client re-keys the push to that origin (see syncEngine's
+        // remote_local_id handling). Key the lookup and the update by the row's
+        // own device, not the device sending the request: keying by the caller
+        // misses the row entirely and inserts a second copy under its owner's
+        // device id — or, once the unique pair exists, fails the whole push.
+        const rowDeviceId = data.deviceId || deviceId;
         const incomingVersion = data.syncVersion || 1;
         const incomingUpdatedAt = data.updatedAt || 0;
-        const existing = await d.select().from(table).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId))).limit(1);
+        const existing = await d.select().from(table).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId))).limit(1);
 
         if (existing.length === 0) {
           await d.insert(table).values({ ...data, syncVersion: 1 });
@@ -93,12 +100,12 @@ async function pushTable(
           const reconcileNote = isSettlementReconcile && data.reconciliationNote ? data.reconciliationNote : null;
 
           if (incomingVersion > storedVersion) {
-            await d.update(table).set({ ...data, syncVersion: incomingVersion + 1 }).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+            await d.update(table).set({ ...data, syncVersion: incomingVersion + 1 }).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId)));
             chunkCount++;
             const detail = reconcileNote ? `settlement reconciled: ${reconcileNote}` : undefined;
             chunkMutations.push({ action: isSoftDelete ? "DELETE" : "UPDATE", entityType: key, entityId: String(data.localId), details: detail });
           } else if (incomingVersion === storedVersion && incomingUpdatedAt > storedUpdatedAt) {
-            await d.update(table).set({ ...data, syncVersion: storedVersion + 1 }).where(and(eq(deviceIdCol, deviceId), eq(localIdCol, data.localId)));
+            await d.update(table).set({ ...data, syncVersion: storedVersion + 1 }).where(and(eq(deviceIdCol, rowDeviceId), eq(localIdCol, data.localId)));
             chunkCount++;
             const detail = reconcileNote ? `settlement reconciled: ${reconcileNote}` : undefined;
             chunkMutations.push({ action: isSoftDelete ? "DELETE" : "UPDATE", entityType: key, entityId: String(data.localId), details: detail });
