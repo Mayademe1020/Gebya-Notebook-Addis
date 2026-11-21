@@ -344,7 +344,9 @@ router.post("/push",
       const capped = rows.slice(0, MAX_ROWS_PER_TABLE_PUSH);
       const mapper = key === "settings" ? mapSetting : mapAnalytics;
       const table = key === "settings" ? settings : analytics;
-      const conflictCols = key === "settings" ? [settings.deviceId, settings.key] : [analytics.deviceId, analytics.key];
+      // Two businesses on one phone are separate rows: keying by device+key
+      // alone made the second business overwrite the first one's settings.
+      const conflictCols = key === "settings" ? [settings.businessId, settings.deviceId, settings.key] : [analytics.businessId, analytics.deviceId, analytics.key];
       let count = 0;
       for (const row of capped) {
         const data: any = mapper(row, device_id);
