@@ -359,6 +359,26 @@ router.post("/push",
   return res.json({ ok: true, device_id, business_id: businessId, results, conflicts: allConflicts.length > 0 ? allConflicts.map((c) => ({ table: c.table, localId: c.localId, serverVersion: c.serverRecord.syncVersion, serverUpdatedAt: c.serverRecord.updatedAt })) : undefined });
 });
 
+/**
+ * The single cursor the client echoes back on the next /pull.
+ *
+ * Every table is paged independently and each reports its own next cursor.
+ * Collapsing them with Math.max() — which is what this did — silently starves
+ * any table whose next page starts below the fastest table's cursor: its
+ * remaining rows are never returned, and two phones end up with different
+ * balances. The slowest pending cursor is the only one that is safe to advance
+ * to, because every table with rows left has at most that cursor.
+ *
+ * Re-delivering rows from the faster tables is cheap: the client merges by
+ * (device, local_id) and version, so duplicates are no-ops.
+ */
+export function nextPullCursor(cursors: (number | null)[], hasMore: boolean): number | null {
+  if (!hasMore) return null;
+  const pending = cursors.filter((c): c is number => c !== null && c !== undefined);
+  if (pending.length === 0) return null;
+  return Math.min(...pending);
+}
+
 router.get("/pull",
   requirePermission("can_view_reports"),
   async (req, res) => {
@@ -401,7 +421,11 @@ router.get("/pull",
   };
 
   const hasMore = txResult.hasMore || custResult.hasMore || custTxResult.hasMore || catResult.hasMore || supResult.hasMore || supTxResult.hasMore || staffResult.hasMore || settleResult.hasMore || setResult.hasMore || anaResult.hasMore;
-  const nextCursor = hasMore ? Math.max(txResult.nextCursor || 0, custResult.nextCursor || 0, custTxResult.nextCursor || 0, catResult.nextCursor || 0, supResult.nextCursor || 0, supTxResult.nextCursor || 0, staffResult.nextCursor || 0, settleResult.nextCursor || 0, setResult.nextCursor || 0, anaResult.nextCursor || 0) : null;
+  const nextCursor = nextPullCursor([
+    txResult.nextCursor, custResult.nextCursor, custTxResult.nextCursor, catResult.nextCursor,
+    supResult.nextCursor, supTxResult.nextCursor, staffResult.nextCursor, settleResult.nextCursor,
+    setResult.nextCursor, anaResult.nextCursor,
+  ], hasMore);
 
   return res.json({ ok: true, user_id: userId, business_id: businessId, since: sinceMs, pulled_at: Date.now(), tables, hasMore, nextCursor });
 });
