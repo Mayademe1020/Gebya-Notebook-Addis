@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { clearAllData, restoreFromJSON } from './useBackupData';
 import ConfirmDialog from '../../ConfirmDialog';
 import { label } from '../../../labels/index.js';
+import { isRestorableBackup } from '../../../utils/backupPayload';
 
 export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
   const { lang } = useLang();
@@ -21,9 +22,7 @@ export default function DangerZoneSection({ totalEntries, totalCustomers, t }) {
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target.result);
-        if (data?.gebya_backup_version !== 1) throw new Error('Not a valid Gebya backup file');
-        if (!data.tables || typeof data.tables !== 'object') throw new Error('Missing tables in backup');
-        if (!Array.isArray(data.tables.transactions)) throw new Error('Missing transactions table');
+        if (!isRestorableBackup(data)) throw new Error('Not a valid Gebya backup file');
         setRestoreTarget(data);
         setShowRestoreStep(1);
       } catch (err) {
