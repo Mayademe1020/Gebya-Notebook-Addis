@@ -129,6 +129,26 @@ export const clearAllData = async (setCleared, setShowClearConfirm) => {
   setTimeout(() => window.location.reload(), 800);
 };
 
+// Settings that belong to this phone's session or device, not to the ledger.
+// A snapshot is taken on another phone (or on this one before a re-login), so
+// restoring its token/device id would swap the live session for a stale one.
+// They are also the keys that used to collide: the old code re-put the local
+// copy after the wipe and then bulkAdded the snapshot's copy under the same
+// primary key, which aborted the whole restore.
+const PRESERVED_SETTINGS = [
+  'gebya_auth_token',
+  'gebya_device_id',
+  'device_id',
+  'gebya_business_id',
+  'gebya_last_synced_at',
+  'gebya_last_sync_at',
+  'gebya_table_last_sync',
+  'gebya_outbox_seeded_v1',
+  'gebya_last_auto_backup_at',
+  'cached_permissions',
+  'privacy_mode',
+];
+
 export const restoreFromJSON = async (data) => {
   if (!data?.tables) throw new Error('Invalid backup');
   const { tables } = data;
@@ -138,9 +158,10 @@ export const restoreFromJSON = async (data) => {
     db.suppliers, db.supplier_transactions, db.staff_members, db.settings, db.analytics,
     db.suggestion_log, db.cross_shop_unmatched, db.credit_records, db.credit_payment_logs, db.daily_closings,
     async () => {
-      // Preserve device/session-bound settings before wiping.
+      // Keep this phone's session-bound settings, and keep the snapshot's copy
+      // of them out of the restore entirely.
       const preserved = {};
-      for (const key of ['gebya_auth_token', 'privacy_mode', 'gebya_device_id']) {
+      for (const key of PRESERVED_SETTINGS) {
         const row = await db.settings.get(key).catch(() => null);
         if (row) preserved[key] = row;
       }
@@ -157,6 +178,9 @@ export const restoreFromJSON = async (data) => {
         db.daily_closings?.clear?.() || Promise.resolve(),
       ]);
       if (Object.keys(preserved).length) await db.settings.bulkPut(Object.values(preserved));
+      const restorableSettings = Array.isArray(tables.settings)
+        ? tables.settings.filter((row) => !PRESERVED_SETTINGS.includes(row?.key))
+        : [];
       if (Array.isArray(tables.customers))             await db.customers.bulkAdd(tables.customers);
       if (Array.isArray(tables.suppliers))             await db.suppliers.bulkAdd(tables.suppliers);
       if (Array.isArray(tables.catalog_entries))       await db.catalog_entries.bulkAdd(tables.catalog_entries);
@@ -164,7 +188,7 @@ export const restoreFromJSON = async (data) => {
       if (Array.isArray(tables.transactions))          await db.transactions.bulkAdd(tables.transactions);
       if (Array.isArray(tables.customer_transactions)) await db.customer_transactions.bulkAdd(tables.customer_transactions);
       if (Array.isArray(tables.supplier_transactions)) await db.supplier_transactions.bulkAdd(tables.supplier_transactions);
-      if (Array.isArray(tables.settings))              await db.settings.bulkAdd(tables.settings);
+      if (restorableSettings.length)                 await db.settings.bulkAdd(restorableSettings);
       if (Array.isArray(tables.analytics))             await db.analytics.bulkAdd(tables.analytics);
       if (Array.isArray(tables.suggestion_log))        await db.suggestion_log.bulkAdd(tables.suggestion_log);
       if (Array.isArray(tables.cross_shop_unmatched))  await db.cross_shop_unmatched.bulkAdd(tables.cross_shop_unmatched);

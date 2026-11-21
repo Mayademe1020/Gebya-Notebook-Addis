@@ -5,22 +5,11 @@ import { fireToast } from '../components/Toast';
 import { useLang } from '../context/LangContext';
 import { label } from '../labels/index.js';
 import { buildBackupPayload } from './backupPayload';
+import { collectBackupTables } from './backupTables';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/$/, '');
 const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const LAST_BACKUP_KEY = 'gebya_last_auto_backup_at';
-
-// Tables that make up the user's financial ledger (excludes server-managed auth/sync metadata)
-const BACKUP_TABLES = [
-  'transactions',
-  'customers',
-  'customer_transactions',
-  'catalog_entries',
-  'suppliers',
-  'supplier_transactions',
-  'staff_members',
-  'settings',
-];
 
 let active = false;
 
@@ -40,23 +29,7 @@ export async function createCloudSnapshot() {
   if (!token) return { ok: false, error: 'No auth token' };
 
   const deviceId = await getOrCreateCloudProofDeviceId();
-  const tables = {};
-  let recordCount = 0;
-
-  for (const table of BACKUP_TABLES) {
-    try {
-      const rows = await db[table].toArray();
-      // Strip IndexedDB internal keys & server shadow columns before sending
-      const clean = rows.map((row) => {
-        const { lid, sync_version, created_locally, pending_sync, ...rest } = row;
-        return rest;
-      });
-      tables[table] = clean;
-      recordCount += clean.length;
-    } catch {
-      tables[table] = [];
-    }
-  }
+  const { tables, recordCount } = await collectBackupTables(db);
 
   const payload = buildBackupPayload(tables, recordCount);
 

@@ -10123,6 +10123,244 @@
       "kind": "plain",
       "en": "✓ Auto-backup completed",
       "am": "✓ በሂሳብ ቤት መደቃቀፋ ተሳክቷል"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 76,
+      "key": "settings-data.restore-failed",
+      "kind": "plain",
+      "en": "Restore failed",
+      "am": "መልሶ ማስቀመጥ አልተሳካም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 80,
+      "key": "settings-data.restored-reloading",
+      "kind": "plain",
+      "en": "✓ Restored — reloading…",
+      "am": "✓ መልሶ ተመለሰ — በመጫን ላይ…"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 86,
+      "key": "settings-data.restore-failed",
+      "kind": "plain",
+      "en": "Restore failed",
+      "am": "መልሶ ማስቀመጥ አልተሳካም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 96,
+      "key": "sync.offline",
+      "kind": "plain",
+      "en": "Offline",
+      "am": "ኔትወርክ የለም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 98,
+      "key": "settings-data.invalid-backup-file",
+      "kind": "plain",
+      "en": "Invalid backup file",
+      "am": "የተበላሸ ምትኬ ፋይል"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 100,
+      "key": "settings-data.restore-failed",
+      "kind": "plain",
+      "en": "Restore failed",
+      "am": "መልሶ ማስቀመጥ አልተሳካም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 102,
+      "key": "settings-data.restore-failed",
+      "kind": "plain",
+      "en": "Restore failed",
+      "am": "መልሶ ማስቀመጥ አልተሳካም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 125,
+      "key": "admin.records",
+      "kind": "plain",
+      "en": "records",
+      "am": "ሪኮርዶች"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 126,
+      "key": "history.current",
+      "kind": "plain",
+      "en": "current",
+      "am": "አሁን"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 135,
+      "key": "settings-data.downloading",
+      "kind": "plain",
+      "en": "Downloading...",
+      "am": "በማውረድ ላይ..."
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 135,
+      "key": "customers.restore",
+      "kind": "plain",
+      "en": "Restore",
+      "am": "መልስ"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 147,
+      "key": "settings-backup.title",
+      "kind": "plain",
+      "en": "Cloud backups",
+      "am": "Cloud backups"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 152,
+      "key": "admin.refresh",
+      "kind": "plain",
+      "en": "Refresh",
+      "am": "አዘምን"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 161,
+      "key": "admin.loading",
+      "kind": "plain",
+      "en": "Loading...",
+      "am": "በመጫን ላይ..."
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 167,
+      "key": "sync.offline",
+      "kind": "plain",
+      "en": "Offline",
+      "am": "ኔትወርክ የለም"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 167,
+      "key": "settings-backup.could-not-load",
+      "kind": "plain",
+      "en": "Could not load backups",
+      "am": "Could not load backups"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 174,
+      "key": "admin.retry",
+      "kind": "plain",
+      "en": "Retry",
+      "am": "እንደገና ሞክር"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 180,
+      "key": "settings-backup.no-backups-yet",
+      "kind": "plain",
+      "en": "No backups yet",
+      "am": "No backups yet"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 195,
+      "key": "settings-backup.previous-data",
+      "kind": "plain",
+      "en": "Previous data",
+      "am": "Previous data"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 206,
+      "key": "settings-data.restore-from-backup",
+      "kind": "plain",
+      "en": "Restore from backup?",
+      "am": "ምትኬ ይመለስ?"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 207,
+      "key": "settings-data.backup-contains-sales-expenses-customers",
+      "kind": "format",
+      "enParts": [
+        "Backup contains: ",
+        " sales+expenses, ",
+        " customers, ",
+        " suppliers"
+      ],
+      "enIdx": [
+        0,
+        1,
+        2
+      ],
+      "amParts": [
+        "ይህ ምትኬ ይዟል: ",
+        " ሽያጭ+ወጪ, ",
+        " ደንበኞች, ",
+        " አቅራቢዎች"
+      ],
+      "amIdx": [
+        0,
+        1,
+        2
+      ],
+      "enArgs": 3,
+      "amArgs": 3
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 214,
+      "key": "settings-data.continue",
+      "kind": "plain",
+      "en": "Continue →",
+      "am": "ቀጥል →"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 215,
+      "key": "common.cancel",
+      "kind": "plain",
+      "en": "Cancel",
+      "am": "ሰርዝ"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 223,
+      "key": "settings-data.are-you-sure",
+      "kind": "plain",
+      "en": "Are you sure?",
+      "am": "እርግጠኛ ነዎት?"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 224,
+      "key": "settings-data.tip-download-a-backup-of-current-data-first",
+      "kind": "plain",
+      "en": "Tip: download a backup of current data first.",
+      "am": "ከመመለስ በፊት የአሁኑን መረጃ ምትኬ ይውሰዱ።"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 225,
+      "key": "settings-data.yes-restore-now",
+      "kind": "plain",
+      "en": "Yes, restore now",
+      "am": "አዎ፣ መልሰው ጫን"
+    },
+    {
+      "file": "src/components/settings/backup/CloudBackupHistory.jsx",
+      "line": 226,
+      "key": "settings-data.no-keep-current-data",
+      "kind": "plain",
+      "en": "No, keep current data",
+      "am": "አይ፣ ይተወው"
     }
   ],
   "skipped": [

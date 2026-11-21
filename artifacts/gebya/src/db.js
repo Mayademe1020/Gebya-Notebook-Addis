@@ -637,6 +637,13 @@ db.version(28).upgrade(async (tx) => {
   }
 });
 
+// Local-only safety copy taken before a destructive restore. One row under a
+// fixed key; never uploaded and never part of the synced ledger. Additive
+// store, so Dexie merges it without touching existing tables.
+db.version(29).stores({
+  local_backups: 'key, created_at',
+});
+
 db.on('ready', async () => {
   const privacySetting = await db.settings.get('privacy_mode');
   if (!privacySetting) {
