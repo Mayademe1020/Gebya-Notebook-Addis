@@ -80,7 +80,10 @@ export default defineConfig({
     runtimeErrorOverlay(),
     securityHeadersPlugin(),
     VitePWA({
-      registerType: "autoUpdate",
+      // prompt, never autoUpdate: with autoUpdate the worker reloads the page
+      // the moment a new build appears, which throws away a half-typed sale.
+      // The banner in PwaInstallPanel applies the update when the user asks.
+      registerType: "prompt",
       injectRegister: "auto",
       devOptions: { enabled: false },
       includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png", "opengraph.jpg"],
