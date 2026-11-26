@@ -16,7 +16,7 @@ export const analytics = pgTable("analytics", {
   syncVersion: integer("sync_version").default(1),
   syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow(),
 }, (t) => [
-  unique("analytics_device_key").on(t.deviceId, t.key),
+  unique("analytics_business_device_key").on(t.businessId, t.deviceId, t.key),
   index("analytics_business_idx").on(t.businessId),
 ]);
 
