@@ -18,6 +18,7 @@ import sales from './sales.js';
 import settingsShop from './settings-shop.js';
 import settingsMoney from './settings-money.js';
 import settingsData from './settings-data.js';
+import settingsBackup from './settings-backup.js';
 import staff from './staff.js';
 import reports from './reports.js';
 import admin from './admin.js';
@@ -39,6 +40,7 @@ const SURFACES = {
   "settings-shop": settingsShop,
   "settings-money": settingsMoney,
   "settings-data": settingsData,
+  "settings-backup": settingsBackup,
   "staff": staff,
   "reports": reports,
   "admin": admin,

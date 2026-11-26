@@ -2,6 +2,7 @@ import { Info, Download, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useLang } from '../../context/LangContext';
 import DangerZoneSection from './backup/DangerZoneSection';
+import CloudBackupHistory from './backup/CloudBackupHistory';
 import { exportToCSV } from './backup/useBackupData';
 import { createCloudSnapshot } from '../../utils/useAutoBackup';
 import { fireToast } from '../Toast';
@@ -77,6 +78,9 @@ export default function BackupDataPanel({ transactions, customerSummaries }) {
           <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
         )}
       </button>
+
+      {/* Snapshot history + one-tap restore */}
+      <CloudBackupHistory />
 
       {/* Restore from file + danger zone */}
             <DangerZoneSection
