@@ -644,6 +644,14 @@ db.version(29).stores({
   local_backups: 'key, created_at',
 });
 
+// H4: last server-acknowledged snapshot per record, used as the common
+// ancestor for the field-level conflict merge. Keyed by origin
+// (table:device:localId). Additive store — never uploaded, never part of the
+// synced ledger; entries are refreshed on pull and after a conflict merge.
+db.version(30).stores({
+  sync_bases: 'key, updated_at',
+});
+
 db.on('ready', async () => {
   const privacySetting = await db.settings.get('privacy_mode');
   if (!privacySetting) {
