@@ -81,7 +81,17 @@ export async function fetchWithRetryAndAuthRefresh(
         }
       }
       if (res.status >= 400 && res.status < 500) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        // Keep the status (and, when available, the server's JSON body) on the
+        // error so callers can tell an expired session (401) from a permission
+        // refusal (403) without parsing the message. A 4xx is not transient:
+        // retrying it wastes seconds and hides the real cause.
+        const err = new Error(`HTTP ${res.status}: ${res.statusText}`);
+        err.status = res.status;
+        err.noRetry = res.status !== 429;
+        if (typeof res.clone === "function") {
+          try { err.body = await res.clone().json(); } catch { /* body not JSON */ }
+        }
+        throw err;
       }
       if (attempt < retries) {
         const delay = baseDelay * Math.pow(2, attempt);
@@ -90,6 +100,7 @@ export async function fetchWithRetryAndAuthRefresh(
         throw new Error(`HTTP ${res.status}: ${res.statusText} after ${retries} retries`);
       }
     } catch (err) {
+      if (err.noRetry) throw err;
       if (attempt >= retries) throw err;
       const delay = baseDelay * Math.pow(2, attempt);
       await new Promise((r) => setTimeout(r, delay));

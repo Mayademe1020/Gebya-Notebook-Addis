@@ -271,6 +271,8 @@ vi.mock("../rateLimits.js", () => ({
 
 vi.mock("../rbac.js", () => ({
   requirePermission: () => (_req: any, _res: any, next: any) => next(),
+  // /sync/pull is membership-gated (H3); this suite exercises the push path.
+  requireMembership: (_req: any, _res: any, next: any) => next(),
 }));
 
 vi.mock("../services/pushNotificationSender.js", () => ({ sendPushToOwner: vi.fn() }));

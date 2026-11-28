@@ -8,7 +8,7 @@ import {
 import { eq, and, gt, inArray, asc, sql } from "drizzle-orm";
 import { verifyJwt } from "./auth.js";
 import { syncRateLimiter } from "../rateLimits.js";
-import { requirePermission } from "./rbac.js";
+import { requirePermission, requireMembership } from "./rbac.js";
 import { sendPushToOwner } from "../services/pushNotificationSender.js";
 import { getPreferencesForBusiness, shouldNotify, isInQuietHours } from "../services/notificationPreferences.js";
 import { setLastReminderSentAt } from "../services/reminderConfiguration.js";
@@ -381,10 +381,15 @@ export function nextPullCursor(cursors: (number | null)[], hasMore: boolean): nu
   return Math.min(...pending);
 }
 
+/**
+ * Pull is gated on membership, not on a permission: every active member may
+ * download the shop's own data. See requireMembership in rbac.ts for why
+ * `can_view_reports` here was a bug (revoking reports signed staff phones out
+ * and stopped their sync).
+ */
 router.get("/pull",
-  requirePermission("can_view_reports"),
+  requireMembership,
   async (req, res) => {
-    (req as any).rbacEntityType = "reports";
   const userId = getUserIdFromRequest(req);
   if (!userId) return res.status(401).json({ error: "Authorization required" });
 
