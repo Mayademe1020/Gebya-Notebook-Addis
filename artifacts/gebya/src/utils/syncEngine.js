@@ -131,6 +131,38 @@ async function _refreshAuth() {
   return result;
 }
 
+/**
+ * Decide what a failed sync means for the session.
+ *
+ * 401 after the refresh attempt already failed = the session is gone, so the
+ * caller may clear the token and show sign-in. 403 is different: the token is
+ * valid, the shop or feature simply does not allow this action. Treating 403
+ * as an expired session deleted a staff phone's token when the owner switched
+ * "view reports" off (H3), which stopped its sync entirely.
+ *
+ * Exported so the classification can be tested without a live engine.
+ */
+export function classifySyncError(err) {
+  const status = typeof err?.status === 'number'
+    ? err.status
+    : (() => {
+        const match = /(?:HTTP\s+|failed:\s*)(\d{3})/.exec(err?.message || '');
+        return match ? Number(match[1]) : null;
+      })();
+
+  if (status === 401) return { kind: 'auth', status };
+
+  if (status === 403) {
+    const body = err?.body;
+    const message = body?.error
+      ? `${body.error}${body.hint ? ` — ${body.hint}` : ''}`
+      : (err?.message || 'Permission denied');
+    return { kind: 'permission', status, message };
+  }
+
+  return { kind: 'error', status, message: err?.message || 'Sync failed' };
+}
+
 
 class SyncEngine {
   constructor() {
@@ -551,7 +583,8 @@ class SyncEngine {
           .catch(() => {});
       }
     } catch (err) {
-      if (err.message?.includes('401') || err.message?.includes('403')) {
+      const failure = classifySyncError(err);
+      if (failure.kind === 'auth') {
         this.status = 'unauthenticated';
         await clearAuthToken();
         if (this._onAuthRequired) {
@@ -559,7 +592,7 @@ class SyncEngine {
         }
       } else {
         this.status = 'error';
-        this.error = err.message || 'Sync failed';
+        this.error = failure.message;
       }
       if (import.meta.env.DEV) console.error('[sync]', err);
     }
@@ -605,7 +638,8 @@ class SyncEngine {
     } catch (err) {
       this.lastSyncAt = previousLastSync;
       this.tableLastSync = previousTableLastSync;
-      if (err.message?.includes('401') || err.message?.includes('403')) {
+      const failure = classifySyncError(err);
+      if (failure.kind === 'auth') {
         this.status = 'unauthenticated';
         await clearAuthToken();
         if (this._onAuthRequired) {
@@ -613,7 +647,7 @@ class SyncEngine {
         }
       } else {
         this.status = 'error';
-        this.error = err.message || 'Sync failed';
+        this.error = failure.message;
       }
       if (import.meta.env.DEV) console.error('[sync full]', err);
     }
@@ -706,7 +740,9 @@ class SyncEngine {
           friendly = errBody.error;
         }
       } catch { /* ignore */ }
-      throw new Error(friendly);
+      const error = new Error(friendly);
+      error.status = res.status;
+      throw error;
     }
 
     const response = await res.json();
@@ -881,7 +917,11 @@ class SyncEngine {
             getToken: getAuthToken,
           }
         );
-        if (!res.ok) throw new Error(`Pull failed: ${res.status}`);
+        if (!res.ok) {
+          const error = new Error(`Pull failed: ${res.status}`);
+          error.status = res.status;
+          throw error;
+        }
         const { tables: serverTables, hasMore: pageHasMore, nextCursor, business_id } = await res.json();
         if (!serverTables) break;
 

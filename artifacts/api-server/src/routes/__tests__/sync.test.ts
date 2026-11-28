@@ -62,6 +62,10 @@ vi.mock("../rateLimits.js", () => ({
 
 vi.mock("../rbac.js", () => ({
   requirePermission: () => (_req: any, _res: any, next: any) => next(),
+  // /sync/pull is gated on membership, not on a permission (H3). The handler
+  // itself is exercised below; the gate has its own suite in
+  // syncPullMembership.test.ts.
+  requireMembership: (_req: any, _res: any, next: any) => next(),
 }));
 
 vi.mock("../services/pushNotificationSender.js", () => ({

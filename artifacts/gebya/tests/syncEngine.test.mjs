@@ -93,6 +93,7 @@ import {
   clearAuthToken,
   getSyncEngine,
   destroySyncEngine,
+  classifySyncError,
 } from '../src/utils/syncEngine.js';
 
 // ─── Tests ───
@@ -238,6 +239,34 @@ describe('SyncEngine.sync', () => {
 
     await engine.sync();
     expect(engine.status).toBe('unauthenticated');
+  }, 10000);
+
+  it('keeps the session on a 403 and shows the permission message', async () => {
+    // H3: revoking "view reports" made /sync/pull return 403. The old catch
+    // treated that as an expired session, deleted the token and signed the
+    // phone out — stopping sync for a member who had done nothing wrong.
+    const body = {
+      error: 'Not a member of this business',
+      hint: 'Ask the shop owner to add this phone to the shop',
+    };
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      json: () => Promise.resolve(body),
+      clone: () => ({ json: () => Promise.resolve(body) }),
+    });
+
+    const onAuthRequired = vi.fn();
+    engine.onAuthRequired(onAuthRequired);
+    mockDb.settings.delete.mockClear();
+
+    await engine.sync();
+
+    expect(engine.status).toBe('error');
+    expect(engine.error).toContain('Not a member of this business');
+    expect(onAuthRequired).not.toHaveBeenCalled();
+    expect(mockDb.settings.delete).not.toHaveBeenCalled();
   }, 10000);
 
   it('handles network error', async () => {
@@ -1052,5 +1081,42 @@ describe('setAuthToken auto-sync', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('classifySyncError', () => {
+  it('treats a 401 as an auth failure (sign-out allowed)', () => {
+    const error = Object.assign(new Error('HTTP 401: Unauthorized'), { status: 401 });
+    expect(classifySyncError(error).kind).toBe('auth');
+  });
+
+  it('treats a 403 as permission, not an expired session', () => {
+    const error = Object.assign(new Error('HTTP 403: Forbidden'), { status: 403 });
+    const result = classifySyncError(error);
+    expect(result.kind).toBe('permission');
+    expect(result.kind).not.toBe('auth');
+  });
+
+  it('uses the server error and hint in the 403 message', () => {
+    const error = Object.assign(new Error('HTTP 403: Forbidden'), {
+      status: 403,
+      body: { error: 'Not a member of this business', hint: 'Ask the shop owner' },
+    });
+    expect(classifySyncError(error).message).toBe(
+      'Not a member of this business — Ask the shop owner',
+    );
+  });
+
+  it('still understands the legacy "failed: 403" message shape', () => {
+    expect(classifySyncError(new Error('Pull failed: 403')).kind).toBe('permission');
+  });
+
+  it('leaves network and 5xx failures as ordinary errors', () => {
+    expect(classifySyncError(new Error('Network error'))).toMatchObject({
+      kind: 'error',
+      message: 'Network error',
+    });
+    const fiveHundred = Object.assign(new Error('HTTP 500: Internal Server Error'), { status: 500 });
+    expect(classifySyncError(fiveHundred).kind).toBe('error');
   });
 });

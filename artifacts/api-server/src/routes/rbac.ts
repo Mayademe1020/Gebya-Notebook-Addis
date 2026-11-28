@@ -110,6 +110,53 @@ export function requirePermission(requiredPermission: PermissionKey) {
 }
 
 /**
+ * Membership gate for routes every active member of the shop may use
+ * (currently /sync/pull).
+ *
+ * Downloading the shop's own data is not a reporting action. Gating pull on
+ * `can_view_reports` meant an owner switching that toggle off — a normal
+ * privacy action — made the staff phone's pull return 403; the client read
+ * every 403 as a dead session, deleted its token and stopped syncing its own
+ * sales. Membership is the only requirement for receiving the data the phone
+ * is already allowed to write.
+ *
+ * Status codes are deliberate: a missing or expired token is 401 (the client
+ * refreshes once and only then may sign out), while a valid token with no
+ * active membership is 403 — the session is alive, the person is simply not
+ * in this shop, so the client keeps its token and its local rows.
+ */
+export async function requireMembership(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const ctx = await requireDeviceContext(req);
+
+  if (ctx) {
+    (req as any).deviceContext = ctx;
+    next();
+    return;
+  }
+
+  // requireDeviceContext returns null both for an invalid token and for a
+  // valid token with no active membership. Only the former is a session
+  // problem; tell them apart so a removed staff member is not signed out
+  // (and cannot mistake a network blip for a revocation).
+  const authHeader = (req.headers as any).authorization || (req.headers as any).Authorization || "";
+  const headerValue = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const token = String(headerValue).replace(/^Bearer\s+/i, "");
+  const { verifyJwt } = await import("./auth.js");
+  const decoded = token ? verifyJwt(token) : null;
+
+  if (!decoded || !decoded.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  // No business id, no table, no row count: nothing about the shop leaks.
+  res.status(403).json({
+    error: "Not a member of this business",
+    hint: "Ask the shop owner to add this phone to the shop",
+  });
+}
+
+/**
  * Helper: require that context is present and matches the business being accessed.
  * Use on parameterized routes like /shops/:shop_id/...
  */
