@@ -1,6 +1,6 @@
 import db from '../db';
 import { getOrCreateCloudProofDeviceId } from './cloudProof';
-import { camelToSnake, mapPullRow, fetchWithRetry, fetchWithRetryAndAuthRefresh } from './syncEngineHelpers.js';
+import { camelToSnake, mapPullRow, fetchWithRetry, fetchWithRetryAndAuthRefresh, deepEqual as _deepEqual, mergeFieldLevel } from './syncEngineHelpers.js';
 import { ensureFreshToken as _ensureFreshToken } from './authClient.js';
 import { useSyncStore } from '../stores/syncStore';
 
@@ -50,26 +50,6 @@ const RETRY_BACKOFF_MULTIPLIER = 2;
 const MAX_OUTBOX_SIZE = 10000;
 // Maximum queue size per table
 const MAX_TABLE_QUEUE_SIZE = 1000;
-
-function _deepEqual(a, b) {
-  if (a === b) return true;
-  if (a == null || b == null) return a === b;
-  if (typeof a !== typeof b) return false;
-  if (typeof a === 'number' && isNaN(a) && isNaN(b)) return true;
-  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) if (!_deepEqual(a[i], b[i])) return false;
-    return true;
-  }
-  if (typeof a === 'object') {
-    const ka = Object.keys(a), kb = Object.keys(b);
-    if (ka.length !== kb.length) return false;
-    for (const k of ka) if (!_deepEqual(a[k], b[k])) return false;
-    return true;
-  }
-  return false;
-}
 
 let syncEngineInstance = null;
 
@@ -239,6 +219,32 @@ class SyncEngine {
       }
     }
     return changed;
+  }
+
+  // Stable key for a record's last server-acknowledged snapshot (the merge
+  // base / common ancestor). Keyed by origin (device, localId) so it matches
+  // across the local row and the pulled server row for the same record.
+  _baseKey(tableName, record) {
+    const dev = record?.device_id || this.deviceId || '';
+    const localId = record?.remote_local_id != null ? record.remote_local_id : record?.id;
+    return `${tableName}:${dev}:${localId}`;
+  }
+
+  async _getBase(tableName, record) {
+    if (!db.sync_bases) return null;
+    try {
+      const row = await db.sync_bases.get(this._baseKey(tableName, record));
+      return row?.snapshot || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async _setBase(tableName, record, snapshot) {
+    if (!db.sync_bases) return;
+    try {
+      await db.sync_bases.put({ key: this._baseKey(tableName, record), snapshot, updated_at: Date.now() });
+    } catch { /* non-fatal: next conflict just has no base */ }
   }
 
   getState() {
@@ -844,8 +850,18 @@ class SyncEngine {
         const serverRecord = serverIndex[tableName]?.get(localId);
         if (!serverRecord) continue;
 
-        // Compute diff before resolving
         const mappedServer = mapPullRow(serverRecord);
+
+        // Field-level 3-way merge: keep both devices' edits. The base is the
+        // last server-acknowledged snapshot both devices started from. Fields
+        // only one side changed are taken from that side; fields both sides
+        // changed to different values are kept local and surfaced (money is
+        // never summed or silently dropped).
+        const base = await this._getBase(tableName, localRecord);
+        const { merged, conflicts: fieldConflicts } = mergeFieldLevel(base, localRecord, mappedServer);
+
+        // Only surface a record to the user when the merge produced something
+        // new versus the local row (a real cross-device edit), not for a no-op.
         const changedFields = this._diffFields(localRecord, mappedServer);
         if (changedFields.length > 0) {
           resolveConflicts.push({
@@ -853,17 +869,23 @@ class SyncEngine {
             recordId: localId,
             transactionId: localRecord.transaction_id || null,
             changedFields,
+            fieldConflicts,
             localVersion: localRecord,
             serverVersion: mappedServer,
           });
         }
 
-        // Merge: accept server version but bump local version so next push wins
-        const merged = { ...localRecord };
+        // Reconcile bookkeeping so the merged row re-pushes and is accepted by
+        // the server (which keeps the higher sync_version). The merged body now
+        // carries BOTH devices' field edits — not just the local row.
+        merged.id = localRecord.id;
         merged.sync_version = (serverRecord.syncVersion || 1) + 1;
         merged.updated_at = Date.now();
 
         await db[tableName].put(merged);
+        // The merged row is the new agreed state; record it as the base so a
+        // later conflict has an accurate common ancestor.
+        await this._setBase(tableName, localRecord, merged);
       } catch (err) {
         if (import.meta.env.DEV) console.error('[sync] conflict resolution failed:', err);
       }
@@ -875,7 +897,7 @@ class SyncEngine {
     // Surface push-conflict diffs to the user
     if (resolveConflicts.length > 0) {
       const count = resolveConflicts.length;
-      const summary = `${count} record${count > 1 ? 's' : ''} had conflicting edits. Your version was kept; here's what changed elsewhere:`;
+      const summary = `${count} record${count > 1 ? 's' : ''} had conflicting edits. Both sets of changes were merged field by field.`;
       this._warnConflict(summary, resolveConflicts);
     }
   }
@@ -978,6 +1000,9 @@ class SyncEngine {
                 if (!local) {
                   delete mapped.id;
                   await table.add(mapped);
+                  // First time we see this row from the server: it is the
+                  // common ancestor for any future cross-device conflict.
+                  await this._setBase(name, mapped, mapped);
                 } else {
                   // Skip only when the local copy is strictly not older.
                   // Comparing sync_version as a tie-breaker protects against
@@ -1000,6 +1025,8 @@ class SyncEngine {
                     });
                   }
                   await table.put({ ...mapped, id: local.id });
+                  // Advance the merge base to the server row we just stored.
+                  await this._setBase(name, mapped, mapped);
                 }
               }
 

@@ -42,6 +42,7 @@ const { mockDb, mockFetch, mockGetOrCreateCloudProofDeviceId, mockUseSyncStore }
     staff_members: makeTable(),
     settlements: makeTable(),
     analytics: makeTable(),
+    sync_bases: makeTable(),
     transaction: vi.fn((_, ...tables) => {
       const cb = tables[tables.length - 1];
       return cb();
@@ -1081,6 +1082,97 @@ describe('setAuthToken auto-sync', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     expect(syncSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('SyncEngine._resolveConflicts (H4 field-level merge)', () => {
+  let engine;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockDb.sync_outbox.count.mockResolvedValue(0);
+    mockDb.sync_outbox.toArray.mockResolvedValue([]);
+    destroySyncEngine();
+    vi.useFakeTimers();
+    Object.defineProperty(globalThis, 'navigator', { value: { onLine: true }, writable: true, configurable: true });
+    Object.defineProperty(globalThis, 'document', {
+      value: { visibilityState: 'visible', addEventListener: vi.fn(), removeEventListener: vi.fn() },
+      writable: true, configurable: true,
+    });
+    if (!globalThis.window) {
+      globalThis.window = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    }
+    globalThis.fetch = mockFetch;
+    mockDb.settings.get.mockImplementation((key) => {
+      if (key === 'gebya_auth_token') return Promise.resolve({ value: 'test-token' });
+      return Promise.resolve(undefined);
+    });
+    // sync_bases is a plain key/value store; default empty.
+    mockDb.sync_bases.get.mockResolvedValue(undefined);
+    mockDb.sync_bases.put.mockResolvedValue(undefined);
+
+    const { initSyncEngine } = await import('../src/utils/syncEngine.js');
+    engine = await initSyncEngine();
+    engine.deviceId = 'dev';
+  });
+
+  afterEach(() => {
+    destroySyncEngine();
+    vi.useRealTimers();
+    delete globalThis.fetch;
+  });
+
+  it('merges both devices\' field edits instead of keeping the whole local row', async () => {
+    // Common ancestor both phones had synced.
+    const base = { id: 1, device_id: 'dev', display_name: 'Shop', note: 'old', phone_number: '111', sync_version: 1, updated_at: 100 };
+    // This phone (B) edited the note.
+    const localRecord = { ...base, note: 'B-note', sync_version: 2, updated_at: 200 };
+    // The other phone (A) edited the phone number; it is the server's row.
+    const serverRow = {
+      id: 1, localId: 1, deviceId: 'dev',
+      displayName: 'Shop', note: 'old', phoneNumber: '999',
+      syncVersion: 3, updatedAt: 300,
+    };
+
+    mockDb.customers.get.mockResolvedValue(localRecord);
+    mockDb.sync_bases.get.mockResolvedValue({ snapshot: base });
+
+    // First fetch is the batched conflict pull; the re-push is a no-op (empty outbox).
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ tables: { customers: [serverRow] }, hasMore: false }),
+    });
+
+    await engine._resolveConflicts([{ table: 'customers', localId: 1 }], 'test-token');
+
+    expect(mockDb.customers.put).toHaveBeenCalledTimes(1);
+    const merged = mockDb.customers.put.mock.calls[0][0];
+    expect(merged.note).toBe('B-note');        // local edit survived
+    expect(merged.phone_number).toBe('999');   // server edit survived
+    expect(merged.id).toBe(1);
+    // Re-push must be accepted: version bumped above the server's.
+    expect(merged.sync_version).toBeGreaterThan(serverRow.syncVersion);
+  });
+
+  it('records the merged row as the new base for the next conflict', async () => {
+    const base = { id: 1, device_id: 'dev', note: 'old', phone_number: '111', sync_version: 1, updated_at: 100 };
+    const localRecord = { ...base, note: 'B-note', sync_version: 2, updated_at: 200 };
+    const serverRow = { id: 1, localId: 1, deviceId: 'dev', note: 'old', phoneNumber: '999', syncVersion: 3, updatedAt: 300 };
+
+    mockDb.customers.get.mockResolvedValue(localRecord);
+    mockDb.sync_bases.get.mockResolvedValue({ snapshot: base });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ tables: { customers: [serverRow] }, hasMore: false }),
+    });
+
+    await engine._resolveConflicts([{ table: 'customers', localId: 1 }], 'test-token');
+
+    expect(mockDb.sync_bases.put).toHaveBeenCalledTimes(1);
+    const putArg = mockDb.sync_bases.put.mock.calls[0][0];
+    expect(putArg.key).toBe('customers:dev:1');
+    expect(putArg.snapshot.note).toBe('B-note');
+    expect(putArg.snapshot.phone_number).toBe('999');
   });
 });
 
